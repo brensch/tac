@@ -18,7 +18,41 @@ import {
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
 import { db } from "../firebaseConfig"
-import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
+
+import {
+  Button,
+  Typography,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  CircularProgress,
+} from "@mui/material"
+import { GameState, PlayerInfo } from "@shared/types/Game"
+
+// interface GameState {
+//   currentRound: number
+//   winner: string | null
+//   boardWidth: number
+//   playerIDs: string[]
+// }
+
+// interface PlayerInfo {
+//   id: string
+//   nickname: string
+// }
+
+export interface Turn {
+  turnNumber: number
+  board: string[] // The board state after this turn
+  hasMoved: string[] // List of player IDs who have submitted their move for this turn
+  lockedSquares: number[] // Squares that are locked in this turn
+  clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
+}
 
 const GamePage: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -40,18 +74,22 @@ const GamePage: React.FC = () => {
           setGameState(gameData)
 
           // Fetch player nicknames
-          const playerPromises = gameData.playerIDs.map(async (playerID) => {
-            const playerDocRef = doc(db, "users", playerID)
-            const playerDocSnap = await getDoc(playerDocRef)
-            if (playerDocSnap.exists()) {
-              const playerData = playerDocSnap.data()
-              return {
-                id: playerID,
-                nickname: playerData?.nickname || "Unknown",
+          const playerPromises = gameData.playerIDs.map(
+            async (playerID): Promise<PlayerInfo> => {
+              const playerDocRef = doc(db, "users", playerID)
+              const playerDocSnap = await getDoc(playerDocRef)
+              if (playerDocSnap.exists()) {
+                const playerData: PlayerInfo =
+                  playerDocSnap.data() as PlayerInfo
+                return {
+                  id: playerID,
+                  nickname: playerData?.nickname || "Unknown",
+                  emoji: playerData.emoji,
+                }
               }
-            }
-            return { id: playerID, nickname: "Unknown" }
-          })
+              return { id: playerID, nickname: "Unknown", emoji: "🦍" }
+            },
+          )
 
           const players = await Promise.all(playerPromises)
           setPlayerInfos(players)
@@ -163,7 +201,8 @@ const GamePage: React.FC = () => {
         timestamp: serverTimestamp(), // Store server-side timestamp
       })
 
-      setSelectedSquare(null)
+      // Do not reset selectedSquare
+      // setSelectedSquare(null);
       setHasSubmittedMove(true)
     }
   }
@@ -183,7 +222,18 @@ const GamePage: React.FC = () => {
   }
 
   if (!gameState) {
-    return <div>Loading game...</div>
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    )
   }
 
   const { currentRound, winner } = gameState
@@ -192,21 +242,20 @@ const GamePage: React.FC = () => {
   // Render the grid
   const renderGrid = () => {
     if (!currentTurn) {
-      return <div>Loading board...</div>
+      return <Typography>Loading board...</Typography>
     }
 
-    const { board, lockedSquares } = currentTurn
+    const { board, lockedSquares, clashes } = currentTurn
 
-    // Calculate cell size based on board width
     const gridSize = gameState.boardWidth
 
     return (
-      <div
-        style={{
+      <Box
+        sx={{
           display: "grid",
           gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
           width: "100%",
-          maxWidth: "600px",
+          maxWidth: 600,
           margin: "0 auto",
           border: "2px solid black",
         }}
@@ -215,12 +264,13 @@ const GamePage: React.FC = () => {
           const isLocked = lockedSquares.includes(index)
           const isSelected = selectedSquare === index
           const isCellEmpty = cell === ""
+          const clashPlayers = clashes[index.toString()] || []
 
           return (
-            <div
+            <Box
               key={index}
               onClick={() => handleSquareClick(index)}
-              style={{
+              sx={{
                 width: "100%",
                 paddingBottom: "100%", // Maintain aspect ratio
                 position: "relative",
@@ -230,14 +280,14 @@ const GamePage: React.FC = () => {
                     ? "pointer"
                     : "default",
                 backgroundColor: isSelected
-                  ? "#f0f0f0"
+                  ? "#cfe8fc"
                   : isLocked
                   ? "#ddd"
                   : "white",
               }}
             >
-              <div
-                style={{
+              <Box
+                sx={{
                   position: "absolute",
                   top: 0,
                   left: 0,
@@ -246,50 +296,99 @@ const GamePage: React.FC = () => {
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
-                  fontSize: "1.5rem",
+                  fontSize: "2rem",
+                  textAlign: "center",
+                  padding: 1,
                 }}
               >
                 {cell
-                  ? playerInfos.find((p) => p.id === cell)?.nickname || cell
+                  ? playerInfos.find((p) => p.id === cell)?.emoji || cell
+                  : clashPlayers.length > 0
+                  ? clashPlayers
+                      .map(
+                        (playerID) =>
+                          playerInfos.find((p) => p.id === playerID)?.emoji ||
+                          playerID,
+                      )
+                      .join(", ")
                   : ""}
-              </div>
-            </div>
+              </Box>
+            </Box>
           )
         })}
-      </div>
+      </Box>
     )
   }
 
   return (
-    <div>
-      <h1>Game: {gameID}</h1>
-      <h4>Current Round: {currentRound}</h4>
+    <Box sx={{ padding: 2 }}>
+      <Typography variant="h4">Game: {gameID}</Typography>
+      <Typography variant="subtitle1">Current Round: {currentRound}</Typography>
 
-      <h4>Players:</h4>
-      <ul>
-        {playerInfos.map((player) => (
-          <li key={player.id}>{player.nickname}</li>
-        ))}
-      </ul>
+      <Typography variant="h6" sx={{ marginTop: 2 }}>
+        Players:
+      </Typography>
+      <TableContainer component={Paper} sx={{ maxWidth: 400, marginBottom: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Player</TableCell>
+              <TableCell>Emoji</TableCell>
+              <TableCell align="right">Has Moved</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {playerInfos.map((player) => (
+              <TableRow key={player.id}>
+                <TableCell component="th" scope="row">
+                  {player.nickname}
+                </TableCell>
+                <TableCell component="th" scope="row">
+                  {player.emoji}
+                </TableCell>
+                <TableCell align="right">
+                  {currentTurn?.hasMoved.includes(player.id) ? "Yes" : "No"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {!gameStarted && <button onClick={handleStartGame}>Start Game</button>}
+      {!gameStarted && (
+        <Button color="primary" onClick={handleStartGame}>
+          Start Game
+        </Button>
+      )}
 
       {gameStarted && (
         <>
           {winner ? (
-            <h2>
+            <Typography variant="h5" color="primary" sx={{ marginTop: 2 }}>
               Game Over! Winner:{" "}
               {playerInfos.find((p) => p.id === winner)?.nickname || winner}
-            </h2>
+            </Typography>
           ) : (
             <>
               {hasSubmittedMove ? (
-                <p style={{ backgroundColor: "#fffae6", padding: "10px" }}>
-                  Waiting for other players...
-                </p>
+                <Box
+                  sx={{
+                    backgroundColor: "#fffae6",
+                    padding: 1,
+                    marginBottom: 2,
+                  }}
+                >
+                  <Typography>Waiting for other players...</Typography>
+                </Box>
               ) : (
                 selectedSquare !== null && (
-                  <button onClick={handleMoveSubmit}>Submit Move</button>
+                  <Button
+                    color="primary"
+                    onClick={handleMoveSubmit}
+                    sx={{ marginBottom: 2 }}
+                  >
+                    Submit Move
+                  </Button>
                 )
               )}
             </>
@@ -297,67 +396,45 @@ const GamePage: React.FC = () => {
           {renderGrid()}
 
           {/* Navigation controls */}
-          <div>
-            <button onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
+          <Box sx={{ marginTop: 2 }}>
+            <Button onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
               Previous Turn
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleNextTurn}
               disabled={currentTurnIndex >= turns.length - 1}
+              sx={{ marginLeft: 1 }}
             >
               Next Turn
-            </button>
-            <p>
+            </Button>
+            <Typography variant="body2" sx={{ marginTop: 1 }}>
               Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."}{" "}
               of {turns.length - 1}
-            </p>
-          </div>
-
-          {/* Display clashes */}
-          {currentTurn && Object.keys(currentTurn.clashes).length > 0 && (
-            <div>
-              <h4>Clashes this turn:</h4>
-              <ul>
-                {Object.entries(currentTurn.clashes).map(
-                  ([square, players]) => (
-                    <li key={square}>
-                      Square {square} had a clash between{" "}
-                      {players
-                        .map(
-                          (playerID) =>
-                            playerInfos.find((p) => p.id === playerID)
-                              ?.nickname || playerID,
-                        )
-                        .join(", ")}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-          )}
+            </Typography>
+          </Box>
 
           {/* Highlight grid when waiting */}
           {hasSubmittedMove && (
-            <div
-              style={{
+            <Box
+              sx={{
                 position: "fixed",
                 top: 0,
                 left: 0,
                 width: "100%",
                 height: "100%",
-                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                bgcolor: "rgba(255, 255, 255, 0.7)",
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
                 pointerEvents: "none",
               }}
             >
-              <h2>Waiting for other players...</h2>
-            </div>
+              <Typography variant="h4">Waiting for other players...</Typography>
+            </Box>
           )}
         </>
       )}
-    </div>
+    </Box>
   )
 }
 

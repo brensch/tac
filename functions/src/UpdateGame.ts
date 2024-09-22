@@ -130,7 +130,7 @@ export const onMoveCreated = functions.firestore
       logger.info("Locked squares for next round", { lockedSquaresNextRound })
 
       // Check for a winner
-      const winLength = 3 // Number of squares in a row needed to win
+      const winLength = 4 // Number of squares in a row needed to win
       const winningPlayers = checkWinCondition(
         newBoard,
         boardWidth,

@@ -1,19 +1,50 @@
-// src/context/UserContext.tsx
-import React, { createContext, useContext, useEffect, useState } from "react"
-import { doc, getDoc } from "firebase/firestore"
+import React, { createContext, useContext, useState, useEffect } from "react"
 import Cookies from "js-cookie"
+import { doc, onSnapshot, getDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
-import { User } from "../../../shared/types/User"
 
 interface UserContextType {
-  userDoc: User | null
-  userID: string | null
+  userID: string
+  nickname: string
+  emoji: string
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-// Custom hook to access the UserContext
-export const useUser = () => {
+export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [userID, setUserID] = useState<string>("")
+  const [nickname, setNickname] = useState<string>("")
+  const [emoji, setEmoji] = useState<string>("")
+
+  useEffect(() => {
+    const storedUserID = Cookies.get("userID")
+    if (storedUserID) {
+      setUserID(storedUserID)
+
+      // Subscribe to Firestore updates
+      const unsubscribe = onSnapshot(getUserDocRef(storedUserID), (doc) => {
+        if (doc.exists()) {
+          const userInfo = doc.data() as { nickname: string; emoji: string }
+          setNickname(userInfo.nickname || "Unknown")
+          setEmoji(userInfo.emoji || "")
+        }
+      })
+
+      // Cleanup the listener when the component unmounts
+      return () => unsubscribe()
+    }
+  }, [])
+
+  return (
+    <UserContext.Provider value={{ userID, nickname, emoji }}>
+      {children}
+    </UserContext.Provider>
+  )
+}
+
+export const useUser = (): UserContextType => {
   const context = useContext(UserContext)
   if (!context) {
     throw new Error("useUser must be used within a UserProvider")
@@ -21,47 +52,23 @@ export const useUser = () => {
   return context
 }
 
-interface UserProviderProps {
-  children: React.ReactNode
+// Fetches the Firestore document reference for a given user ID
+const getUserDocRef = (userID: string) => {
+  return doc(db, "users", userID)
 }
 
-export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  const [userDoc, setUserDoc] = useState<User | null>(null)
-  const [userID, setUserID] = useState<string | null>(null)
-
-  console.log(Cookies.get("userID"))
-
-  useEffect(() => {
-    const initializeUser = async () => {
-      // Get the user ID from cookies
-      let storedUserID = Cookies.get("userID")
-
-      if (!storedUserID) {
-        console.log("No user ID found in cookies.")
-        return // No userID, nickname prompt should happen elsewhere
-      }
-
-      // Set user ID in state
-      setUserID(storedUserID)
-
-      // Retrieve the user document from Firestore
-      const userRef = doc(db, "users", storedUserID)
-      const userSnapshot = await getDoc(userRef)
-
-      if (userSnapshot.exists()) {
-        setUserDoc(userSnapshot.data() as User) // Set the user document
-      } else {
-        console.error("User document does not exist in Firestore.")
-      }
+// Fetches the user's nickname and emoji from Firestore (if needed for manual fetches elsewhere)
+export const getUserInfo = async (
+  userID: string,
+): Promise<{ nickname: string; emoji: string }> => {
+  const userDocRef = getUserDocRef(userID)
+  const userDocSnap = await getDoc(userDocRef)
+  if (userDocSnap.exists()) {
+    const userData = userDocSnap.data() as { nickname: string; emoji: string }
+    return {
+      nickname: userData.nickname || "Unknown",
+      emoji: userData.emoji || "",
     }
-
-    // Only run the user initialization once on component mount
-    initializeUser()
-  }, []) // No dependency array here, runs once when the component mounts
-
-  return (
-    <UserContext.Provider value={{ userDoc, userID }}>
-      {children}
-    </UserContext.Provider>
-  )
+  }
+  return { nickname: "Unknown", emoji: "" }
 }

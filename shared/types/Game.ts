@@ -26,6 +26,7 @@ export interface GameState {
 export interface PlayerInfo {
   id: string
   nickname: string
+  emoji: string
 }
 
 // Utility function to generate a 4-character lowercase string and number combo
@@ -44,7 +45,7 @@ const initializeGame = (playerID: string): GameState => {
     gameID: generateShortID(),
     playerIDs: [playerID],
     currentRound: 0, // Start from 0 since no turns have occurred yet
-    boardWidth: 4, // For a 4x4 game
+    boardWidth: 8,
     winner: "",
   }
 }
