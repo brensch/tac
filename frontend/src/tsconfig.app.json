@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json", // Assuming it extends a base config
+  "compilerOptions": {
+    "baseUrl": "./src", // Base URL for resolving modules
+    "paths": {
+      "@shared/*": ["../../shared/*"] // Path mapping for the shared types
+    }
+  },
+  "include": ["src/**/*"] // Include the frontend source files
+}

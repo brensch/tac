@@ -16,7 +16,13 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Paths for shared types */
+    "baseUrl": ".", // Set baseUrl to current directory
+    "paths": {
+      "@shared/*": ["../shared/*"] // Path to the shared folder
+    }
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts"] // Include only vite config for Node-specific logic
 }

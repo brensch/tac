@@ -1,15 +1,23 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "ESNext",
+    "target": "ES2020",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",
-    "sourceMap": true,
+    "outDir": "lib", // Output directory remains "lib"
+    "sourceMap": true, // Generate source maps
     "strict": true,
-    "target": "es2017"
+    "esModuleInterop": true, // Ensure compatibility with commonjs modules
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "baseUrl": ".", // Set baseUrl for path aliases
+    "paths": {
+      "@shared/*": ["../shared/*"] // Path alias to shared folder
+    },
+    "rootDirs": ["src", "../shared"] // Virtually combine src and shared directories
   },
-  "compileOnSave": true,
   "include": [
-    "src"
+    "src", // Include your main source folder
+    "../shared" // Include the shared folder
   ]
 }
