@@ -12,7 +12,6 @@ import {
   getDocs,
   onSnapshot as onCollectionSnapshot,
   orderBy,
-  setDoc,
   serverTimestamp,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
