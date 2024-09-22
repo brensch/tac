@@ -20,7 +20,7 @@ export interface GameState {
   playerIDs: string[] // List of player IDs in the game
   currentRound: number // Current turn or round number
   boardWidth: number // The width of the board, to easily work with 1D array
-  // Removed 'board', 'started', and 'hasMoved' fields
+  winner: string
 }
 
 export interface PlayerInfo {

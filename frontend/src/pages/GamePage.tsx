@@ -186,7 +186,7 @@ const GamePage: React.FC = () => {
     return <div>Loading game...</div>
   }
 
-  const { currentRound } = gameState
+  const { currentRound, winner } = gameState
   const currentTurn = turns[currentTurnIndex]
 
   // Render the grid
@@ -279,14 +279,23 @@ const GamePage: React.FC = () => {
 
       {gameStarted && (
         <>
-          {hasSubmittedMove ? (
-            <p style={{ backgroundColor: "#fffae6", padding: "10px" }}>
-              Waiting for other players...
-            </p>
+          {winner ? (
+            <h2>
+              Game Over! Winner:{" "}
+              {playerInfos.find((p) => p.id === winner)?.nickname || winner}
+            </h2>
           ) : (
-            selectedSquare !== null && (
-              <button onClick={handleMoveSubmit}>Submit Move</button>
-            )
+            <>
+              {hasSubmittedMove ? (
+                <p style={{ backgroundColor: "#fffae6", padding: "10px" }}>
+                  Waiting for other players...
+                </p>
+              ) : (
+                selectedSquare !== null && (
+                  <button onClick={handleMoveSubmit}>Submit Move</button>
+                )
+              )}
+            </>
           )}
 
           {/* Navigation controls */}
