@@ -262,10 +262,7 @@ const GamePage: React.FC = () => {
 
   return (
     <div>
-      <h1>Game ID: {gameID}</h1>
-      <h2>User ID: {userID}</h2>
-      <h3>Nickname: {userDoc?.nickname}</h3>
-      <h4>Game Started: {gameStarted ? "Yes" : "No"}</h4>
+      <h1>Game: {gameID}</h1>
       <h4>Current Round: {currentRound}</h4>
 
       <h4>Players:</h4>
@@ -297,6 +294,7 @@ const GamePage: React.FC = () => {
               )}
             </>
           )}
+          {renderGrid()}
 
           {/* Navigation controls */}
           <div>
@@ -314,8 +312,6 @@ const GamePage: React.FC = () => {
               of {turns.length - 1}
             </p>
           </div>
-
-          {renderGrid()}
 
           {/* Display clashes */}
           {currentTurn && Object.keys(currentTurn.clashes).length > 0 && (

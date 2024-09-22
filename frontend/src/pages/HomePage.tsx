@@ -6,15 +6,6 @@ import { db } from "../firebaseConfig"
 import { initializeGame } from "@shared/types/Game"
 import { useUser } from "../context/UserContext"
 
-const buttonStyle = {
-  backgroundColor: "#000",
-  color: "#fff",
-  padding: "16px 32px",
-  fontWeight: "bold",
-  textShadow: "2px 2px #f00",
-  boxShadow: "8px 8px #f00",
-}
-
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
   const { userID } = useUser()
@@ -45,10 +36,10 @@ const HomePage: React.FC = () => {
       <Typography variant="h3" align="center" gutterBottom>
         Welcome
       </Typography>
-      <Button sx={buttonStyle} fullWidth onClick={handleNewGame}>
+      <Button fullWidth onClick={handleNewGame}>
         New Game
       </Button>
-      <Button sx={buttonStyle} fullWidth onClick={() => navigate("/join")}>
+      <Button fullWidth onClick={() => navigate("/join")}>
         Join Game
       </Button>
     </Stack>
