@@ -11,8 +11,7 @@ export interface Turn {
   turnNumber: number
   board: string[] // The board state after this turn
   hasMoved: string[] // List of player IDs who have submitted their move for this turn
-  lockedSquares: number[] // Squares that are locked in this turn
-  clashes: { [square: number]: string[] } // Map of square indices to player IDs who clashed
+  clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
 }
 
 export interface GameState {
@@ -21,6 +20,7 @@ export interface GameState {
   currentRound: number // Current turn or round number
   boardWidth: number // The width of the board, to easily work with 1D array
   winner: string
+  started: boolean
 }
 
 export interface PlayerInfo {
@@ -47,6 +47,7 @@ const initializeGame = (playerID: string): GameState => {
     currentRound: 0, // Start from 0 since no turns have occurred yet
     boardWidth: 8,
     winner: "",
+    started: false,
   }
 }
 

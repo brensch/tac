@@ -1,4 +1,4 @@
-import { doc, setDoc } from "firebase/firestore"
+import { addDoc, collection, doc, setDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import Cookies from "js-cookie"
 
@@ -15,15 +15,9 @@ export const getOrCreateUserWithNickname = async (
     await setDoc(userDocRef, { nickname, emoji }, { merge: true })
   } else {
     // Create a new user
-    const userDocRef = doc(db, "users", generateUniqueUserID())
-    await setDoc(userDocRef, { nickname, emoji })
+    const userCollRef = collection(db, "users")
+    const userDocRef = await addDoc(userCollRef, { nickname, emoji })
     userID = userDocRef.id
     Cookies.set("userID", userID)
   }
-}
-
-// Helper function to generate a unique user ID (implement as needed)
-const generateUniqueUserID = () => {
-  // Generate a unique ID logic here
-  return "unique-user-id"
 }

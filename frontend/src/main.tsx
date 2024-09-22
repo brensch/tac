@@ -7,6 +7,9 @@ import { createTheme, CssBaseline } from "@mui/material"
 const theme = createTheme({
   palette: {
     mode: "light",
+    primary: {
+      main: "#000000", // Set primary color to black
+    },
   },
   components: {
     MuiAppBar: {

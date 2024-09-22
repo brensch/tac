@@ -28,23 +28,36 @@ export const onMoveCreated = functions.firestore
 
     const currentRound = gameData.currentRound
 
-    // Fetch all moves for the current round
-    const movesRef = admin
+    // Reference to the current Turn document
+    const currentTurnRef = admin
       .firestore()
-      .collection(`games/${gameID}/privateMoves`)
-    const movesSnapshot = await movesRef
-      .where("moveNumber", "==", currentRound)
-      .get()
+      .collection(`games/${gameID}/turns`)
+      .doc(currentRound.toString())
 
-    const movesThisRound = movesSnapshot.docs.map((doc) => doc.data() as Move)
+    // Update the hasMoved field atomically
+    await currentTurnRef.set(
+      {
+        hasMoved: admin.firestore.FieldValue.arrayUnion(moveData.playerID),
+      },
+      { merge: true },
+    )
 
-    // Log moves received in this round
-    logger.info(`Moves received in round ${currentRound}`, { movesThisRound })
+    // Read the updated hasMoved field
+    const currentTurnDoc = await currentTurnRef.get()
+    let currentTurn: Turn
+    if (currentTurnDoc.exists) {
+      currentTurn = currentTurnDoc.data() as Turn
+    } else {
+      // Handle the case where the Turn document doesn't exist
+      logger.error("Current Turn document does not exist.", { currentRound })
+      return
+    }
+
+    const playersMoved = currentTurn.hasMoved
+    logger.info(`Players moved in turn ${currentRound}`, { playersMoved })
 
     // Check if all players have moved
     const playerIDs = gameData.playerIDs
-    const playersMoved = movesThisRound.map((move) => move.playerID)
-
     const allPlayersMoved = playerIDs.every((playerID) =>
       playersMoved.includes(playerID),
     )
@@ -55,146 +68,156 @@ export const onMoveCreated = functions.firestore
     })
 
     if (allPlayersMoved) {
-      // Get the previous turn to get previous board state and locked squares
-      let previousTurn: Turn | null = null
-      if (currentRound > 0) {
-        const previousTurnRef = admin
+      // Process the moves in a transaction
+      await admin.firestore().runTransaction(async (transaction) => {
+        // Fetch necessary documents within transaction
+        const currentTurnDoc = await transaction.get(currentTurnRef)
+        const currentTurn = currentTurnDoc.data() as Turn
+
+        // Fetch moves for the current round
+        const movesRef = admin
           .firestore()
-          .collection(`games/${gameID}/turns`)
-          .doc((currentRound - 1).toString())
-        const previousTurnDoc = await previousTurnRef.get()
-        previousTurn = previousTurnDoc.exists
-          ? (previousTurnDoc.data() as Turn)
-          : null
-      }
+          .collection(`games/${gameID}/privateMoves`)
+        const movesSnapshot = await movesRef
+          .where("moveNumber", "==", currentRound)
+          .get()
 
-      // If no previous turn, initialize board
-      const boardWidth = gameData.boardWidth
-      const boardSize = boardWidth * boardWidth
-      const previousBoard = previousTurn
-        ? previousTurn.board
-        : Array(boardSize).fill("")
-      const previousLockedSquares = previousTurn
-        ? previousTurn.lockedSquares
-        : []
+        const movesThisRound = movesSnapshot.docs.map(
+          (doc) => doc.data() as Move,
+        )
 
-      // Process the moves
-      const newBoard = [...previousBoard]
-      let lockedSquaresNextRound: number[] = [] // Squares to lock in the next round
-      const clashes: { [square: number]: string[] } = {} // Map of square to player IDs who clashed
-
-      // Build a map of moves per square
-      const moveMap: { [square: number]: string[] } = {}
-
-      // Build the move map
-      movesThisRound.forEach((move) => {
-        // Check if the square is currently locked
-        if (previousLockedSquares.includes(move.move)) {
-          logger.info(`Square ${move.move} is locked, move ignored`, { move })
-          return // Ignore this move
-        }
-
-        if (moveMap[move.move]) {
-          moveMap[move.move].push(move.playerID)
-        } else {
-          moveMap[move.move] = [move.playerID]
-        }
-      })
-
-      // Log move map
-      logger.info("Move map for this round", { moveMap })
-
-      // Apply moves to the board
-      for (const squareStr in moveMap) {
-        const square = parseInt(squareStr)
-        const players = moveMap[square]
-
-        if (players.length === 1) {
-          // Only one player moved into this square
-          const playerID = players[0]
-          newBoard[square] = playerID // Update board with player ID
-          logger.info(`Square ${square} captured by player ${playerID}`)
-        } else {
-          // Multiple players moved into the same square
-          // Square gets locked for the next turn, and neither player gets it
-          lockedSquaresNextRound.push(square)
-          clashes[square] = players
-          logger.info(`Square ${square} is locked due to conflict`, { players })
-        }
-      }
-
-      // Remove duplicates from lockedSquaresNextRound
-      lockedSquaresNextRound = Array.from(new Set(lockedSquaresNextRound))
-
-      // Log locked squares for the next round
-      logger.info("Locked squares for next round", { lockedSquaresNextRound })
-
-      // Check for a winner
-      const winLength = 4 // Number of squares in a row needed to win
-      const winningPlayers = checkWinCondition(
-        newBoard,
-        boardWidth,
-        winLength,
-        playerIDs,
-      )
-
-      logger.info("Winning players", { winningPlayers })
-
-      // Handle multiple winners as clashes
-      if (winningPlayers.length === 1) {
-        // We have a winner
-        const winnerID = winningPlayers[0]
-        await gameRef.update({
-          winner: winnerID,
+        // Log moves received in this round
+        logger.info(`Moves received in round ${currentRound}`, {
+          movesThisRound,
         })
-        logger.info(`Player ${winnerID} has won the game!`, { gameID })
-      } else if (winningPlayers.length > 1) {
-        // Multiple players won simultaneously; treat their moves as clashes
-        winningPlayers.forEach((playerID) => {
-          // Find the squares this player claimed in this turn
-          for (let i = 0; i < newBoard.length; i++) {
-            if (newBoard[i] === playerID) {
-              // Revert the square to previous state
-              newBoard[i] = previousBoard[i]
-              lockedSquaresNextRound.push(i)
-              // Add to clashes
-              if (!clashes[i]) {
-                clashes[i] = []
-              }
-              clashes[i].push(playerID)
-            }
+
+        // Process moves and update the board
+        const newBoard = [...currentTurn.board]
+        const clashes: { [square: number]: string[] } = {}
+
+        // Build a map of moves per square
+        const moveMap: { [square: number]: string[] } = {}
+
+        movesThisRound.forEach((move) => {
+          // Check if the square is already blocked
+          if (currentTurn.board[move.move] === "-1") {
+            logger.info(`Square ${move.move} is blocked, move ignored`, {
+              move,
+            })
+            return // Ignore this move
+          }
+
+          if (moveMap[move.move]) {
+            moveMap[move.move].push(move.playerID)
+          } else {
+            moveMap[move.move] = [move.playerID]
           }
         })
-        logger.info(
-          `Multiple players won simultaneously. Moves are treated as clashes.`,
-          { winningPlayers },
+
+        // Log move map
+        logger.info("Move map for this round", { moveMap })
+
+        // Apply moves to the board
+        for (const squareStr in moveMap) {
+          const square = parseInt(squareStr)
+          const players = moveMap[square]
+
+          if (players.length === 1) {
+            // Only one player moved into this square
+            const playerID = players[0]
+            newBoard[square] = playerID // Update board with player ID
+            logger.info(`Square ${square} captured by player ${playerID}`)
+          } else if (players.length > 1) {
+            // More than one player moved into the same square
+            // Square gets blocked permanently, and neither player gets it
+            newBoard[square] = "-1" // Block the square permanently
+            clashes[square] = players
+            logger.info(
+              `Square ${square} is blocked permanently due to conflict`,
+              { players },
+            )
+          }
+        }
+
+        // Log the updated board
+        logger.info("New board state", { newBoard })
+
+        // Check for a winner
+        const winLength = 4 // Number of squares in a row needed to win
+        const winningPlayers = checkWinCondition(
+          newBoard,
+          gameData.boardWidth,
+          winLength,
+          playerIDs,
         )
-      }
 
-      // Create the new Turn object
-      const newTurn: Turn = {
-        turnNumber: currentRound,
-        board: newBoard,
-        hasMoved: playerIDs, // All players have moved
-        lockedSquares: lockedSquaresNextRound,
-        clashes: clashes,
-      }
+        logger.info("Winning players", { winningPlayers })
 
-      // Save the new Turn document
-      const newTurnRef = admin
-        .firestore()
-        .collection(`games/${gameID}/turns`)
-        .doc(currentRound.toString())
+        // Handle multiple winners as clashes
+        if (winningPlayers.length === 1) {
+          // We have a winner
+          const winnerID = winningPlayers[0]
+          transaction.update(gameRef, {
+            winner: winnerID,
+          })
+          logger.info(`Player ${winnerID} has won the game!`, { gameID })
+        } else if (winningPlayers.length > 1) {
+          // Multiple players won simultaneously; treat their moves as clashes
+          winningPlayers.forEach((playerID) => {
+            // Find the squares this player claimed in this turn
+            for (let i = 0; i < newBoard.length; i++) {
+              if (newBoard[i] === playerID) {
+                // Revert the square to previous state
+                newBoard[i] = "-1" // Block the square permanently due to conflict
+                // Add to clashes
+                if (!clashes[i]) {
+                  clashes[i] = []
+                }
+                clashes[i].push(playerID)
+              }
+            }
+          })
+          logger.info(
+            `Multiple players won simultaneously. Moves are treated as clashes and squares are blocked.`,
+            { winningPlayers },
+          )
+        }
 
-      await newTurnRef.set(newTurn)
+        // Create the Turn document for the next round with the new board and empty hasMoved
+        const nextRound = currentRound + 1
+        const nextTurnRef = admin
+          .firestore()
+          .collection(`games/${gameID}/turns`)
+          .doc(nextRound.toString())
 
-      // Increment the currentRound in the game document
-      await gameRef.update({
-        currentRound: currentRound + 1,
+        const nextTurn: Turn = {
+          turnNumber: nextRound,
+          board: newBoard,
+          hasMoved: [],
+          clashes: {}, // Clashes for the next round start empty
+        }
+
+        transaction.set(nextTurnRef, nextTurn)
+
+        // Increment the currentRound in the game document
+        transaction.update(gameRef, {
+          currentRound: nextRound,
+        })
+
+        // Update the current Turn document with the final board and clashes
+        transaction.update(currentTurnRef, {
+          board: newBoard,
+          clashes: clashes,
+        })
+
+        // Log round update
+        logger.info(
+          `Round ${currentRound} completed. Moved to round ${nextRound}`,
+          {
+            gameID,
+          },
+        )
       })
-
-      // Log round update
-      logger.info(`Round ${currentRound} completed`, { gameID })
     } else {
       // Not all players have moved yet
       logger.info(`Waiting for other players to move`, {
@@ -267,3 +290,46 @@ function hasPlayerWon(
 
   return false
 }
+
+export const onGameStarted = functions.firestore
+  .document("games/{gameID}")
+  .onUpdate(async (change, context) => {
+    const beforeData = change.before.data() as GameState
+    const afterData = change.after.data() as GameState
+    const { gameID } = context.params
+
+    // Check if 'started' changed from false to true
+    if (!beforeData.started && afterData.started) {
+      logger.info(`Game ${gameID} has started`)
+
+      const boardWidth = afterData.boardWidth
+      const boardSize = boardWidth * boardWidth
+
+      // Initialize an empty board
+      const initialBoard = Array(boardSize).fill("")
+
+      // Create the Turn 1 document
+      const turnRef = admin
+        .firestore()
+        .collection(`games/${gameID}/turns`)
+        .doc("1")
+
+      const firstTurn: Turn = {
+        turnNumber: 1,
+        board: initialBoard,
+        hasMoved: [],
+        clashes: {},
+      }
+
+      // Set the currentRound to 1 in the game document
+      const gameRef = admin.firestore().collection("games").doc(gameID)
+
+      // Use a transaction to ensure consistency
+      await admin.firestore().runTransaction(async (transaction) => {
+        transaction.set(turnRef, firstTurn)
+        transaction.update(gameRef, { currentRound: 1 })
+      })
+
+      logger.info(`Turn 1 created for game ${gameID}`)
+    }
+  })

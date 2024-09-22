@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import {
   doc,
-  getDoc,
   updateDoc,
   onSnapshot,
   addDoc,
@@ -34,23 +33,10 @@ import {
 } from "@mui/material"
 import { GameState, PlayerInfo } from "@shared/types/Game"
 
-// interface GameState {
-//   currentRound: number
-//   winner: string | null
-//   boardWidth: number
-//   playerIDs: string[]
-// }
-
-// interface PlayerInfo {
-//   id: string
-//   nickname: string
-// }
-
 export interface Turn {
   turnNumber: number
   board: string[] // The board state after this turn
   hasMoved: string[] // List of player IDs who have submitted their move for this turn
-  lockedSquares: number[] // Squares that are locked in this turn
   clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
 }
 
@@ -72,27 +58,6 @@ const GamePage: React.FC = () => {
         if (docSnapshot.exists()) {
           const gameData = docSnapshot.data() as GameState
           setGameState(gameData)
-
-          // Fetch player nicknames
-          const playerPromises = gameData.playerIDs.map(
-            async (playerID): Promise<PlayerInfo> => {
-              const playerDocRef = doc(db, "users", playerID)
-              const playerDocSnap = await getDoc(playerDocRef)
-              if (playerDocSnap.exists()) {
-                const playerData: PlayerInfo =
-                  playerDocSnap.data() as PlayerInfo
-                return {
-                  id: playerID,
-                  nickname: playerData?.nickname || "Unknown",
-                  emoji: playerData.emoji,
-                }
-              }
-              return { id: playerID, nickname: "Unknown", emoji: "🦍" }
-            },
-          )
-
-          const players = await Promise.all(playerPromises)
-          setPlayerInfos(players)
 
           // Add user to the game if not already in it
           if (!gameData.playerIDs.includes(userID)) {
@@ -117,6 +82,47 @@ const GamePage: React.FC = () => {
       return () => unsubscribe()
     }
   }, [gameID, userID])
+
+  // **New useEffect to monitor player documents**
+  useEffect(() => {
+    if (gameState?.playerIDs) {
+      // Array to store unsubscribe functions
+      const unsubscribes: (() => void)[] = []
+
+      // Temporary object to store playerInfos
+      const playersMap: { [id: string]: PlayerInfo } = {}
+
+      gameState.playerIDs.forEach((playerID) => {
+        const playerDocRef = doc(db, "users", playerID)
+
+        const unsubscribe = onSnapshot(playerDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const playerData = docSnap.data() as PlayerInfo
+            playersMap[playerID] = {
+              id: playerID,
+              nickname: playerData?.nickname || "Unknown",
+              emoji: playerData.emoji || "🦍",
+            }
+          } else {
+            playersMap[playerID] = {
+              id: playerID,
+              nickname: "Unknown",
+              emoji: "🦍",
+            }
+          }
+          // Update the playerInfos state with the current values
+          setPlayerInfos(Object.values(playersMap))
+        })
+
+        unsubscribes.push(unsubscribe)
+      })
+
+      // Cleanup function to unsubscribe from all listeners
+      return () => {
+        unsubscribes.forEach((unsubscribe) => unsubscribe())
+      }
+    }
+  }, [gameState?.playerIDs])
 
   // Monitor the turns collection
   useEffect(() => {
@@ -144,25 +150,10 @@ const GamePage: React.FC = () => {
   // Start game
   const handleStartGame = async () => {
     if (gameState && gameID) {
-      // Create an initial Turn document with an empty board
-      const boardSize = gameState.boardWidth * gameState.boardWidth
-      const initialBoard = Array(boardSize).fill("")
-
-      const initialTurn: Turn = {
-        turnNumber: 0,
-        board: initialBoard,
-        hasMoved: [],
-        lockedSquares: [],
-        clashes: {},
-      }
-
-      const turnRef = doc(db, "games", gameID, "turns", "0")
-      await setDoc(turnRef, initialTurn)
-
-      // Update currentRound in the game document
+      // Update 'started' in the game document
       const gameDocRef = doc(db, "games", gameID)
       await updateDoc(gameDocRef, {
-        currentRound: 1, // Start from round 1 after initial turn 0
+        started: true,
       })
     }
   }
@@ -170,17 +161,16 @@ const GamePage: React.FC = () => {
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
     if (gameStarted && !hasSubmittedMove) {
-      // Get the latest turn's locked squares
+      // Get the latest turn's board
       const latestTurn = turns[turns.length - 1]
       if (!latestTurn) {
         console.error("No turns available")
         return
       }
 
-      if (
-        latestTurn.board[index] === "" &&
-        !latestTurn.lockedSquares.includes(index)
-      ) {
+      const cellValue = latestTurn.board[index]
+
+      if (cellValue === "" || cellValue === null) {
         setSelectedSquare(index)
       }
     }
@@ -245,7 +235,7 @@ const GamePage: React.FC = () => {
       return <Typography>Loading board...</Typography>
     }
 
-    const { board, lockedSquares, clashes } = currentTurn
+    const { board, clashes } = currentTurn
 
     const gridSize = gameState.boardWidth
 
@@ -261,9 +251,9 @@ const GamePage: React.FC = () => {
         }}
       >
         {board.map((cell, index) => {
-          const isLocked = lockedSquares.includes(index)
           const isSelected = selectedSquare === index
           const isCellEmpty = cell === ""
+          const isBlocked = cell === "-1"
           const clashPlayers = clashes[index.toString()] || []
 
           return (
@@ -276,12 +266,12 @@ const GamePage: React.FC = () => {
                 position: "relative",
                 border: "1px solid black",
                 cursor:
-                  gameStarted && !hasSubmittedMove && isCellEmpty && !isLocked
+                  gameStarted && !hasSubmittedMove && isCellEmpty && !isBlocked
                     ? "pointer"
                     : "default",
                 backgroundColor: isSelected
                   ? "#cfe8fc"
-                  : isLocked
+                  : isBlocked
                   ? "#ddd"
                   : "white",
               }}
@@ -301,7 +291,9 @@ const GamePage: React.FC = () => {
                   padding: 1,
                 }}
               >
-                {cell
+                {isBlocked
+                  ? "❌"
+                  : cell
                   ? playerInfos.find((p) => p.id === cell)?.emoji || cell
                   : clashPlayers.length > 0
                   ? clashPlayers
@@ -381,7 +373,8 @@ const GamePage: React.FC = () => {
                   <Typography>Waiting for other players...</Typography>
                 </Box>
               ) : (
-                selectedSquare !== null && (
+                selectedSquare !== null &&
+                currentTurn.board[selectedSquare] === "" && (
                   <Button
                     color="primary"
                     onClick={handleMoveSubmit}

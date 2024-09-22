@@ -14,7 +14,12 @@ import {
   Toolbar,
   Typography,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
 } from "@mui/material"
+import CloseIcon from "@mui/icons-material/Close" // Import CloseIcon
 import HomePage from "./pages/HomePage"
 import JoinPage from "./pages/JoinPage"
 import GamePage from "./pages/GamePage"
@@ -136,6 +141,16 @@ const App: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const { nickname, emoji } = useUser() // Access nickname from UserContext
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false) // State to manage modal
+
+  // Handlers to open and close the modal
+  const handleProfileOpen = () => {
+    setIsProfileOpen(true)
+  }
+
+  const handleProfileClose = () => {
+    setIsProfileOpen(false)
+  }
 
   return (
     <>
@@ -143,13 +158,14 @@ const AppContent: React.FC = () => {
         <Toolbar>
           <Typography
             variant="h6"
+            color="primary"
             component={RouterLink}
             to="/"
-            sx={{ flexGrow: 1, textDecoration: "none", color: "primary" }}
+            sx={{ flexGrow: 1, textDecoration: "none" }}
           >
             tactic toes
           </Typography>
-          <Button color="inherit" component={RouterLink} to="/profile">
+          <Button color="primary" onClick={handleProfileOpen}>
             {nickname} {emoji}
           </Button>
         </Toolbar>
@@ -160,10 +176,38 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/join" element={<JoinPage />} />
             <Route path="/game/:gameID" element={<GamePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            {/* Remove the profile route */}
+            {/* <Route path="/profile" element={<ProfilePage />} /> */}
           </Routes>
         </Box>
       </Container>
+
+      {/* Profile Modal */}
+      <Dialog
+        open={isProfileOpen}
+        onClose={handleProfileClose}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Profile
+          <IconButton
+            aria-label="close"
+            onClick={handleProfileClose}
+            sx={{
+              position: "absolute",
+              right: 8,
+              top: 8,
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <ProfilePage />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
