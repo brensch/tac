@@ -1,9 +1,9 @@
 import React from "react"
 import { Button, Stack, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
-import { collection, doc, setDoc } from "firebase/firestore" // Use setDoc instead of addDoc to specify the document ID
+import { doc, setDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
-import { GameState, initializeGame } from "../../../shared/types/Game"
+import { GameState, initializeGame } from "@shared/types/Game"
 import { useUser } from "../context/UserContext"
 
 const buttonStyle = {
@@ -24,24 +24,14 @@ const HomePage: React.FC = () => {
       return
     }
     try {
-      // Initialize the game with a specific user ID
+      // Initialize the game with the user's ID
       const newGame = initializeGame(userID)
-      console.log(newGame)
 
       // Define the Firestore document reference with the gameID as the document ID
       const gameDocRef = doc(db, "games", newGame.gameID)
 
       // Add the game to Firestore using the specified document ID
-      const gameState: GameState = {
-        boardWidth: newGame.boardWidth,
-        board: newGame.board,
-        playerIDs: newGame.playerIDs,
-        currentRound: newGame.currentRound,
-        gameID: newGame.gameID, // Use the generated gameID from initializeGame
-        started: newGame.started,
-        hasMoved: newGame.hasMoved,
-      }
-      await setDoc(gameDocRef, gameState)
+      await setDoc(gameDocRef, newGame)
 
       // Navigate to the new game page using the generated document ID
       navigate(`/game/${newGame.gameID}`)
@@ -53,13 +43,13 @@ const HomePage: React.FC = () => {
   return (
     <Stack spacing={4} alignItems="center">
       <Typography variant="h3" align="center" gutterBottom>
-        Hi
+        Welcome
       </Typography>
       <Button sx={buttonStyle} fullWidth onClick={handleNewGame}>
-        New
+        New Game
       </Button>
       <Button sx={buttonStyle} fullWidth onClick={() => navigate("/join")}>
-        Join
+        Join Game
       </Button>
     </Stack>
   )

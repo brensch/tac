@@ -11,20 +11,25 @@ import {
   query,
   where,
   getDocs,
+  onSnapshot as onCollectionSnapshot,
+  orderBy,
+  setDoc,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
 import { db } from "../firebaseConfig"
-import { GameState, PlayerInfo } from "@shared/types/Game" // Import shared types
+import { GameState, PlayerInfo, Turn, Move } from "@shared/types/Game"
 
 const GamePage: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
   const { userDoc, userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
-  const [playerInfos, setPlayerInfos] = useState<PlayerInfo[]>([]) // Player list with nicknames
-  const [selectedSquare, setSelectedSquare] = useState<number | null>(null) // Track selected square
-  const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false) // Track if player has submitted move
+  const [playerInfos, setPlayerInfos] = useState<PlayerInfo[]>([])
+  const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
+  const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(-1)
 
-  // Monitor the game document by `gameID` and update state in real-time
+  // Monitor the game document
   useEffect(() => {
     if (gameID && userID) {
       const gameDocRef = doc(db, "games", gameID)
@@ -33,7 +38,7 @@ const GamePage: React.FC = () => {
           const gameData = docSnapshot.data() as GameState
           setGameState(gameData)
 
-          // Fetch player nicknames for all players in the game
+          // Fetch player nicknames
           const playerPromises = gameData.playerIDs.map(async (playerID) => {
             const playerDocRef = doc(db, "users", playerID)
             const playerDocSnap = await getDoc(playerDocRef)
@@ -50,14 +55,14 @@ const GamePage: React.FC = () => {
           const players = await Promise.all(playerPromises)
           setPlayerInfos(players)
 
-          // Add the user to the game if not already in it and the game hasn't started
-          if (!gameData.playerIDs.includes(userID) && !gameData.started) {
+          // Add user to the game if not already in it
+          if (!gameData.playerIDs.includes(userID)) {
             await updateDoc(gameDocRef, {
               playerIDs: arrayUnion(userID),
             })
           }
 
-          // Check if the player has already submitted a move for the current round
+          // Check if the player has submitted a move
           const movesRef = collection(db, `games/${gameID}/privateMoves`)
           const movesQuery = query(
             movesRef,
@@ -74,33 +79,81 @@ const GamePage: React.FC = () => {
     }
   }, [gameID, userID])
 
-  // Start game by setting "started" to true
+  // Monitor the turns collection
+  useEffect(() => {
+    if (gameID) {
+      const turnsRef = collection(db, "games", gameID, "turns")
+      const turnsQuery = query(turnsRef, orderBy("turnNumber", "asc"))
+
+      const unsubscribe = onCollectionSnapshot(turnsQuery, (querySnapshot) => {
+        const turnsList: Turn[] = querySnapshot.docs.map(
+          (doc) => doc.data() as Turn,
+        )
+        setTurns(turnsList)
+
+        // Update currentTurnIndex to the latest turn
+        setCurrentTurnIndex(turnsList.length - 1)
+      })
+
+      return () => unsubscribe()
+    }
+  }, [gameID])
+
+  // Determine if the game has started
+  const gameStarted = turns.length > 0
+
+  // Start game
   const handleStartGame = async () => {
-    if (gameState) {
-      const gameDocRef = doc(db, "games", gameID!)
-      await updateDoc(gameDocRef, { started: true })
+    if (gameState && gameID) {
+      // Create an initial Turn document with an empty board
+      const boardSize = gameState.boardWidth * gameState.boardWidth
+      const initialBoard = Array(boardSize).fill("")
+
+      const initialTurn: Turn = {
+        turnNumber: 0,
+        board: initialBoard,
+        hasMoved: [],
+        lockedSquares: [],
+        clashes: {},
+      }
+
+      const turnRef = doc(db, "games", gameID, "turns", "0")
+      await setDoc(turnRef, initialTurn)
+
+      // Update currentRound in the game document
+      const gameDocRef = doc(db, "games", gameID)
+      await updateDoc(gameDocRef, {
+        currentRound: 1, // Start from round 1 after initial turn 0
+      })
     }
   }
 
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
-    if (
-      gameState?.started &&
-      selectedSquare === null &&
-      gameState.board[index] === "" &&
-      !hasSubmittedMove
-    ) {
-      setSelectedSquare(index)
+    if (gameStarted && selectedSquare === null && !hasSubmittedMove) {
+      // Get the latest turn's locked squares
+      const latestTurn = turns[turns.length - 1]
+      if (!latestTurn) {
+        console.error("No turns available")
+        return
+      }
+
+      if (
+        latestTurn.board[index] === "" &&
+        !latestTurn.lockedSquares.includes(index)
+      ) {
+        setSelectedSquare(index)
+      }
     }
   }
 
-  // Submit a move for the player
+  // Submit a move
   const handleMoveSubmit = async () => {
-    if (selectedSquare !== null && gameState && userID) {
+    if (selectedSquare !== null && gameState && userID && gameID) {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
-      const moveNumber = gameState.currentRound // Current round as the move number
+      const moveNumber = gameState.currentRound
 
-      // Add the move to Firestore (create a new doc)
+      // Add the move to Firestore
       await addDoc(moveRef, {
         gameID,
         moveNumber,
@@ -108,8 +161,22 @@ const GamePage: React.FC = () => {
         move: selectedSquare,
       })
 
-      setSelectedSquare(null) // Reset after submission
-      setHasSubmittedMove(true) // Update the state to reflect that the player has submitted a move
+      setSelectedSquare(null)
+      setHasSubmittedMove(true)
+    }
+  }
+
+  // Navigate to previous turn
+  const handlePrevTurn = () => {
+    if (currentTurnIndex > 0) {
+      setCurrentTurnIndex(currentTurnIndex - 1)
+    }
+  }
+
+  // Navigate to next turn
+  const handleNextTurn = () => {
+    if (currentTurnIndex < turns.length - 1) {
+      setCurrentTurnIndex(currentTurnIndex + 1)
     }
   }
 
@@ -117,21 +184,28 @@ const GamePage: React.FC = () => {
     return <div>Loading game...</div>
   }
 
-  const { board, boardWidth, started, currentRound } = gameState
+  const { currentRound } = gameState
+  const currentTurn = turns[currentTurnIndex]
 
   // Render the grid
   const renderGrid = () => {
+    if (!currentTurn) {
+      return <div>Loading board...</div>
+    }
+
+    const { board, lockedSquares } = currentTurn
+
     return (
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${boardWidth}, 50px)`,
+          gridTemplateColumns: `repeat(${gameState.boardWidth}, 50px)`,
         }}
       >
         {board.map((cell, index) => (
           <div
             key={index}
-            onClick={() => handleSquareClick(index)} // Handle square click
+            onClick={() => handleSquareClick(index)}
             style={{
               width: "50px",
               height: "50px",
@@ -141,16 +215,24 @@ const GamePage: React.FC = () => {
               alignItems: "center",
               fontSize: "1.5rem",
               cursor:
-                started &&
+                gameStarted &&
                 selectedSquare === null &&
                 cell === "" &&
-                !hasSubmittedMove
+                !hasSubmittedMove &&
+                !lockedSquares.includes(index)
                   ? "pointer"
                   : "not-allowed",
-              backgroundColor: selectedSquare === index ? "#f0f0f0" : "white", // Change background when selected
+              backgroundColor:
+                selectedSquare === index
+                  ? "#f0f0f0"
+                  : lockedSquares.includes(index)
+                  ? "#ddd"
+                  : "white",
             }}
           >
-            {cell || "-"}
+            {cell
+              ? playerInfos.find((p) => p.id === cell)?.nickname || cell
+              : "-"}
           </div>
         ))}
       </div>
@@ -162,29 +244,69 @@ const GamePage: React.FC = () => {
       <h1>Game ID: {gameID}</h1>
       <h2>User ID: {userID}</h2>
       <h3>Nickname: {userDoc?.nickname}</h3>
-      <h4>Game Started: {started ? "Yes" : "No"}</h4>
-      <h4>Turn Number: {currentRound}</h4>
+      <h4>Game Started: {gameStarted ? "Yes" : "No"}</h4>
+      <h4>Current Round: {currentRound}</h4>
 
       <h4>Players:</h4>
       <ul>
         {playerInfos.map((player) => (
-          <li key={player.id}>
-            {player.nickname}{" "}
-            {gameState.hasMoved.includes(player.id) ? "(Moved)" : "(Not moved)"}
-          </li>
+          <li key={player.id}>{player.nickname}</li>
         ))}
       </ul>
 
-      <button onClick={handleStartGame} disabled={started}>
-        Start Game
-      </button>
+      {!gameStarted && <button onClick={handleStartGame}>Start Game</button>}
 
-      {hasSubmittedMove && <p>Waiting for other players...</p>}
+      {gameStarted && (
+        <>
+          {hasSubmittedMove && <p>Waiting for other players...</p>}
 
-      {selectedSquare !== null && (
-        <button onClick={handleMoveSubmit}>Submit Move</button>
+          {selectedSquare !== null && (
+            <button onClick={handleMoveSubmit}>Submit Move</button>
+          )}
+
+          {/* Navigation controls */}
+          <div>
+            <button onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
+              Previous Turn
+            </button>
+            <button
+              onClick={handleNextTurn}
+              disabled={currentTurnIndex >= turns.length - 1}
+            >
+              Next Turn
+            </button>
+            <p>
+              Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."}{" "}
+              of {turns.length - 1}
+            </p>
+          </div>
+
+          {renderGrid()}
+
+          {/* Display clashes */}
+          {currentTurn && Object.keys(currentTurn.clashes).length > 0 && (
+            <div>
+              <h4>Clashes this turn:</h4>
+              <ul>
+                {Object.entries(currentTurn.clashes).map(
+                  ([square, players]) => (
+                    <li key={square}>
+                      Square {square} had a clash between{" "}
+                      {players
+                        .map(
+                          (playerID) =>
+                            playerInfos.find((p) => p.id === playerID)
+                              ?.nickname || playerID,
+                        )
+                        .join(", ")}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+          )}
+        </>
       )}
-      {renderGrid()}
     </div>
   )
 }

@@ -1,24 +1,31 @@
-export interface Player {
-  id: string // User ID of the player
-  hasMoved: boolean // Whether the player has moved
-}
-
-// Interface for the game state with a flattened board
-export interface GameState {
-  board: string[] // Flattened 1D array representing the tic-tac-toe board
-  boardWidth: number // The width of the board, to easily work with 1D array
-  playerIDs: string[] // List of player IDs in the game
-  currentRound: number // Current turn or round number
-  gameID: string // Unique identifier for the game
-  started: boolean // Whether the game has started
-  hasMoved: string[] // List of player IDs who have submitted their move for this round
-}
+// @shared/types/Game.ts
 
 export interface Move {
   gameID: string
-  moveNumber: number
+  moveNumber: number // The turn number
   playerID: string
-  move: number // Position on the board
+  move: number // The index of the square the player wants to move into
+}
+
+export interface Turn {
+  turnNumber: number
+  board: string[] // The board state after this turn
+  hasMoved: string[] // List of player IDs who have submitted their move for this turn
+  lockedSquares: number[] // Squares that are locked in this turn
+  clashes: { [square: number]: string[] } // Map of square indices to player IDs who clashed
+}
+
+export interface GameState {
+  gameID: string // Unique identifier for the game
+  playerIDs: string[] // List of player IDs in the game
+  currentRound: number // Current turn or round number
+  boardWidth: number // The width of the board, to easily work with 1D array
+  // Removed 'board', 'started', and 'hasMoved' fields
+}
+
+export interface PlayerInfo {
+  id: string
+  nickname: string
 }
 
 // Utility function to generate a 4-character lowercase string and number combo
@@ -31,19 +38,13 @@ const generateShortID = (): string => {
   return id
 }
 
-// Function to initialize a new game with a flattened board
+// Function to initialize a new game without the board
 const initializeGame = (playerID: string): GameState => {
-  const boardSize = 4 * 4 // For a 4x4 game
-  const initialBoard = Array(boardSize).fill("") // Flattened board
-
   return {
-    board: initialBoard,
-    boardWidth: 4, // Store the board width for later reference
-    playerIDs: [playerID],
-    currentRound: 1,
     gameID: generateShortID(),
-    started: false,
-    hasMoved: [],
+    playerIDs: [playerID],
+    currentRound: 0, // Start from 0 since no turns have occurred yet
+    boardWidth: 4, // For a 4x4 game
   }
 }
 

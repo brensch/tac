@@ -26,5 +26,5 @@
       "@shared/*": ["../shared/*"] // Path to the shared folder
     }
   },
-  "include": ["src", "../shared/types/User.ts"] // Only include "src" for frontend app
+  "include": ["src", "../shared/*"] // Only include "src" for frontend app
 }
