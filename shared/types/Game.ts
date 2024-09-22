@@ -45,6 +45,7 @@ const initializeGame = (playerID: string): GameState => {
     playerIDs: [playerID],
     currentRound: 0, // Start from 0 since no turns have occurred yet
     boardWidth: 4, // For a 4x4 game
+    winner: "",
   }
 }
 

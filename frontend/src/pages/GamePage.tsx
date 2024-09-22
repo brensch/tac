@@ -22,7 +22,7 @@ import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 
 const GamePage: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
-  const { userDoc, userID } = useUser()
+  const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [playerInfos, setPlayerInfos] = useState<PlayerInfo[]>([])
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
