@@ -71,7 +71,7 @@ const GamePage: React.FC = () => {
     return () => {
       window.removeEventListener("resize", updateContainerWidth)
     }
-  }, [gameState?.boardWidth])
+  }, [gameState?.boardWidth, currentTurnIndex])
 
   // Monitor the game document
   useEffect(() => {
