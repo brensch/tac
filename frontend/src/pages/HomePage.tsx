@@ -32,9 +32,12 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={4} alignItems="center">
-      <Typography variant="h3" align="center" gutterBottom>
-        Welcome
+    <Stack spacing={2} alignItems="center">
+      <Typography pt={2} variant="body1" align="center" gutterBottom>
+        Get four emojis in a row and you win.
+      </Typography>
+      <Typography variant="body1" align="center" gutterBottom>
+        Pick the same square as your opponent and no one gets it.
       </Typography>
       <Button fullWidth onClick={handleNewGame}>
         New Game

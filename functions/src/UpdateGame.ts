@@ -163,20 +163,27 @@ export const onMoveCreated = functions.firestore
           logger.info(`Player ${winnerID} has won the game!`, { gameID })
         } else if (winningPlayers.length > 1) {
           // Multiple players won simultaneously; treat their moves as clashes
-          winningPlayers.forEach((playerID) => {
-            // Find the squares this player claimed in this turn
-            for (let i = 0; i < newBoard.length; i++) {
-              if (newBoard[i] === playerID) {
-                // Revert the square to previous state
-                newBoard[i] = "-1" // Block the square permanently due to conflict
-                // Add to clashes
-                if (!clashes[i]) {
-                  clashes[i] = []
-                }
-                clashes[i].push(playerID)
+
+          // Build a set of player IDs who won
+          const winningPlayerSet = new Set(winningPlayers)
+
+          // For each move in this round, check if the player is a winning player
+          movesThisRound.forEach((move) => {
+            if (winningPlayerSet.has(move.playerID)) {
+              const square = move.move
+              // Block the square
+              newBoard[square] = "-1"
+              // Add to clashes
+              if (!clashes[square]) {
+                clashes[square] = []
               }
+              clashes[square].push(move.playerID)
+              logger.info(
+                `Square ${square} blocked due to simultaneous win by player ${move.playerID}`,
+              )
             }
           })
+
           logger.info(
             `Multiple players won simultaneously. Moves are treated as clashes and squares are blocked.`,
             { winningPlayers },

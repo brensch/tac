@@ -225,7 +225,7 @@ const GamePage: React.FC = () => {
     )
   }
 
-  const { currentRound, winner } = gameState
+  const { winner } = gameState
   const currentTurn = turns[currentTurnIndex]
 
   // Render the grid
@@ -314,11 +314,6 @@ const GamePage: React.FC = () => {
   return (
     <Box sx={{ padding: 2 }}>
       <Typography variant="h4">Game: {gameID}</Typography>
-      <Typography variant="subtitle1">Current Round: {currentRound}</Typography>
-
-      <Typography variant="h6" sx={{ marginTop: 2 }}>
-        Players:
-      </Typography>
       <TableContainer component={Paper} sx={{ maxWidth: 400, marginBottom: 2 }}>
         <Table size="small">
           <TableHead>
@@ -347,7 +342,11 @@ const GamePage: React.FC = () => {
       </TableContainer>
 
       {!gameStarted && (
-        <Button color="primary" onClick={handleStartGame}>
+        <Button
+          color="primary"
+          disabled={gameState.started}
+          onClick={handleStartGame}
+        >
           Start Game
         </Button>
       )}

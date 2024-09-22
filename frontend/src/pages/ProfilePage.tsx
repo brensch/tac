@@ -90,11 +90,7 @@ const ProfilePage: React.FC = () => {
             {message}
           </Typography>
         )}
-        <Button
-          variant="contained"
-          onClick={handleUpdateProfile}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={handleUpdateProfile} sx={{ mt: 2 }}>
           Update Profile
         </Button>
       </Box>

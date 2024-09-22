@@ -79,7 +79,7 @@ const App: React.FC = () => {
   if (!isUserCreated) {
     return (
       <Container
-        maxWidth="md"
+        maxWidth="sm"
         sx={{
           height: "100vh",
           display: "flex",
@@ -170,7 +170,7 @@ const AppContent: React.FC = () => {
           </Button>
         </Toolbar>
       </AppBar>
-      <Container maxWidth="md">
+      <Container maxWidth="sm">
         <Box width="100%">
           <Routes>
             <Route path="/" element={<HomePage />} />
