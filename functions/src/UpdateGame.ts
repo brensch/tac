@@ -201,7 +201,7 @@ export const onMoveCreated = functions.firestore
           turnNumber: nextRound,
           board: newBoard,
           hasMoved: [],
-          clashes: {}, // Clashes for the next round start empty
+          clashes: clashes, // Include the calculated clashes
         }
 
         transaction.set(nextTurnRef, nextTurn)
@@ -211,11 +211,7 @@ export const onMoveCreated = functions.firestore
           currentRound: nextRound,
         })
 
-        // Update the current Turn document with the final board and clashes
-        transaction.update(currentTurnRef, {
-          board: newBoard,
-          clashes: clashes,
-        })
+        // **Removed updating current turn's board and clashes**
 
         // Log round update
         logger.info(

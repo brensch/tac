@@ -3,6 +3,7 @@ import { useUser } from "../context/UserContext"
 import { Container, Box, TextField, Button, Typography } from "@mui/material"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
+import { emojiList } from "@shared/types/Emojis"
 
 const ProfilePage: React.FC = () => {
   const { userID, nickname: initialNickname, emoji: initialEmoji } = useUser()
@@ -11,28 +12,6 @@ const ProfilePage: React.FC = () => {
   const [message, setMessage] = useState<string>("")
 
   // Emoji list
-  const emojiList = [
-    "😀",
-    "😎",
-    "😂",
-    "😍",
-    "😅",
-    "👍",
-    "🎉",
-    "🚀",
-    "🌟",
-    "🔥",
-    "🍕",
-    "🎮",
-    "🐶",
-    "🐱",
-    "🌈",
-    "⚽️",
-    "🏀",
-    "🏈",
-    "⚾️",
-    "🎲",
-  ]
 
   const handleUpdateProfile = async () => {
     if (!nickname.trim() || !selectedEmoji) {
@@ -45,10 +24,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 4 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Update Profile
-      </Typography>
+    <Container sx={{ mt: 1 }}>
       <Box
         width="100%"
         display="flex"
@@ -62,9 +38,7 @@ const ProfilePage: React.FC = () => {
           onChange={(e) => setNickname(e.target.value)}
           fullWidth
         />
-        <Typography variant="h6" sx={{ mt: 2 }}>
-          Select an Emoji:
-        </Typography>
+
         <Box
           sx={{
             display: "flex",

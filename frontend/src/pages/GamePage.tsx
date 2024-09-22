@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useRef, useLayoutEffect } from "react"
 import { useParams } from "react-router-dom"
 import {
   doc,
@@ -29,8 +29,11 @@ import {
   TableRow,
   Paper,
   CircularProgress,
+  IconButton,
+  TextField,
 } from "@mui/material"
 import { GameState, PlayerInfo } from "@shared/types/Game"
+import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
 
 export interface Turn {
   turnNumber: number
@@ -48,6 +51,27 @@ const GamePage: React.FC = () => {
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
   const [turns, setTurns] = useState<Turn[]>([])
   const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(-1)
+  const [error, setError] = useState<string | null>(null)
+  const [boardWidth, setBoardWidth] = useState<string>("8")
+
+  // New ref and state for dynamic font sizing
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(0)
+
+  useLayoutEffect(() => {
+    const updateContainerWidth = () => {
+      if (gridRef.current) {
+        setContainerWidth(gridRef.current.offsetWidth)
+      }
+    }
+
+    updateContainerWidth() // Initial measurement
+
+    window.addEventListener("resize", updateContainerWidth)
+    return () => {
+      window.removeEventListener("resize", updateContainerWidth)
+    }
+  }, [gameState?.boardWidth])
 
   // Monitor the game document
   useEffect(() => {
@@ -58,8 +82,17 @@ const GamePage: React.FC = () => {
           const gameData = docSnapshot.data() as GameState
           setGameState(gameData)
 
-          // Add user to the game if not already in it
-          if (!gameData.playerIDs.includes(userID)) {
+          // Set boardWidth from gameData
+          if (!gameStarted) {
+            setBoardWidth(
+              gameData.boardWidth !== undefined
+                ? gameData.boardWidth.toString()
+                : "8",
+            )
+          }
+
+          // Add user to the game if not already in it and game hasn't started
+          if (!gameData.started && !gameData.playerIDs.includes(userID)) {
             await updateDoc(gameDocRef, {
               playerIDs: arrayUnion(userID),
             })
@@ -76,19 +109,17 @@ const GamePage: React.FC = () => {
           setHasSubmittedMove(!movesSnapshot.empty)
         } else {
           console.error("Game not found")
+          setError("Game not found.")
         }
       })
       return () => unsubscribe()
     }
   }, [gameID, userID])
 
-  // **New useEffect to monitor player documents**
+  // Monitor player documents
   useEffect(() => {
     if (gameState?.playerIDs) {
-      // Array to store unsubscribe functions
       const unsubscribes: (() => void)[] = []
-
-      // Temporary object to store playerInfos
       const playersMap: { [id: string]: PlayerInfo } = {}
 
       gameState.playerIDs.forEach((playerID) => {
@@ -109,14 +140,12 @@ const GamePage: React.FC = () => {
               emoji: "🦍",
             }
           }
-          // Update the playerInfos state with the current values
           setPlayerInfos(Object.values(playersMap))
         })
 
         unsubscribes.push(unsubscribe)
       })
 
-      // Cleanup function to unsubscribe from all listeners
       return () => {
         unsubscribes.forEach((unsubscribe) => unsubscribe())
       }
@@ -134,8 +163,6 @@ const GamePage: React.FC = () => {
           (doc) => doc.data() as Turn,
         )
         setTurns(turnsList)
-
-        // Update currentTurnIndex to the latest turn
         setCurrentTurnIndex(turnsList.length - 1)
       })
 
@@ -149,7 +176,6 @@ const GamePage: React.FC = () => {
   // Start game
   const handleStartGame = async () => {
     if (gameState && gameID) {
-      // Update 'started' in the game document
       const gameDocRef = doc(db, "games", gameID)
       await updateDoc(gameDocRef, {
         started: true,
@@ -160,7 +186,6 @@ const GamePage: React.FC = () => {
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
     if (gameStarted && !hasSubmittedMove) {
-      // Get the latest turn's board
       const latestTurn = turns[turns.length - 1]
       if (!latestTurn) {
         console.error("No turns available")
@@ -181,36 +206,63 @@ const GamePage: React.FC = () => {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
       const moveNumber = gameState.currentRound
 
-      // Add the move to Firestore with server-side timestamp
       await addDoc(moveRef, {
         gameID,
         moveNumber,
         playerID: userID,
         move: selectedSquare,
-        timestamp: serverTimestamp(), // Store server-side timestamp
+        timestamp: serverTimestamp(),
       })
 
-      // Do not reset selectedSquare
-      // setSelectedSquare(null);
       setHasSubmittedMove(true)
     }
   }
 
-  // Navigate to previous turn
+  // Navigation handlers
   const handlePrevTurn = () => {
     if (currentTurnIndex > 0) {
       setCurrentTurnIndex(currentTurnIndex - 1)
     }
   }
 
-  // Navigate to next turn
   const handleNextTurn = () => {
     if (currentTurnIndex < turns.length - 1) {
       setCurrentTurnIndex(currentTurnIndex + 1)
     }
   }
 
-  if (!gameState) {
+  const handleLatestTurn = () => {
+    setCurrentTurnIndex(turns.length - 1)
+  }
+
+  // Handle board width change
+  const handleBoardWidthChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value
+    setBoardWidth(value)
+  }
+
+  // Update Firestore when the input loses focus
+  const handleBoardWidthBlur = async () => {
+    if (gameID && !gameStarted) {
+      const newBoardWidth = parseInt(boardWidth, 10)
+      const gameDocRef = doc(db, "games", gameID)
+
+      if (!isNaN(newBoardWidth) && newBoardWidth >= 0) {
+        await updateDoc(gameDocRef, {
+          boardWidth: newBoardWidth,
+        })
+      } else {
+        // Handle invalid input: set a default or leave as is
+        await updateDoc(gameDocRef, {
+          boardWidth: null,
+        })
+      }
+    }
+  }
+
+  if (!gameState || error) {
     return (
       <Box
         sx={{
@@ -220,7 +272,7 @@ const GamePage: React.FC = () => {
           height: "100vh",
         }}
       >
-        <CircularProgress />
+        {error ? <Typography>{error}</Typography> : <CircularProgress />}
       </Box>
     )
   }
@@ -235,11 +287,15 @@ const GamePage: React.FC = () => {
     }
 
     const { board, clashes } = currentTurn
+    const gridSize = gameState.boardWidth || 8 // Default to 8 if undefined
 
-    const gridSize = gameState.boardWidth
+    // Calculate cell size and font size
+    const cellSize = containerWidth ? containerWidth / gridSize : 0
+    const fontSize = cellSize ? Math.min(cellSize * 0.6, 48) : 16 // Set a max font size
 
     return (
       <Box
+        ref={gridRef}
         sx={{
           display: "grid",
           gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
@@ -285,7 +341,7 @@ const GamePage: React.FC = () => {
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
-                  fontSize: "2rem",
+                  fontSize: `${fontSize}px`, // Dynamic font size
                   textAlign: "center",
                   padding: 1,
                 }}
@@ -313,8 +369,95 @@ const GamePage: React.FC = () => {
 
   return (
     <Box sx={{ padding: 2 }}>
-      <Typography variant="h4">Game: {gameID}</Typography>
-      <TableContainer component={Paper} sx={{ maxWidth: 400, marginBottom: 2 }}>
+      <Typography variant="h4">Game {gameID}</Typography>
+
+      {gameStarted ? (
+        <>
+          {winner ? (
+            <Typography variant="h5" color="primary" sx={{ my: 2 }}>
+              Game Over! Winner:{" "}
+              {playerInfos.find((p) => p.id === winner)?.nickname || winner}
+            </Typography>
+          ) : (
+            <Button
+              disabled={
+                !(
+                  selectedSquare !== null &&
+                  currentTurn.board[selectedSquare] === "" &&
+                  turns.length === currentTurn.turnNumber
+                )
+              }
+              color="primary"
+              onClick={handleMoveSubmit}
+              sx={{ my: 2 }}
+              fullWidth
+            >
+              Submit Move
+            </Button>
+          )}
+          {renderGrid()}
+
+          {/* Navigation controls */}
+          <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
+            <IconButton
+              onClick={handlePrevTurn}
+              disabled={currentTurnIndex <= 0}
+            >
+              <ArrowBack />
+            </IconButton>
+
+            <Typography variant="body2" sx={{ marginX: 2 }}>
+              Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."}{" "}
+              of {turns.length}
+            </Typography>
+
+            <IconButton
+              onClick={handleNextTurn}
+              disabled={currentTurnIndex >= turns.length - 1}
+            >
+              <ArrowForward />
+            </IconButton>
+
+            <IconButton
+              onClick={handleLatestTurn}
+              disabled={currentTurnIndex >= turns.length - 1}
+            >
+              <LastPage />
+            </IconButton>
+          </Box>
+        </>
+      ) : (
+        <Box sx={{ my: 2 }}>
+          <Button
+            color="primary"
+            disabled={
+              gameState.started ||
+              gameState.boardWidth < 5 ||
+              gameState.boardWidth > 20
+            }
+            onClick={handleStartGame}
+            sx={{ mb: 2 }}
+            fullWidth
+          >
+            Start Game
+          </Button>
+          <TextField
+            label="Board Size"
+            type="number"
+            value={boardWidth}
+            onChange={handleBoardWidthChange}
+            onBlur={handleBoardWidthBlur}
+            disabled={gameStarted}
+            fullWidth
+          />
+          {gameState.boardWidth < 5 && (
+            <Typography color="error">
+              Board needs to be bigger than 4
+            </Typography>
+          )}
+        </Box>
+      )}
+      <TableContainer component={Paper} sx={{ my: 2, width: "100%" }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -340,90 +483,32 @@ const GamePage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-
       {!gameStarted && (
-        <Button
-          color="primary"
-          disabled={gameState.started}
-          onClick={handleStartGame}
-        >
-          Start Game
-        </Button>
+        <Typography variant="body2">
+          Share the URL of this page to invite others.
+        </Typography>
       )}
 
-      {gameStarted && (
-        <>
-          {winner ? (
-            <Typography variant="h5" color="primary" sx={{ marginTop: 2 }}>
-              Game Over! Winner:{" "}
-              {playerInfos.find((p) => p.id === winner)?.nickname || winner}
-            </Typography>
-          ) : (
-            <>
-              {hasSubmittedMove ? (
-                <Box
-                  sx={{
-                    backgroundColor: "#fffae6",
-                    padding: 1,
-                    marginBottom: 2,
-                  }}
-                >
-                  <Typography>Waiting for other players...</Typography>
-                </Box>
-              ) : (
-                selectedSquare !== null &&
-                currentTurn.board[selectedSquare] === "" && (
-                  <Button
-                    color="primary"
-                    onClick={handleMoveSubmit}
-                    sx={{ marginBottom: 2 }}
-                  >
-                    Submit Move
-                  </Button>
-                )
-              )}
-            </>
-          )}
-          {renderGrid()}
-
-          {/* Navigation controls */}
-          <Box sx={{ marginTop: 2 }}>
-            <Button onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
-              Previous Turn
-            </Button>
-            <Button
-              onClick={handleNextTurn}
-              disabled={currentTurnIndex >= turns.length - 1}
-              sx={{ marginLeft: 1 }}
-            >
-              Next Turn
-            </Button>
-            <Typography variant="body2" sx={{ marginTop: 1 }}>
-              Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."}{" "}
-              of {turns.length - 1}
-            </Typography>
-          </Box>
-
-          {/* Highlight grid when waiting */}
-          {hasSubmittedMove && (
-            <Box
-              sx={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                bgcolor: "rgba(255, 255, 255, 0.7)",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <Typography variant="h4">Waiting for other players...</Typography>
-            </Box>
-          )}
-        </>
+      {/* Highlight grid when waiting */}
+      {hasSubmittedMove && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bgcolor: "rgba(255, 255, 255, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
+            Waiting for other players
+          </Typography>
+        </Box>
       )}
     </Box>
   )

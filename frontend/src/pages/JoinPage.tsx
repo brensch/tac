@@ -26,8 +26,8 @@ const JoinPage: React.FC = () => {
         value={gameID}
         onChange={(e) => setGameID(e.target.value)}
       />
-      <Button color="primary" onClick={handleSubmit}>
-        Submit
+      <Button disabled={gameID === ""} color="primary" onClick={handleSubmit}>
+        Join
       </Button>
     </Stack>
   )

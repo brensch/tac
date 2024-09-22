@@ -13,7 +13,6 @@ import {
   AppBar,
   Toolbar,
   Typography,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -27,36 +26,13 @@ import ProfilePage from "./pages/ProfilePage"
 import { UserProvider, useUser } from "./context/UserContext"
 import { getOrCreateUserWithNickname } from "./utils/user"
 import Cookies from "js-cookie"
+import { emojiList } from "@shared/types/Emojis"
 
 const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>("")
   const [isUserCreated, setIsUserCreated] = useState<boolean>(false)
   const [selectedEmoji, setSelectedEmoji] = useState<string>("")
-  const [error, setError] = useState<string>("")
-
-  // Emoji list
-  const emojiList = [
-    "😀",
-    "😎",
-    "😂",
-    "😍",
-    "😅",
-    "👍",
-    "🎉",
-    "🚀",
-    "🌟",
-    "🔥",
-    "🍕",
-    "🎮",
-    "🐶",
-    "🐱",
-    "🌈",
-    "⚽️",
-    "🏀",
-    "🏈",
-    "⚾️",
-    "🎲",
-  ]
+  const [message, setMessage] = useState<string>("")
 
   // Check if the user ID is already in cookies
   useEffect(() => {
@@ -68,7 +44,7 @@ const App: React.FC = () => {
 
   const handleNicknameSubmit = async () => {
     if (!nickname.trim() || !selectedEmoji) {
-      setError("Please enter a nickname and select an emoji.")
+      setMessage("Please enter a nickname and select an emoji.")
       return
     }
     await getOrCreateUserWithNickname(nickname, selectedEmoji)
@@ -78,51 +54,52 @@ const App: React.FC = () => {
   // If the user hasn't been created, show the nickname and emoji prompt
   if (!isUserCreated) {
     return (
-      <Container
-        maxWidth="sm"
-        sx={{
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
+      <Container sx={{ mt: 1 }}>
         <Box
           width="100%"
           display="flex"
           flexDirection="column"
           alignItems="center"
         >
+          <Typography variant="h4" sx={{ my: 4 }}>
+            Hi. Glad you're here.
+          </Typography>
           <TextField
             label="Nickname"
             variant="outlined"
             value={nickname}
+            sx={{ mb: 2 }}
             onChange={(e) => setNickname(e.target.value)}
             fullWidth
           />
-          <Typography variant="h6" sx={{ mt: 2 }}>
-            Select an Emoji:
-          </Typography>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2, // Add some spacing between buttons
+              justifyContent: "center",
+              my: 2,
+            }}
+          >
             {emojiList.map((emoji) => (
-              <Grid item xs={2} key={emoji}>
-                <Button
-                  variant={selectedEmoji === emoji ? "contained" : "outlined"}
-                  onClick={() => setSelectedEmoji(emoji)}
-                  sx={{ fontSize: "1.5rem", minWidth: "100%" }}
-                >
-                  {emoji}
-                </Button>
-              </Grid>
+              <Button
+                key={emoji}
+                variant={selectedEmoji === emoji ? "contained" : "outlined"}
+                onClick={() => setSelectedEmoji(emoji)}
+                sx={{ fontSize: "2rem", width: "50px", height: "50px" }}
+              >
+                {emoji}
+              </Button>
             ))}
-          </Grid>
-          {error && (
+          </Box>
+          {message && (
             <Typography color="error" sx={{ mt: 2 }}>
-              {error}
+              {message}
             </Typography>
           )}
           <Button onClick={handleNicknameSubmit} sx={{ mt: 2 }}>
-            Submit
+            Let's go
           </Button>
         </Box>
       </Container>
@@ -190,7 +167,7 @@ const AppContent: React.FC = () => {
         maxWidth="sm"
       >
         <DialogTitle>
-          Profile
+          Update Profile
           <IconButton
             aria-label="close"
             onClick={handleProfileClose}
