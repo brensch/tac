@@ -14,6 +14,7 @@ import {
   onSnapshot as onCollectionSnapshot,
   orderBy,
   setDoc,
+  serverTimestamp,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
 import { db } from "../firebaseConfig"
@@ -130,7 +131,7 @@ const GamePage: React.FC = () => {
 
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
-    if (gameStarted && selectedSquare === null && !hasSubmittedMove) {
+    if (gameStarted && !hasSubmittedMove) {
       // Get the latest turn's locked squares
       const latestTurn = turns[turns.length - 1]
       if (!latestTurn) {
@@ -153,12 +154,13 @@ const GamePage: React.FC = () => {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
       const moveNumber = gameState.currentRound
 
-      // Add the move to Firestore
+      // Add the move to Firestore with server-side timestamp
       await addDoc(moveRef, {
         gameID,
         moveNumber,
         playerID: userID,
         move: selectedSquare,
+        timestamp: serverTimestamp(), // Store server-side timestamp
       })
 
       setSelectedSquare(null)
@@ -195,46 +197,66 @@ const GamePage: React.FC = () => {
 
     const { board, lockedSquares } = currentTurn
 
+    // Calculate cell size based on board width
+    const gridSize = gameState.boardWidth
+    const cellSize = `${100 / gridSize}%`
+
     return (
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${gameState.boardWidth}, 50px)`,
+          gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+          width: "100%",
+          maxWidth: "600px",
+          margin: "0 auto",
+          border: "2px solid black",
         }}
       >
-        {board.map((cell, index) => (
-          <div
-            key={index}
-            onClick={() => handleSquareClick(index)}
-            style={{
-              width: "50px",
-              height: "50px",
-              border: "1px solid black",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontSize: "1.5rem",
-              cursor:
-                gameStarted &&
-                selectedSquare === null &&
-                cell === "" &&
-                !hasSubmittedMove &&
-                !lockedSquares.includes(index)
-                  ? "pointer"
-                  : "not-allowed",
-              backgroundColor:
-                selectedSquare === index
+        {board.map((cell, index) => {
+          const isLocked = lockedSquares.includes(index)
+          const isSelected = selectedSquare === index
+          const isCellEmpty = cell === ""
+
+          return (
+            <div
+              key={index}
+              onClick={() => handleSquareClick(index)}
+              style={{
+                width: "100%",
+                paddingBottom: "100%", // Maintain aspect ratio
+                position: "relative",
+                border: "1px solid black",
+                cursor:
+                  gameStarted && !hasSubmittedMove && isCellEmpty && !isLocked
+                    ? "pointer"
+                    : "default",
+                backgroundColor: isSelected
                   ? "#f0f0f0"
-                  : lockedSquares.includes(index)
+                  : isLocked
                   ? "#ddd"
                   : "white",
-            }}
-          >
-            {cell
-              ? playerInfos.find((p) => p.id === cell)?.nickname || cell
-              : "-"}
-          </div>
-        ))}
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  fontSize: "1.5rem",
+                }}
+              >
+                {cell
+                  ? playerInfos.find((p) => p.id === cell)?.nickname || cell
+                  : ""}
+              </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -258,10 +280,14 @@ const GamePage: React.FC = () => {
 
       {gameStarted && (
         <>
-          {hasSubmittedMove && <p>Waiting for other players...</p>}
-
-          {selectedSquare !== null && (
-            <button onClick={handleMoveSubmit}>Submit Move</button>
+          {hasSubmittedMove ? (
+            <p style={{ backgroundColor: "#fffae6", padding: "10px" }}>
+              Waiting for other players...
+            </p>
+          ) : (
+            selectedSquare !== null && (
+              <button onClick={handleMoveSubmit}>Submit Move</button>
+            )
           )}
 
           {/* Navigation controls */}
@@ -303,6 +329,26 @@ const GamePage: React.FC = () => {
                   ),
                 )}
               </ul>
+            </div>
+          )}
+
+          {/* Highlight grid when waiting */}
+          {hasSubmittedMove && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <h2>Waiting for other players...</h2>
             </div>
           )}
         </>

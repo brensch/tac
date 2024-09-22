@@ -1,0 +1,59 @@
+[debug] [2024-09-22T03:02:37.102Z] ----------------------------------------------------------------------
+[debug] [2024-09-22T03:02:37.103Z] Command:       /home/brensch/.nvm/versions/node/v21.0.0/bin/node /home/brensch/.nvm/versions/node/v21.0.0/bin/firebase deploy --only functions
+[debug] [2024-09-22T03:02:37.104Z] CLI Version:   13.4.0
+[debug] [2024-09-22T03:02:37.104Z] Platform:      linux
+[debug] [2024-09-22T03:02:37.104Z] Node Version:  v21.0.0
+[debug] [2024-09-22T03:02:37.104Z] Time:          Sat Sep 21 2024 20:02:37 GMT-0700 (Pacific Daylight Time)
+[debug] [2024-09-22T03:02:37.104Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2024-09-22T03:02:37.161Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2024-09-22T03:02:37.161Z] > authorizing via signed-in user (schlosserbd@gmail.com)
+[debug] [2024-09-22T03:02:37.161Z] [iam] checking project tactic-toes for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2024-09-22T03:02:37.163Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/tactic-toes:testIamPermissions [none]
+[debug] [2024-09-22T03:02:37.163Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/tactic-toes:testIamPermissions x-goog-quota-user=projects/tactic-toes
+[debug] [2024-09-22T03:02:37.163Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/tactic-toes:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2024-09-22T03:02:37.344Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/tactic-toes:testIamPermissions 200
+[debug] [2024-09-22T03:02:37.344Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/tactic-toes:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2024-09-22T03:02:37.344Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/tactic-toes/serviceAccounts/tactic-toes@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2024-09-22T03:02:37.344Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/tactic-toes/serviceAccounts/tactic-toes@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2024-09-22T03:02:37.749Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/tactic-toes/serviceAccounts/tactic-toes@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2024-09-22T03:02:37.749Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/tactic-toes/serviceAccounts/tactic-toes@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'tactic-toes'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run lint
+[info] Running command: npm --prefix "$RESOURCE_DIR" run build
+[info] ✔  functions: Finished running predeploy script. 
+[debug] [2024-09-22T03:02:40.995Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes [none]
+[debug] [2024-09-22T03:02:41.359Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes 200
+[debug] [2024-09-22T03:02:41.359Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes {"projectId":"tactic-toes","projectNumber":"609730573184","displayName":"tactic-toes","name":"projects/tactic-toes","resources":{"hostingSite":"tactic-toes"},"state":"ACTIVE","etag":"1_974ac3a7-99a7-4d45-9126-08ce4cb4080f"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2024-09-22T03:02:41.362Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudfunctions.googleapis.com [none]
+[debug] [2024-09-22T03:02:41.362Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudfunctions.googleapis.com x-goog-quota-user=projects/tactic-toes
+[debug] [2024-09-22T03:02:41.363Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/runtimeconfig.googleapis.com [none]
+[debug] [2024-09-22T03:02:41.364Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/runtimeconfig.googleapis.com x-goog-quota-user=projects/tactic-toes
+[debug] [2024-09-22T03:02:41.365Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudbuild.googleapis.com [none]
+[debug] [2024-09-22T03:02:41.365Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudbuild.googleapis.com x-goog-quota-user=projects/tactic-toes
+[debug] [2024-09-22T03:02:41.366Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/artifactregistry.googleapis.com [none]
+[debug] [2024-09-22T03:02:41.366Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/artifactregistry.googleapis.com x-goog-quota-user=projects/tactic-toes
+[debug] [2024-09-22T03:02:41.808Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudbuild.googleapis.com 200
+[debug] [2024-09-22T03:02:41.808Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudbuild.googleapis.com [omitted]
+[info] ✔  functions: required API cloudbuild.googleapis.com is enabled 
+[debug] [2024-09-22T03:02:41.813Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/artifactregistry.googleapis.com 200
+[debug] [2024-09-22T03:02:41.813Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/artifactregistry.googleapis.com [omitted]
+[info] ✔  artifactregistry: required API artifactregistry.googleapis.com is enabled 
+[debug] [2024-09-22T03:02:41.820Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/runtimeconfig.googleapis.com 200
+[debug] [2024-09-22T03:02:41.820Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/runtimeconfig.googleapis.com [omitted]
+[debug] [2024-09-22T03:02:41.822Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudfunctions.googleapis.com 200
+[debug] [2024-09-22T03:02:41.822Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/tactic-toes/services/cloudfunctions.googleapis.com [omitted]
+[info] ✔  functions: required API cloudfunctions.googleapis.com is enabled 
+[debug] [2024-09-22T03:02:41.822Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes/adminSdkConfig [none]
+[debug] [2024-09-22T03:02:42.125Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes/adminSdkConfig 200
+[debug] [2024-09-22T03:02:42.125Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/tactic-toes/adminSdkConfig {"projectId":"tactic-toes","storageBucket":"tactic-toes.appspot.com"}
+[debug] [2024-09-22T03:02:42.126Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/tactic-toes/configs [none]
+[debug] [2024-09-22T03:02:42.393Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/tactic-toes/configs 200
+[debug] [2024-09-22T03:02:42.393Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/tactic-toes/configs {}

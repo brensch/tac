@@ -129,6 +129,48 @@ export const onMoveCreated = functions.firestore
       // Log locked squares for the next round
       logger.info("Locked squares for next round", { lockedSquaresNextRound })
 
+      // Check for a winner
+      const winLength = 3 // Number of squares in a row needed to win
+      const winningPlayers = checkWinCondition(
+        newBoard,
+        boardWidth,
+        winLength,
+        playerIDs,
+      )
+
+      logger.info("Winning players", { winningPlayers })
+
+      // Handle multiple winners as clashes
+      if (winningPlayers.length === 1) {
+        // We have a winner
+        const winnerID = winningPlayers[0]
+        await gameRef.update({
+          winner: winnerID,
+        })
+        logger.info(`Player ${winnerID} has won the game!`, { gameID })
+      } else if (winningPlayers.length > 1) {
+        // Multiple players won simultaneously; treat their moves as clashes
+        winningPlayers.forEach((playerID) => {
+          // Find the squares this player claimed in this turn
+          for (let i = 0; i < newBoard.length; i++) {
+            if (newBoard[i] === playerID) {
+              // Revert the square to previous state
+              newBoard[i] = previousBoard[i]
+              lockedSquaresNextRound.push(i)
+              // Add to clashes
+              if (!clashes[i]) {
+                clashes[i] = []
+              }
+              clashes[i].push(playerID)
+            }
+          }
+        })
+        logger.info(
+          `Multiple players won simultaneously. Moves are treated as clashes.`,
+          { winningPlayers },
+        )
+      }
+
       // Create the new Turn object
       const newTurn: Turn = {
         turnNumber: currentRound,
@@ -161,3 +203,67 @@ export const onMoveCreated = functions.firestore
       })
     }
   })
+
+// Function to check for a win condition
+function checkWinCondition(
+  board: string[],
+  boardWidth: number,
+  winLength: number,
+  playerIDs: string[],
+): string[] {
+  const winningPlayers: Set<string> = new Set()
+
+  playerIDs.forEach((playerID) => {
+    // Check rows, columns, and diagonals
+    if (hasPlayerWon(board, boardWidth, winLength, playerID)) {
+      winningPlayers.add(playerID)
+    }
+  })
+
+  return Array.from(winningPlayers)
+}
+
+// Helper function to check if a player has won
+function hasPlayerWon(
+  board: string[],
+  boardWidth: number,
+  winLength: number,
+  playerID: string,
+): boolean {
+  const size = boardWidth
+
+  // Direction vectors: right, down, down-right, down-left
+  const directions = [
+    { x: 1, y: 0 }, // Horizontal
+    { x: 0, y: 1 }, // Vertical
+    { x: 1, y: 1 }, // Diagonal down-right
+    { x: -1, y: 1 }, // Diagonal down-left
+  ]
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      for (const dir of directions) {
+        let count = 0
+        let dx = x
+        let dy = y
+
+        while (
+          dx >= 0 &&
+          dx < size &&
+          dy >= 0 &&
+          dy < size &&
+          board[dy * size + dx] === playerID
+        ) {
+          count++
+          if (count === winLength) {
+            return true
+          }
+          dx += dir.x
+          dy += dir.y
+        }
+      }
+    }
+  }
+
+  return false
+}
