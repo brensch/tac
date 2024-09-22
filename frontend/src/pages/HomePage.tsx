@@ -3,7 +3,7 @@ import { Button, Stack, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 import { doc, setDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
-import { GameState, initializeGame } from "@shared/types/Game"
+import { initializeGame } from "@shared/types/Game"
 import { useUser } from "../context/UserContext"
 
 const buttonStyle = {

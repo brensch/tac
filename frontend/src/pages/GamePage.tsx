@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
 import { db } from "../firebaseConfig"
-import { GameState, PlayerInfo, Turn, Move } from "@shared/types/Game"
+import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 
 const GamePage: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -199,7 +199,6 @@ const GamePage: React.FC = () => {
 
     // Calculate cell size based on board width
     const gridSize = gameState.boardWidth
-    const cellSize = `${100 / gridSize}%`
 
     return (
       <div
