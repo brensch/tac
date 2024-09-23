@@ -58,7 +58,11 @@ const HomePage: React.FC = () => {
         value={sessionName}
         placeholder="Session Name"
         onChange={(e) => {
-          setSessionName(e.target.value)
+          // Convert to lowercase and remove non-letter characters
+          const lowercaseValue = e.target.value
+            .toLowerCase()
+            .replace(/[^a-z]/g, "")
+          setSessionName(lowercaseValue)
           setErrorMessage(null) // Clear error message on input change
         }}
       />

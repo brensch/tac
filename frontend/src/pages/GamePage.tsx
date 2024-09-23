@@ -520,7 +520,7 @@ const GamePage: React.FC = () => {
         <>
           {turns.length === 1 && (
             <Box sx={{ mt: 2 }}>
-              <Typography>1. Select a square by touching it.</Typography>
+              <Typography>1. Select a square by pressing it.</Typography>
               <Typography>2. Press Submit Move.</Typography>
               <Typography>
                 3. Read your opponents' minds to not pick the same square as
@@ -657,6 +657,9 @@ const GamePage: React.FC = () => {
             Only press start once everyone has joined, or they'll have to wait
             for the next game.
           </Typography>
+          <Button fullWidth onClick={handleShare} sx={{ mb: 2 }}>
+            Invite
+          </Button>
           <Button
             color="primary"
             disabled={
@@ -731,7 +734,7 @@ const GamePage: React.FC = () => {
         <DialogTitle>Game Rules</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            <Typography>1. Select a square by touching it.</Typography>
+            <Typography>1. Select a square by pressing it.</Typography>
             <Typography>2. Press Submit Move.</Typography>
             <Typography>
               3. Read your opponents' minds to not pick the same square as them.
