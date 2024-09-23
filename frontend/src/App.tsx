@@ -64,7 +64,7 @@ const App: React.FC = () => {
       (emoji) => emoji !== selectedEmoji,
     )
     if (selectedEmoji === "") {
-      setDisplayedEmojis(filteredEmojis.slice(0, 19))
+      setDisplayedEmojis(filteredEmojis.slice(0, 12))
       return
     }
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
@@ -117,7 +117,7 @@ const App: React.FC = () => {
             startIcon={<Refresh />}
             sx={{ mt: 2 }}
           >
-            Randomize Emojis
+            New emojis please.
           </Button>
           {message && (
             <Typography color="error" sx={{ mt: 2 }}>

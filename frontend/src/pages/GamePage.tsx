@@ -49,7 +49,7 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
 
   React.useEffect(() => {
     // Generate an array of numbers to represent emojis
-    const emojiArray = Array.from({ length: 100 }, (_, i) => i)
+    const emojiArray = Array.from({ length: 300 }, (_, i) => i)
     setEmojis(emojiArray)
   }, [])
 
@@ -654,8 +654,7 @@ const GamePage: React.FC = () => {
       {!gameStarted && (
         <Box>
           <Typography sx={{ mb: 2 }}>
-            Only press start once everyone has joined, or they'll have to wait
-            for the next game.
+            Only press start once everyone has joined.
           </Typography>
           <Button fullWidth onClick={handleShare} sx={{ mb: 2 }}>
             Invite

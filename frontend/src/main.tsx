@@ -11,6 +11,9 @@ const theme = createTheme({
     primary: {
       main: "#000000", // Set primary color to black
     },
+    success: {
+      main: "#90ee90", // Light green background color
+    },
   },
   typography: {
     fontFamily: '"Roboto Mono", monospace', // Set brutalist font
@@ -58,14 +61,29 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          backgroundColor: "#fff",
-          border: "1px solid #000",
-          color: "#000",
           borderRadius: 0, // Square edges
-          "&:hover": {
-            backgroundColor: "#f0f0f0",
-          },
+          border: "1px solid #000", // Black border
           textTransform: "none", // Prevent capitalization
+          boxShadow: "none", // Remove drop shadow for all buttons
+          "&:hover": {
+            boxShadow: "none", // Ensure no drop shadow on hover
+          },
+        },
+        contained: {
+          backgroundColor: "#90ee90", // Light green for contained buttons
+          border: "1px solid #000", // Black border
+          "&:hover": {
+            backgroundColor: "#81d681", // Slightly darker green on hover
+            boxShadow: "none", // No drop shadow on hover
+          },
+        },
+        outlined: {
+          backgroundColor: "#fff", // White background for outlined buttons
+          border: "1px solid #000", // Black border
+          "&:hover": {
+            backgroundColor: "#f0f0f0", // Slightly gray on hover
+            boxShadow: "none", // No drop shadow on hover
+          },
         },
       },
     },
@@ -74,8 +92,6 @@ const theme = createTheme({
         root: {
           borderRadius: 0, // Remove rounded corners
           boxShadow: "none", // Remove drop shadow
-          // Remove border to prevent overlapping
-          // border: "1px solid #000",
         },
       },
     },
@@ -90,20 +106,11 @@ const theme = createTheme({
         },
       },
     },
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          // Alternatively, set header background color here
-          // backgroundColor: "#e0e0e0",
-        },
-      },
-    },
     MuiTableRow: {
       styleOverrides: {
         root: {
-          // Ensure bottom border is present on the last row
           "&:last-child td, &:last-child th": {
-            borderBottom: "1px solid #000",
+            borderBottom: "1px solid #000", // Ensure bottom border is present
           },
         },
       },

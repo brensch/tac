@@ -33,7 +33,7 @@ const ProfilePage: React.FC = () => {
     const filteredEmojis = shuffledEmojis.filter(
       (emoji) => emoji !== selectedEmoji,
     )
-    setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
+    setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 11)])
   }
 
   const handleUpdateNickname = async () => {
@@ -43,14 +43,12 @@ const ProfilePage: React.FC = () => {
     }
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, { nickname })
-    setMessage("Nickname updated successfully!")
   }
 
   const handleEmojiClick = async (emoji: string) => {
     setSelectedEmoji(emoji)
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, { emoji })
-    setMessage("Emoji updated successfully!")
   }
 
   return (
@@ -104,7 +102,7 @@ const ProfilePage: React.FC = () => {
           startIcon={<RefreshIcon />}
           sx={{ mt: 2 }}
         >
-          Randomize Emojis
+          New emojis please.
         </Button>
 
         {message && (

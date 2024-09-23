@@ -56,7 +56,7 @@ const HomePage: React.FC = () => {
       <TextField
         fullWidth
         value={sessionName}
-        placeholder="Session Name"
+        label="Session name"
         onChange={(e) => {
           // Convert to lowercase and remove non-letter characters
           const lowercaseValue = e.target.value
