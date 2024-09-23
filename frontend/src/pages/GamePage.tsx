@@ -309,8 +309,8 @@ const GamePage: React.FC = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Play tactic toes with me",
-          text: "It's nothing to do with toes.",
+          title: "Tactic toes",
+          text: "This game is completely unrelated to toes.",
           url: `/session/${gameState?.sessionName}`,
         })
         console.log("Content shared successfully")
