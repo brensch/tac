@@ -26,12 +26,14 @@ import { getOrCreateUserWithNickname } from "./utils/user"
 import Cookies from "js-cookie"
 import { emojiList } from "@shared/types/Emojis"
 import Sessionpage from "./pages/SessionPage"
+import { Refresh } from "@mui/icons-material"
 
 const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>("")
   const [isUserCreated, setIsUserCreated] = useState<boolean>(false)
   const [selectedEmoji, setSelectedEmoji] = useState<string>("")
   const [message, setMessage] = useState<string>("")
+  const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
   // Check if the user ID is already in cookies
   useEffect(() => {
@@ -48,6 +50,24 @@ const App: React.FC = () => {
     }
     await getOrCreateUserWithNickname(nickname, selectedEmoji)
     setIsUserCreated(true)
+  }
+
+  useEffect(() => {
+    // Initialize the displayedEmojis array
+    randomizeEmojis()
+  }, [])
+
+  const randomizeEmojis = () => {
+    const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
+    // Ensure the selectedEmoji is at the start
+    const filteredEmojis = shuffledEmojis.filter(
+      (emoji) => emoji !== selectedEmoji,
+    )
+    if (selectedEmoji === "") {
+      setDisplayedEmojis(filteredEmojis.slice(0, 19))
+      return
+    }
+    setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
   }
 
   // If the user hasn't been created, show the nickname and emoji prompt
@@ -81,7 +101,7 @@ const App: React.FC = () => {
               my: 2,
             }}
           >
-            {emojiList.map((emoji) => (
+            {displayedEmojis.map((emoji) => (
               <Button
                 key={emoji}
                 variant={selectedEmoji === emoji ? "contained" : "outlined"}
@@ -92,6 +112,13 @@ const App: React.FC = () => {
               </Button>
             ))}
           </Box>
+          <Button
+            onClick={randomizeEmojis}
+            startIcon={<Refresh />}
+            sx={{ mt: 2 }}
+          >
+            Randomize Emojis
+          </Button>
           {message && (
             <Typography color="error" sx={{ mt: 2 }}>
               {message}
