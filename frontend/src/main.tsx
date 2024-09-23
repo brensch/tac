@@ -5,7 +5,6 @@ import { ThemeProvider } from "@emotion/react"
 import { createTheme, CssBaseline } from "@mui/material"
 import "@fontsource/roboto-mono" // Import the brutalist font
 
-// Remove the MuiPaper style overrides from the theme
 const theme = createTheme({
   palette: {
     mode: "light",
@@ -70,13 +69,13 @@ const theme = createTheme({
         },
       },
     },
-    // Override MuiTableContainer styles
     MuiTableContainer: {
       styleOverrides: {
         root: {
           borderRadius: 0, // Remove rounded corners
           boxShadow: "none", // Remove drop shadow
-          border: "1px solid #000", // Add solid black border
+          // Remove border to prevent overlapping
+          // border: "1px solid #000",
         },
       },
     },
@@ -86,13 +85,25 @@ const theme = createTheme({
           border: "1px solid #000", // Solid black border
           borderRadius: 0, // Square edges
         },
+        head: {
+          backgroundColor: "#e0e0e0", // Slightly different color for header
+        },
+      },
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          // Alternatively, set header background color here
+          // backgroundColor: "#e0e0e0",
+        },
       },
     },
     MuiTableRow: {
       styleOverrides: {
         root: {
+          // Ensure bottom border is present on the last row
           "&:last-child td, &:last-child th": {
-            borderBottom: 0, // Optional: remove bottom border from last row
+            borderBottom: "1px solid #000",
           },
         },
       },

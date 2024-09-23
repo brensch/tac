@@ -40,16 +40,8 @@ import {
   ListItem,
   ListItemText,
 } from "@mui/material"
-import { GameState, PlayerInfo } from "@shared/types/Game"
+import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
-
-export interface Turn {
-  turnNumber: number
-  board: string[] // The board state after this turn
-  hasMoved: string[] // List of player IDs who have submitted their move for this turn
-  clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
-  winningSquares?: number[] // The list of squares involved in a winning condition
-}
 
 const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
   const [emojis, setEmojis] = React.useState<number[]>([])
@@ -84,7 +76,7 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
             key={i}
             style={{
               position: "absolute",
-              top: "-50px",
+              top: `-50px`, // Start above the screen
               left: `${left}%`,
               fontSize: `${size}px`,
               animation: `fall ${duration}s linear ${delay}s infinite`,
@@ -96,11 +88,11 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
       })}
       <style>
         {`
-          @keyframes fall {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(100vh); opacity: 0; }
-          }
-        `}
+            @keyframes fall {
+              0% { transform: translateY(0); }
+              100% { transform: translateY(100vh); }
+            }
+          `}
       </style>
     </div>
   )
@@ -126,6 +118,10 @@ const GamePage: React.FC = () => {
   // State for Clash Dialog
   const [openClashDialog, setOpenClashDialog] = useState(false)
   const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
+  const [clashReason, setClashReason] = useState<string>("")
+
+  // State for Rules Dialog
+  const [openRulesDialog, setOpenRulesDialog] = useState(false)
 
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
@@ -255,9 +251,9 @@ const GamePage: React.FC = () => {
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
     const currentTurn = turns[turns.length - 1]
-    const clashPlayers = currentTurn.clashes[index.toString()] || []
-    if (clashPlayers.length > 0) {
-      handleClashClick(clashPlayers)
+    const clash = currentTurn.clashes[index.toString()]
+    if (clash) {
+      handleClashClick(clash)
       return
     }
 
@@ -276,8 +272,8 @@ const GamePage: React.FC = () => {
   }
 
   // Handle clash click
-  const handleClashClick = (clashPlayerIDs: string[]) => {
-    const players = clashPlayerIDs.map(
+  const handleClashClick = (clash: { players: string[]; reason: string }) => {
+    const players = clash.players.map(
       (id) =>
         playerInfos.find((p) => p.id === id) || {
           id,
@@ -286,6 +282,7 @@ const GamePage: React.FC = () => {
         },
     )
     setClashPlayersList(players)
+    setClashReason(clash.reason)
     setOpenClashDialog(true)
   }
 
@@ -418,15 +415,16 @@ const GamePage: React.FC = () => {
           const isSelected = selectedSquare === index
           const isCellEmpty = cell === ""
           const isBlocked = cell === "-1"
-          const clashPlayers = clashes[index.toString()] || []
+          const clash = clashes[index.toString()]
+          const clashPlayers = clash ? clash.players : []
           const isWinningSquare = winningSquaresSet.has(index)
 
           return (
             <Box
               key={index}
               onClick={() => {
-                if (clashPlayers.length > 0) {
-                  handleClashClick(clashPlayers)
+                if (clash) {
+                  handleClashClick(clash)
                 } else {
                   handleSquareClick(index)
                 }
@@ -506,7 +504,10 @@ const GamePage: React.FC = () => {
         >
           {gameState.sessionName}
         </Typography>
-        <Button onClick={handleShare} sx={{ height: 30, ml: 2 }}>
+        <Button
+          onClick={() => setOpenRulesDialog(true)}
+          sx={{ height: 30, ml: 2 }}
+        >
           Rules
         </Button>
         <Button onClick={handleShare} sx={{ height: 30, ml: 2 }}>
@@ -518,14 +519,14 @@ const GamePage: React.FC = () => {
         <>
           {turns.length === 1 && (
             <Box sx={{ mt: 2 }}>
-              <Typography>1. Select a square by touching it</Typography>
-              <Typography>2. Press Submit Move</Typography>
+              <Typography>1. Select a square by touching it.</Typography>
+              <Typography>2. Press Submit Move.</Typography>
               <Typography>
                 3. Read your opponents' minds to not pick the same square as
-                them
+                them.
               </Typography>
               <Typography sx={{ mb: 1 }}>
-                4. Get 4 squares in a row to win
+                4. Get 4 squares in a row to win.
               </Typography>
             </Box>
           )}
@@ -625,7 +626,7 @@ const GamePage: React.FC = () => {
         </Box>
       )}
       <TableContainer sx={{ my: 2, width: "100%" }}>
-        <Table size="small">
+        <Table size="small" sx={{ borderCollapse: "collapse" }}>
           <TableHead>
             <TableRow>
               <TableCell>Players</TableCell>
@@ -709,9 +710,7 @@ const GamePage: React.FC = () => {
       <Dialog open={openClashDialog} onClose={() => setOpenClashDialog(false)}>
         <DialogTitle>Clash Details</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Players who clashed over this square:
-          </DialogContentText>
+          <DialogContentText>{clashReason}</DialogContentText>
           <List>
             {clashPlayersList.map((player) => (
               <ListItem key={player.id}>
@@ -722,6 +721,26 @@ const GamePage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenClashDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rules Dialog */}
+      <Dialog open={openRulesDialog} onClose={() => setOpenRulesDialog(false)}>
+        <DialogTitle>Game Rules</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <Typography>1. Select a square by touching it.</Typography>
+            <Typography>2. Press Submit Move.</Typography>
+            <Typography>
+              3. Read your opponents' minds to not pick the same square as them.
+            </Typography>
+            <Typography sx={{ mb: 1 }}>
+              4. Get 4 squares in a row to win.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRulesDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

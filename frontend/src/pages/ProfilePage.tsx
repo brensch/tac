@@ -1,26 +1,56 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useUser } from "../context/UserContext"
-import { Container, Box, TextField, Button, Typography } from "@mui/material"
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  IconButton,
+  InputAdornment,
+} from "@mui/material"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { emojiList } from "@shared/types/Emojis"
+import RefreshIcon from "@mui/icons-material/Refresh"
+import SaveIcon from "@mui/icons-material/Save"
 
 const ProfilePage: React.FC = () => {
   const { userID, nickname: initialNickname, emoji: initialEmoji } = useUser()
   const [nickname, setNickname] = useState<string>(initialNickname)
   const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [message, setMessage] = useState<string>("")
+  const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
-  // Emoji list
+  useEffect(() => {
+    // Initialize the displayedEmojis array
+    randomizeEmojis()
+  }, [])
 
-  const handleUpdateProfile = async () => {
-    if (!nickname.trim() || !selectedEmoji) {
-      setMessage("Please enter a nickname and select an emoji.")
+  const randomizeEmojis = () => {
+    const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
+    // Ensure the selectedEmoji is at the start
+    const filteredEmojis = shuffledEmojis.filter(
+      (emoji) => emoji !== selectedEmoji,
+    )
+    setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
+  }
+
+  const handleUpdateNickname = async () => {
+    if (!nickname.trim()) {
+      setMessage("Please enter a nickname.")
       return
     }
     const userDocRef = doc(db, "users", userID)
-    await updateDoc(userDocRef, { nickname, emoji: selectedEmoji })
-    setMessage("Profile updated successfully!")
+    await updateDoc(userDocRef, { nickname })
+    setMessage("Nickname updated successfully!")
+  }
+
+  const handleEmojiClick = async (emoji: string) => {
+    setSelectedEmoji(emoji)
+    const userDocRef = doc(db, "users", userID)
+    await updateDoc(userDocRef, { emoji })
+    setMessage("Emoji updated successfully!")
   }
 
   return (
@@ -37,6 +67,15 @@ const ProfilePage: React.FC = () => {
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           fullWidth
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={handleUpdateNickname} edge="end">
+                  <SaveIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
         />
 
         <Box
@@ -48,25 +87,31 @@ const ProfilePage: React.FC = () => {
             mt: 1,
           }}
         >
-          {emojiList.map((emoji) => (
+          {displayedEmojis.map((emoji) => (
             <Button
               key={emoji}
               variant={selectedEmoji === emoji ? "contained" : "outlined"}
-              onClick={() => setSelectedEmoji(emoji)}
+              onClick={() => handleEmojiClick(emoji)}
               sx={{ fontSize: "2rem", width: "50px", height: "50px" }}
             >
               {emoji}
             </Button>
           ))}
         </Box>
+
+        <Button
+          onClick={randomizeEmojis}
+          startIcon={<RefreshIcon />}
+          sx={{ mt: 2 }}
+        >
+          Randomize Emojis
+        </Button>
+
         {message && (
-          <Typography color="error" sx={{ mt: 2 }}>
+          <Typography color="success" sx={{ mt: 2 }}>
             {message}
           </Typography>
         )}
-        <Button onClick={handleUpdateProfile} sx={{ mt: 2 }}>
-          Update Profile
-        </Button>
       </Box>
     </Container>
   )

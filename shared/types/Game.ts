@@ -11,7 +11,7 @@ export interface Turn {
   turnNumber: number
   board: string[] // The board state after this turn
   hasMoved: string[] // List of player IDs who have submitted their move for this turn
-  clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
+  clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
   winningSquares?: number[] // The list of squares involved in a winning condition
 }
 

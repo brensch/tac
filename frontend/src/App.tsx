@@ -19,7 +19,6 @@ import {
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close" // Import CloseIcon
 import HomePage from "./pages/HomePage"
-import JoinPage from "./pages/JoinPage"
 import GamePage from "./pages/GamePage"
 import ProfilePage from "./pages/ProfilePage"
 import { UserProvider, useUser } from "./context/UserContext"
@@ -155,7 +154,6 @@ const AppContent: React.FC = () => {
         <Box width="100%">
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/join" element={<JoinPage />} />
             <Route path="/game/:gameID" element={<GamePage />} />
             <Route path="/session/:sessionName" element={<Sessionpage />} />
           </Routes>

@@ -93,7 +93,7 @@ export const onMoveCreated = functions.firestore
 
         // Process moves and update the board
         const newBoard = [...currentTurn.board]
-        const clashes: { [square: number]: string[] } = currentTurn.clashes
+        const clashes = { ...currentTurn.clashes } // Copy previous clashes
 
         // Build a map of moves per square
         const moveMap: { [square: number]: string[] } = {}
@@ -131,7 +131,10 @@ export const onMoveCreated = functions.firestore
             // More than one player moved into the same square
             // Square gets blocked permanently, and neither player gets it
             newBoard[square] = "-1" // Block the square permanently
-            clashes[square] = players
+            clashes[square] = {
+              players,
+              reason: "Multiple players picked this square",
+            }
             logger.info(
               `Square ${square} is blocked permanently due to conflict`,
               { players },
@@ -201,9 +204,12 @@ export const onMoveCreated = functions.firestore
               newBoard[square] = "-1"
               // Add to clashes
               if (!clashes[square]) {
-                clashes[square] = []
+                clashes[square] = {
+                  players: [],
+                  reason: "Multiple players won at the same time",
+                }
               }
-              clashes[square].push(move.playerID)
+              clashes[square].players.push(move.playerID)
               logger.info(
                 `Square ${square} blocked due to simultaneous win by player ${move.playerID}`,
               )
