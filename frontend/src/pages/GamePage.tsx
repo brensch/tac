@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import {
   doc,
   updateDoc,
@@ -27,10 +27,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   CircularProgress,
   IconButton,
   TextField,
+  Alert,
 } from "@mui/material"
 import { GameState, PlayerInfo } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
@@ -53,6 +53,7 @@ const GamePage: React.FC = () => {
   const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [boardWidth, setBoardWidth] = useState<string>("8")
+  const navigate = useNavigate()
 
   // New ref and state for dynamic font sizing
   const gridRef = useRef<HTMLDivElement>(null)
@@ -279,6 +280,8 @@ const GamePage: React.FC = () => {
 
   const { winner } = gameState
   const currentTurn = turns[currentTurnIndex]
+  console.log(gameState)
+  console.log(currentTurn)
 
   // Render the grid
   const renderGrid = () => {
@@ -367,12 +370,32 @@ const GamePage: React.FC = () => {
     )
   }
 
+  const playerInCurrentGame = gameState.playerIDs.find(
+    (playerID) => playerID === userID,
+  )
+
   return (
     <Box sx={{ padding: 2 }}>
-      <Typography variant="h4">Game {gameID}</Typography>
+      <Typography variant="h4">Session {gameState.sessionName}</Typography>
+      <ShareButton />
 
       {gameStarted ? (
         <>
+          {gameState.nextGame !== "" && (
+            <Button
+              sx={{ mt: 2 }}
+              fullWidth
+              onClick={() => navigate(`/game/${gameState.nextGame}`)}
+            >
+              Play again?
+            </Button>
+          )}
+          {!playerInCurrentGame && (
+            <Alert sx={{ mt: 2 }} severity="warning">
+              This game started before you joined. Watch until the next game
+              starts.
+            </Alert>
+          )}
           {winner ? (
             <Typography variant="h5" color="primary" sx={{ my: 2 }}>
               Game Over! Winner:{" "}
@@ -381,6 +404,7 @@ const GamePage: React.FC = () => {
           ) : (
             <Button
               disabled={
+                !playerInCurrentGame ||
                 !(
                   selectedSquare !== null &&
                   currentTurn.board[selectedSquare] === "" &&
@@ -428,19 +452,9 @@ const GamePage: React.FC = () => {
         </>
       ) : (
         <Box sx={{ my: 2 }}>
-          <Button
-            color="primary"
-            disabled={
-              gameState.started ||
-              gameState.boardWidth < 5 ||
-              gameState.boardWidth > 20
-            }
-            onClick={handleStartGame}
-            sx={{ mb: 2 }}
-            fullWidth
-          >
-            Start Game
-          </Button>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            New Game{" "}
+          </Typography>
           <TextField
             label="Board Size"
             type="number"
@@ -457,36 +471,49 @@ const GamePage: React.FC = () => {
           )}
         </Box>
       )}
-      <TableContainer component={Paper} sx={{ my: 2, width: "100%" }}>
+      <TableContainer sx={{ my: 2, width: "100%" }}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Player</TableCell>
-              <TableCell>Emoji</TableCell>
-              <TableCell align="right">Has Moved</TableCell>
+              <TableCell>Players</TableCell>
+              {gameStarted && <TableCell align="right">Has Moved</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
             {playerInfos.map((player) => (
               <TableRow key={player.id}>
-                <TableCell component="th" scope="row">
-                  {player.nickname}
+                <TableCell>
+                  {player.nickname} {player.emoji}
                 </TableCell>
-                <TableCell component="th" scope="row">
-                  {player.emoji}
-                </TableCell>
-                <TableCell align="right">
-                  {currentTurn?.hasMoved.includes(player.id) ? "Yes" : "No"}
-                </TableCell>
+                {gameStarted && (
+                  <TableCell align="right">
+                    {currentTurn?.hasMoved.includes(player.id) ? "Yes" : "No"}
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
       {!gameStarted && (
-        <Typography variant="body2">
-          Share the URL of this page to invite others.
-        </Typography>
+        <Box>
+          <Typography sx={{ mb: 2 }} variant="body2">
+            Share the URL of this page to invite others.
+          </Typography>
+          <Button
+            color="primary"
+            disabled={
+              gameState.started ||
+              gameState.boardWidth < 5 ||
+              gameState.boardWidth > 20
+            }
+            onClick={handleStartGame}
+            sx={{ mb: 2 }}
+            fullWidth
+          >
+            Start Game
+          </Button>
+        </Box>
       )}
 
       {/* Highlight grid when waiting */}
@@ -506,12 +533,41 @@ const GamePage: React.FC = () => {
           }}
         >
           <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
-            Waiting for other players
+            Waiting for{" "}
+            {playerInfos
+              .filter((player) =>
+                currentTurn.hasMoved.find(
+                  (playerWhoMoved) => playerWhoMoved !== player.id,
+                ),
+              )
+              .map((player) => player.nickname)
+              .join()}
           </Typography>
         </Box>
       )}
     </Box>
   )
+}
+
+const ShareButton: React.FC = () => {
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Shared from my App",
+          text: "Check out this cool text I want to share!",
+          url: window.location.href, // Optional: Share a URL
+        })
+        console.log("Content shared successfully")
+      } catch (error) {
+        console.error("Error sharing content:", error)
+      }
+    } else {
+      console.log("Web Share API is not supported in your browser.")
+    }
+  }
+
+  return <button onClick={handleShare}>Share this text</button>
 }
 
 export default GamePage

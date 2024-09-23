@@ -153,19 +153,45 @@ export const onMoveCreated = functions.firestore
 
         logger.info("Winning players", { winningPlayers })
 
-        // Handle multiple winners as clashes
+        let winningSquares: number[] = []
+
         if (winningPlayers.length === 1) {
           // We have a winner
-          const winnerID = winningPlayers[0]
+          const winner = winningPlayers[0]
+          const winnerID = winner.playerID
+          winningSquares = winner.winningSquares
+
+          // Generate a new game
+          const newGameData: GameState = {
+            sessionName: gameData.sessionName,
+            sessionIndex: gameData.sessionIndex + 1,
+            playerIDs: [],
+            currentRound: 0, // Start from 0 since no turns have occurred yet
+            boardWidth: gameData.boardWidth,
+            winner: "",
+            started: false,
+            nextGame: "",
+          }
+
+          const newGameRef = admin.firestore().collection("games").doc()
+
+          // Update the game document with winner and nextGame
           transaction.update(gameRef, {
             winner: winnerID,
+            nextGame: newGameRef.id,
           })
+
+          // Create the new game document
+          transaction.create(newGameRef, newGameData)
+
           logger.info(`Player ${winnerID} has won the game!`, { gameID })
         } else if (winningPlayers.length > 1) {
           // Multiple players won simultaneously; treat their moves as clashes
 
           // Build a set of player IDs who won
-          const winningPlayerSet = new Set(winningPlayers)
+          const winningPlayerSet = new Set(
+            winningPlayers.map((wp) => wp.playerID),
+          )
 
           // For each move in this round, check if the player is a winning player
           movesThisRound.forEach((move) => {
@@ -202,6 +228,7 @@ export const onMoveCreated = functions.firestore
           board: newBoard,
           hasMoved: [],
           clashes: clashes, // Include the calculated clashes
+          winningSquares: winningSquares,
         }
 
         transaction.set(nextTurnRef, nextTurn)
@@ -210,8 +237,6 @@ export const onMoveCreated = functions.firestore
         transaction.update(gameRef, {
           currentRound: nextRound,
         })
-
-        // **Removed updating current turn's board and clashes**
 
         // Log round update
         logger.info(
@@ -236,17 +261,17 @@ function checkWinCondition(
   boardWidth: number,
   winLength: number,
   playerIDs: string[],
-): string[] {
-  const winningPlayers: Set<string> = new Set()
+): { playerID: string; winningSquares: number[] }[] {
+  const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
 
   playerIDs.forEach((playerID) => {
-    // Check rows, columns, and diagonals
-    if (hasPlayerWon(board, boardWidth, winLength, playerID)) {
-      winningPlayers.add(playerID)
+    const result = hasPlayerWon(board, boardWidth, winLength, playerID)
+    if (result.hasWon) {
+      winningPlayers.push({ playerID, winningSquares: result.winningSquares })
     }
   })
 
-  return Array.from(winningPlayers)
+  return winningPlayers
 }
 
 // Helper function to check if a player has won
@@ -255,7 +280,7 @@ function hasPlayerWon(
   boardWidth: number,
   winLength: number,
   playerID: string,
-): boolean {
+): { hasWon: boolean; winningSquares: number[] } {
   const size = boardWidth
 
   // Direction vectors: right, down, down-right, down-left
@@ -270,6 +295,7 @@ function hasPlayerWon(
     for (let x = 0; x < size; x++) {
       for (const dir of directions) {
         let count = 0
+        let winningSquares: number[] = []
         let dx = x
         let dy = y
 
@@ -280,9 +306,10 @@ function hasPlayerWon(
           dy < size &&
           board[dy * size + dx] === playerID
         ) {
+          winningSquares.push(dy * size + dx)
           count++
           if (count === winLength) {
-            return true
+            return { hasWon: true, winningSquares }
           }
           dx += dir.x
           dy += dir.y
@@ -291,7 +318,7 @@ function hasPlayerWon(
     }
   }
 
-  return false
+  return { hasWon: false, winningSquares: [] }
 }
 
 export const onGameStarted = functions.firestore
