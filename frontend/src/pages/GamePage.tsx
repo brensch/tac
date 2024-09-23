@@ -520,15 +520,15 @@ const GamePage: React.FC = () => {
         <>
           {turns.length === 1 && (
             <Box sx={{ mt: 2 }}>
-              <Typography>1. Select a square by pressing it.</Typography>
-              <Typography>2. Press Submit Move.</Typography>
+              <Typography>1. Select a square by pressing it</Typography>
+              <Typography>2. Press 'Submit Move'</Typography>
               <Typography>
                 3. Read your opponents' minds to not pick the same square as
                 them. If you fail to do this, that square will get blocked
                 forever (❌)
               </Typography>
               <Typography sx={{ mb: 1 }}>
-                4. Get 4 squares in a row to win.
+                4. Get 4 squares in a row to win
               </Typography>
             </Box>
           )}
@@ -733,14 +733,14 @@ const GamePage: React.FC = () => {
         <DialogTitle>Game Rules</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            <Typography>1. Select a square by pressing it.</Typography>
-            <Typography>2. Press Submit Move.</Typography>
+            <Typography>1. Select a square by pressing it</Typography>
+            <Typography>2. Press 'Submit Move'</Typography>
             <Typography>
               3. Read your opponents' minds to not pick the same square as them.
               If you fail to do this, that square will get blocked forever (❌)
             </Typography>
             <Typography sx={{ mb: 2 }}>
-              4. Get 4 squares in a row to win.
+              4. Get 4 squares in a row to win
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
