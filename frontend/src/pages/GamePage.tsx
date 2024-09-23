@@ -39,6 +39,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  Divider,
 } from "@mui/material"
 import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
@@ -523,7 +524,8 @@ const GamePage: React.FC = () => {
               <Typography>2. Press Submit Move.</Typography>
               <Typography>
                 3. Read your opponents' minds to not pick the same square as
-                them.
+                them. If you fail to do this, that square will get blocked
+                forever (❌)
               </Typography>
               <Typography sx={{ mb: 1 }}>
                 4. Get 4 squares in a row to win.
@@ -733,9 +735,25 @@ const GamePage: React.FC = () => {
             <Typography>2. Press Submit Move.</Typography>
             <Typography>
               3. Read your opponents' minds to not pick the same square as them.
+              If you fail to do this, that square will get blocked forever (❌)
             </Typography>
-            <Typography sx={{ mb: 1 }}>
+            <Typography sx={{ mb: 2 }}>
               4. Get 4 squares in a row to win.
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              If more than one person wins at the same time, the squares they
+              would have won with get blocked
+            </Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              If more than one person selects the same square, that square gets
+              blocked
+            </Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Press on a blocked square to see the reason a square got blocked
+            </Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              You can see previous turns using the arrows below the board
             </Typography>
           </DialogContentText>
         </DialogContent>
