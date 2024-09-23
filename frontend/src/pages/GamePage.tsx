@@ -56,10 +56,10 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
     <div
       style={{
         position: "fixed",
-        top: 0,
+        top: -20,
         left: 0,
         width: "100%",
-        height: "100%",
+        height: "120%",
         pointerEvents: "none",
         overflow: "hidden",
         zIndex: 9999,
@@ -90,7 +90,7 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
         {`
             @keyframes fall {
               0% { transform: translateY(0); }
-              100% { transform: translateY(100vh); }
+              100% { transform: translateY(120vh); }
             }
           `}
       </style>
@@ -532,7 +532,7 @@ const GamePage: React.FC = () => {
           )}
           {gameState.nextGame !== "" && (
             <Button
-              sx={{ mt: 2 }}
+              sx={{ mt: 2, zIndex: 10000000, bgcolor: "green" }}
               fullWidth
               onClick={() => navigate(`/game/${gameState.nextGame}`)}
             >

@@ -205,11 +205,10 @@ export const onMoveCreated = functions.firestore
               // Add to clashes
               if (!clashes[square]) {
                 clashes[square] = {
-                  players: [],
+                  players: Array.from(winningPlayerSet),
                   reason: "Multiple players won at the same time",
                 }
               }
-              clashes[square].players.push(move.playerID)
               logger.info(
                 `Square ${square} blocked due to simultaneous win by player ${move.playerID}`,
               )
