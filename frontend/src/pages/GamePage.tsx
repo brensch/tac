@@ -495,7 +495,15 @@ const GamePage: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center" }}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            flexGrow: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {gameState.sessionName}
         </Typography>
         <Button onClick={handleShare} sx={{ height: 30, ml: 2 }}>
