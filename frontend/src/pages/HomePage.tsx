@@ -28,11 +28,11 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={2} alignItems="center">
-      <Typography pt={2} variant="body1" align="center" gutterBottom>
+    <Stack spacing={2} alignItems="left">
+      <Typography pt={2} variant="body1" align="left" gutterBottom>
         Get four emojis in a row and you win.
       </Typography>
-      <Typography variant="body1" align="center" gutterBottom>
+      <Typography variant="body1" align="left" gutterBottom>
         Pick the same square as your opponent and no one gets it.
       </Typography>
       <TextField

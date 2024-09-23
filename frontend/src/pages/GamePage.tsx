@@ -31,6 +31,14 @@ import {
   IconButton,
   TextField,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material"
 import { GameState, PlayerInfo } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
@@ -40,6 +48,62 @@ export interface Turn {
   board: string[] // The board state after this turn
   hasMoved: string[] // List of player IDs who have submitted their move for this turn
   clashes: { [square: string]: string[] } // Map of square indices to player IDs who clashed
+  winningSquares?: number[] // The list of squares involved in a winning condition
+}
+
+const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
+  const [emojis, setEmojis] = React.useState<number[]>([])
+
+  React.useEffect(() => {
+    // Generate an array of numbers to represent emojis
+    const emojiArray = Array.from({ length: 100 }, (_, i) => i)
+    setEmojis(emojiArray)
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        overflow: "hidden",
+        zIndex: 9999,
+      }}
+    >
+      {emojis.map((i) => {
+        const left = Math.random() * 100 // Random left position
+        const delay = Math.random() * 5 // Random animation delay
+        const duration = Math.random() * 5 + 5 // Random animation duration between 5s and 10s
+        const size = Math.random() * 24 + 24 // Random size between 24px and 48px
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: "-50px",
+              left: `${left}%`,
+              fontSize: `${size}px`,
+              animation: `fall ${duration}s linear ${delay}s infinite`,
+            }}
+          >
+            {emoji}
+          </div>
+        )
+      })}
+      <style>
+        {`
+          @keyframes fall {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+          }
+        `}
+      </style>
+    </div>
+  )
 }
 
 const GamePage: React.FC = () => {
@@ -58,6 +122,10 @@ const GamePage: React.FC = () => {
   // New ref and state for dynamic font sizing
   const gridRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState<number>(0)
+
+  // State for Clash Dialog
+  const [openClashDialog, setOpenClashDialog] = useState(false)
+  const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
 
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
@@ -186,19 +254,39 @@ const GamePage: React.FC = () => {
 
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
+    const currentTurn = turns[turns.length - 1]
+    const clashPlayers = currentTurn.clashes[index.toString()] || []
+    if (clashPlayers.length > 0) {
+      handleClashClick(clashPlayers)
+      return
+    }
+
     if (gameStarted && !hasSubmittedMove) {
-      const latestTurn = turns[turns.length - 1]
-      if (!latestTurn) {
+      if (!currentTurn) {
         console.error("No turns available")
         return
       }
 
-      const cellValue = latestTurn.board[index]
+      const cellValue = currentTurn.board[index]
 
       if (cellValue === "" || cellValue === null) {
         setSelectedSquare(index)
       }
     }
+  }
+
+  // Handle clash click
+  const handleClashClick = (clashPlayerIDs: string[]) => {
+    const players = clashPlayerIDs.map(
+      (id) =>
+        playerInfos.find((p) => p.id === id) || {
+          id,
+          nickname: "Unknown",
+          emoji: "",
+        },
+    )
+    setClashPlayersList(players)
+    setOpenClashDialog(true)
   }
 
   // Submit a move
@@ -216,6 +304,23 @@ const GamePage: React.FC = () => {
       })
 
       setHasSubmittedMove(true)
+    }
+  }
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Play tactic toes with me",
+          text: "It's nothing to do with toes.",
+          url: `/session/${gameState?.sessionName}`,
+        })
+        console.log("Content shared successfully")
+      } catch (error) {
+        console.error("Error sharing content:", error)
+      }
+    } else {
+      console.log("Web Share API is not supported in your browser.")
     }
   }
 
@@ -289,8 +394,9 @@ const GamePage: React.FC = () => {
       return <Typography>Loading board...</Typography>
     }
 
-    const { board, clashes } = currentTurn
+    const { board, clashes, winningSquares } = currentTurn
     const gridSize = gameState.boardWidth || 8 // Default to 8 if undefined
+    const winningSquaresSet = new Set(winningSquares || [])
 
     // Calculate cell size and font size
     const cellSize = containerWidth ? containerWidth / gridSize : 0
@@ -313,11 +419,18 @@ const GamePage: React.FC = () => {
           const isCellEmpty = cell === ""
           const isBlocked = cell === "-1"
           const clashPlayers = clashes[index.toString()] || []
+          const isWinningSquare = winningSquaresSet.has(index)
 
           return (
             <Box
               key={index}
-              onClick={() => handleSquareClick(index)}
+              onClick={() => {
+                if (clashPlayers.length > 0) {
+                  handleClashClick(clashPlayers)
+                } else {
+                  handleSquareClick(index)
+                }
+              }}
               sx={{
                 width: "100%",
                 paddingBottom: "100%", // Maintain aspect ratio
@@ -327,7 +440,9 @@ const GamePage: React.FC = () => {
                   gameStarted && !hasSubmittedMove && isCellEmpty && !isBlocked
                     ? "pointer"
                     : "default",
-                backgroundColor: isSelected
+                backgroundColor: isWinningSquare
+                  ? "green"
+                  : isSelected
                   ? "#cfe8fc"
                   : isBlocked
                   ? "#ddd"
@@ -352,13 +467,13 @@ const GamePage: React.FC = () => {
                 {isBlocked
                   ? "❌"
                   : cell
-                  ? playerInfos.find((p) => p.id === cell)?.emoji || cell
+                  ? playerInfos.find((p) => p.id === cell)?.emoji || cell[0]
                   : clashPlayers.length > 0
                   ? clashPlayers
                       .map(
                         (playerID) =>
                           playerInfos.find((p) => p.id === playerID)?.emoji ||
-                          playerID,
+                          "",
                       )
                       .join(", ")
                   : ""}
@@ -374,13 +489,38 @@ const GamePage: React.FC = () => {
     (playerID) => playerID === userID,
   )
 
+  const winnerInfo = playerInfos.find((p) => p.id === winner)
+  const winnerEmoji = winnerInfo?.emoji || ""
+
   return (
-    <Box sx={{ padding: 2 }}>
-      <Typography variant="h4">Session {gameState.sessionName}</Typography>
-      <ShareButton />
+    <Box>
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          {gameState.sessionName}
+        </Typography>
+        <Button onClick={handleShare} sx={{ height: 30, ml: 2 }}>
+          Rules
+        </Button>
+        <Button onClick={handleShare} sx={{ height: 30, ml: 2 }}>
+          Invite
+        </Button>
+      </Box>
 
       {gameStarted ? (
         <>
+          {turns.length === 1 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography>1. Select a square by touching it</Typography>
+              <Typography>2. Press Submit Move</Typography>
+              <Typography>
+                3. Read your opponents' minds to not pick the same square as
+                them
+              </Typography>
+              <Typography sx={{ mb: 1 }}>
+                4. Get 4 squares in a row to win
+              </Typography>
+            </Box>
+          )}
           {gameState.nextGame !== "" && (
             <Button
               sx={{ mt: 2 }}
@@ -397,13 +537,18 @@ const GamePage: React.FC = () => {
             </Alert>
           )}
           {winner ? (
-            <Typography variant="h5" color="primary" sx={{ my: 2 }}>
-              Game Over! Winner:{" "}
-              {playerInfos.find((p) => p.id === winner)?.nickname || winner}
-            </Typography>
+            <>
+              <Typography variant="h5" color="primary" sx={{ my: 2 }}>
+                Game Over! Winner: {winnerInfo?.nickname || winner}
+              </Typography>
+              {/* Emoji Rain Effect */}
+              {winnerEmoji && <EmojiRain emoji={winnerEmoji} />}
+            </>
           ) : (
             <Button
               disabled={
+                hasSubmittedMove ||
+                currentTurn.hasMoved.includes(userID) ||
                 !playerInCurrentGame ||
                 !(
                   selectedSquare !== null &&
@@ -497,8 +642,9 @@ const GamePage: React.FC = () => {
       </TableContainer>
       {!gameStarted && (
         <Box>
-          <Typography sx={{ mb: 2 }} variant="body2">
-            Share the URL of this page to invite others.
+          <Typography sx={{ mb: 2 }}>
+            Only press start once everyone has joined, or they'll have to wait
+            for the next game.
           </Typography>
           <Button
             color="primary"
@@ -517,57 +663,61 @@ const GamePage: React.FC = () => {
       )}
 
       {/* Highlight grid when waiting */}
-      {hasSubmittedMove && (
-        <Box
-          sx={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            bgcolor: "rgba(255, 255, 255, 0.7)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
-            Waiting for{" "}
-            {playerInfos
-              .filter((player) =>
-                currentTurn.hasMoved.find(
-                  (playerWhoMoved) => playerWhoMoved !== player.id,
-                ),
-              )
-              .map((player) => player.nickname)
-              .join()}
-          </Typography>
-        </Box>
-      )}
+      {currentTurn &&
+        currentTurn.turnNumber === turns.length &&
+        currentTurn.hasMoved.includes(userID) && (
+          <Box
+            sx={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              bgcolor: "rgba(255, 255, 255, 0.7)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
+              Waiting for
+              <br />
+              {playerInfos
+                .filter(
+                  (player) => !currentTurn.hasMoved.includes(player.id), // Check if player hasn't moved
+                )
+                .map((player, index) => (
+                  <React.Fragment key={player.id}>
+                    {player.nickname}
+                    {index < playerInfos.length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+            </Typography>
+          </Box>
+        )}
+
+      {/* Clash Dialog */}
+      <Dialog open={openClashDialog} onClose={() => setOpenClashDialog(false)}>
+        <DialogTitle>Clash Details</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Players who clashed over this square:
+          </DialogContentText>
+          <List>
+            {clashPlayersList.map((player) => (
+              <ListItem key={player.id}>
+                <ListItemText primary={`${player.nickname} ${player.emoji}`} />
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenClashDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
-}
-
-const ShareButton: React.FC = () => {
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Shared from my App",
-          text: "Check out this cool text I want to share!",
-          url: window.location.href, // Optional: Share a URL
-        })
-        console.log("Content shared successfully")
-      } catch (error) {
-        console.error("Error sharing content:", error)
-      }
-    } else {
-      console.log("Web Share API is not supported in your browser.")
-    }
-  }
-
-  return <button onClick={handleShare}>Share this text</button>
 }
 
 export default GamePage

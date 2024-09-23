@@ -27,6 +27,7 @@ import { UserProvider, useUser } from "./context/UserContext"
 import { getOrCreateUserWithNickname } from "./utils/user"
 import Cookies from "js-cookie"
 import { emojiList } from "@shared/types/Emojis"
+import Sessionpage from "./pages/SessionPage"
 
 const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>("")
@@ -132,7 +133,7 @@ const AppContent: React.FC = () => {
   return (
     <>
       <AppBar position="static">
-        <Toolbar>
+        <Container maxWidth="sm" sx={{ p: 1, display: "flex" }}>
           <Typography
             variant="h6"
             color="primary"
@@ -142,19 +143,22 @@ const AppContent: React.FC = () => {
           >
             tactic toes
           </Typography>
-          <Button color="primary" onClick={handleProfileOpen}>
+          <Button
+            color="primary"
+            sx={{ height: 30 }}
+            onClick={handleProfileOpen}
+          >
             {nickname} {emoji}
           </Button>
-        </Toolbar>
+        </Container>
       </AppBar>
-      <Container maxWidth="sm">
+      <Container maxWidth="sm" sx={{ p: 1 }}>
         <Box width="100%">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/join" element={<JoinPage />} />
             <Route path="/game/:gameID" element={<GamePage />} />
-            {/* Remove the profile route */}
-            {/* <Route path="/profile" element={<ProfilePage />} /> */}
+            <Route path="/session/:sessionName" element={<Sessionpage />} />
           </Routes>
         </Box>
       </Container>

@@ -93,7 +93,7 @@ export const onMoveCreated = functions.firestore
 
         // Process moves and update the board
         const newBoard = [...currentTurn.board]
-        const clashes: { [square: number]: string[] } = {}
+        const clashes: { [square: number]: string[] } = currentTurn.clashes
 
         // Build a map of moves per square
         const moveMap: { [square: number]: string[] } = {}

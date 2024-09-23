@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { Button, TextField, Stack } from "@mui/material"
+import { Button, TextField, Stack, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 
 const JoinPage: React.FC = () => {
@@ -8,7 +8,7 @@ const JoinPage: React.FC = () => {
 
   const handleSubmit = () => {
     if (gameID.trim()) {
-      navigate(`/game/${gameID}`)
+      navigate(`/session/${gameID}`)
     }
   }
 
@@ -18,15 +18,22 @@ const JoinPage: React.FC = () => {
       direction="column"
       alignItems="center"
       justifyContent="center"
-      sx={{ height: "100vh" }}
+      sx={{ height: "50vh" }}
     >
+      <Typography>Missing out on the fun?</Typography>
       <TextField
-        label="Game ID"
+        label="Session name"
         variant="outlined"
         value={gameID}
         onChange={(e) => setGameID(e.target.value)}
+        fullWidth
       />
-      <Button disabled={gameID === ""} color="primary" onClick={handleSubmit}>
+      <Button
+        disabled={gameID === ""}
+        color="primary"
+        onClick={handleSubmit}
+        fullWidth
+      >
         Join
       </Button>
     </Stack>
