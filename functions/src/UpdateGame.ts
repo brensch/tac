@@ -398,7 +398,7 @@ export const onGameStarted = functions.firestore
         board: initialBoard,
         hasMoved: {},
         clashes: {},
-        startTime: admin.firestore.Timestamp.now(),
+        startTime: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 1000),
       }
 
       // Set the currentRound to 1 in the game document

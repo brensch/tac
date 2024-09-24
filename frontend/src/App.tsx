@@ -187,7 +187,7 @@ const AppContent: React.FC = () => {
             to="/"
             sx={{ flexGrow: 1, textDecoration: "none" }}
           >
-            tactic toes
+            🦶 tactic toes
           </Typography>
           <Button
             color="primary"
