@@ -1,18 +1,24 @@
 // @shared/types/Game.ts
 
+import * as admin from "firebase-admin"
+
 export interface Move {
   gameID: string
   moveNumber: number // The turn number
   playerID: string
   move: number // The index of the square the player wants to move into
+  timestamp: admin.firestore.Timestamp // Server timestamp when the move was submitted
 }
 
 export interface Turn {
   turnNumber: number
   board: string[] // The board state after this turn
-  hasMoved: string[] // List of player IDs who have submitted their move for this turn
+  hasMoved: {
+    [playerID: string]: { moveTime: admin.firestore.Timestamp }
+  } // Map of playerID to moveTime
   clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
   winningSquares?: number[] // The list of squares involved in a winning condition
+  startTime: admin.firestore.Timestamp // When the turn started
 }
 
 export interface GameState {
@@ -24,6 +30,7 @@ export interface GameState {
   winner: string
   started: boolean
   nextGame: string // New field for the ID of the next game
+  maxTurnTime: number // Time limit per turn in seconds
 }
 
 export interface PlayerInfo {
@@ -43,6 +50,7 @@ const initializeGame = (sessionName: string): GameState => {
     winner: "",
     started: false,
     nextGame: "",
+    maxTurnTime: 10, // Default time limit per turn in seconds
   }
 }
 

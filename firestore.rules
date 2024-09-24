@@ -1,19 +1,88 @@
-rules_version = '2';
+// firestore.rules
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2024, 10, 21);
+    // Moves
+    match /games/{gameID}/privateMoves/{moveID} {
+      allow create: if isRequestFromCloudFunction() || (
+        request.auth.uid != null &&
+        request.resource.data.playerID == request.auth.uid &&
+        request.resource.data.timestamp == request.time &&
+        request.resource.data.moveNumber is int &&
+        request.resource.data.move is int &&
+        request.resource.data.gameID == gameID
+      );
+      // Deny client-provided timestamp
+      allow update, delete: if false;
+      allow read: if true;
     }
+
+    match /games/{gameID}/turns/{turnNumber} {
+      allow write: if isRequestFromCloudFunction();
+      allow read: if true;
+    }
+    
+    // Game state
+    match /games/{gameID} {
+      allow read: if true;
+      allow create: if isRequestFromCloudFunction() || (
+        request.auth.uid != null &&
+        request.resource.data.playerIDs.size() == 0 &&
+        request.resource.data.started == false &&
+        request.resource.data.maxTurnTime > 0 &&
+        request.resource.data.boardWidth >= 5 &&
+        request.resource.data.sessionName == request.resource.data.sessionName &&
+        request.resource.data.sessionIndex == 0 &&
+        request.resource.data.currentRound == 0 &&
+        request.resource.data.winner == "" &&
+        request.resource.data.nextGame == ""
+      );
+      allow update: if isRequestFromCloudFunction() || (
+        request.auth.uid != null &&
+        // Allow adding own playerID before game starts
+        (
+          !resource.data.started &&
+          request.resource.data.playerIDs.size() == resource.data.playerIDs.size() + 1 &&
+          request.resource.data.playerIDs.hasAll(resource.data.playerIDs) &&
+          request.resource.data.playerIDs[resource.data.playerIDs.size()] == request.auth.uid
+        ) ||
+        // Allow setting 'started' to true
+        (
+          !resource.data.started &&
+          request.resource.data.started == true &&
+          request.resource.data.maxTurnTime == resource.data.maxTurnTime &&
+          request.resource.data.boardWidth == resource.data.boardWidth
+        ) ||
+        // Allow updating 'maxTurnTime' and 'boardWidth' before game starts
+        (
+          !resource.data.started &&
+          request.resource.data.maxTurnTime > 0 &&
+          request.resource.data.boardWidth >= 5 &&
+          request.resource.data.playerIDs == resource.data.playerIDs &&
+          request.resource.data.sessionName == resource.data.sessionName &&
+          request.resource.data.sessionIndex == resource.data.sessionIndex &&
+          request.resource.data.currentRound == resource.data.currentRound &&
+          request.resource.data.winner == resource.data.winner &&
+          request.resource.data.started == resource.data.started &&
+          request.resource.data.nextGame == resource.data.nextGame
+        )
+      );
+    }
+
+    // Users
+    match /users/{userID} {
+      allow write: if request.auth.uid == userID || isRequestFromCloudFunction();
+      allow read: if true;
+    }
+    match /games/{gameID}/turnExpirationRequests/{requestID} {
+      allow create: if request.auth != null;
+      allow read: if true;
+    }
+  }
+
+  // Helper function to check if the request comes from a Cloud Function
+  function isRequestFromCloudFunction() {
+    return request.auth.token.firebase != null && request.auth.token.firebase.sign_in_provider == "firebase";
   }
 }

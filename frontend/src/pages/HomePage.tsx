@@ -29,6 +29,8 @@ const HomePage: React.FC = () => {
       // Initialize the game with the user's ID
       const newGame = initializeGame(sessionName)
 
+      console.log(newGame)
+
       // Add the game to Firestore
       const gameDocRef = await addDoc(gameCollRef, newGame)
 

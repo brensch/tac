@@ -1,3 +1,5 @@
+// src/pages/GamePage.tsx
+
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
@@ -89,11 +91,11 @@ const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
       })}
       <style>
         {`
-            @keyframes fall {
-              0% { transform: translateY(0); }
-              100% { transform: translateY(120vh); }
-            }
-          `}
+                @keyframes fall {
+                  0% { transform: translateY(0); }
+                  100% { transform: translateY(120vh); }
+                }
+              `}
       </style>
     </div>
   )
@@ -124,6 +126,12 @@ const GamePage: React.FC = () => {
   // State for Rules Dialog
   const [openRulesDialog, setOpenRulesDialog] = useState(false)
 
+  // State for Seconds Per Turn
+  const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
+
+  // State for Time Remaining
+  const [timeRemaining, setTimeRemaining] = useState<number>(0)
+
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
       if (gridRef.current) {
@@ -141,46 +149,51 @@ const GamePage: React.FC = () => {
 
   // Monitor the game document
   useEffect(() => {
-    if (gameID && userID) {
+    if (gameID && userID !== "") {
       const gameDocRef = doc(db, "games", gameID)
       const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const gameData = docSnapshot.data() as GameState
-          setGameState(gameData)
-
-          // Set boardWidth from gameData
-          if (!gameStarted) {
-            setBoardWidth(
-              gameData.boardWidth !== undefined
-                ? gameData.boardWidth.toString()
-                : "8",
-            )
-          }
-
-          // Add user to the game if not already in it and game hasn't started
-          if (!gameData.started && !gameData.playerIDs.includes(userID)) {
-            await updateDoc(gameDocRef, {
-              playerIDs: arrayUnion(userID),
-            })
-          }
-
-          // Check if the player has submitted a move
-          const movesRef = collection(db, `games/${gameID}/privateMoves`)
-          const movesQuery = query(
-            movesRef,
-            where("playerID", "==", userID),
-            where("moveNumber", "==", gameData.currentRound),
-          )
-          const movesSnapshot = await getDocs(movesQuery)
-          setHasSubmittedMove(!movesSnapshot.empty)
-        } else {
-          console.error("Game not found")
+        if (!docSnapshot.exists()) {
           setError("Game not found.")
+          return
         }
+        const gameData = docSnapshot.data() as GameState
+        console.log("yo", gameData)
+        setGameState(gameData)
+
+        // Set boardWidth and secondsPerTurn from gameData
+        setBoardWidth(
+          gameData.boardWidth !== undefined
+            ? gameData.boardWidth.toString()
+            : "8",
+        )
+        setSecondsPerTurn(
+          gameData.maxTurnTime !== undefined
+            ? gameData.maxTurnTime.toString()
+            : "10",
+        )
+
+        // Add user to the game if not already in it and game hasn't started
+        if (!gameData.started && !gameData.playerIDs.includes(userID)) {
+          await updateDoc(gameDocRef, {
+            playerIDs: arrayUnion(userID),
+          })
+        }
+
+        // Check if the player has submitted a move
+        const movesRef = collection(db, `games/${gameID}/privateMoves`)
+        const movesQuery = query(
+          movesRef,
+          where("playerID", "==", userID),
+          where("moveNumber", "==", gameData.currentRound),
+        )
+        const movesSnapshot = await getDocs(movesQuery)
+        setHasSubmittedMove(!movesSnapshot.empty)
       })
       return () => unsubscribe()
     }
   }, [gameID, userID])
+
+  console.log(gameState)
 
   // Monitor player documents
   useEffect(() => {
@@ -220,7 +233,7 @@ const GamePage: React.FC = () => {
 
   // Monitor the turns collection
   useEffect(() => {
-    if (gameID) {
+    if (gameID && userID !== "") {
       const turnsRef = collection(db, "games", gameID, "turns")
       const turnsQuery = query(turnsRef, orderBy("turnNumber", "asc"))
 
@@ -234,7 +247,7 @@ const GamePage: React.FC = () => {
 
       return () => unsubscribe()
     }
-  }, [gameID])
+  }, [gameID, userID])
 
   // Determine if the game has started
   const gameStarted = turns.length > 0
@@ -353,18 +366,90 @@ const GamePage: React.FC = () => {
       const newBoardWidth = parseInt(boardWidth, 10)
       const gameDocRef = doc(db, "games", gameID)
 
-      if (!isNaN(newBoardWidth) && newBoardWidth >= 0) {
+      if (!isNaN(newBoardWidth) && newBoardWidth >= 5 && newBoardWidth <= 20) {
         await updateDoc(gameDocRef, {
           boardWidth: newBoardWidth,
         })
       } else {
-        // Handle invalid input: set a default or leave as is
+        // Handle invalid input: reset to default
+        setBoardWidth("8")
         await updateDoc(gameDocRef, {
-          boardWidth: null,
+          boardWidth: 8,
         })
       }
     }
   }
+
+  // Handle seconds per turn change
+  const handleSecondsPerTurnChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setSecondsPerTurn(event.target.value)
+  }
+
+  const handleSecondsPerTurnBlur = async () => {
+    if (gameID && !gameStarted) {
+      const newMaxTurnTime = parseInt(secondsPerTurn, 10)
+      const gameDocRef = doc(db, "games", gameID)
+
+      if (!isNaN(newMaxTurnTime) && newMaxTurnTime > 0) {
+        await updateDoc(gameDocRef, {
+          maxTurnTime: newMaxTurnTime,
+        })
+      } else {
+        // Handle invalid input: reset to default
+        setSecondsPerTurn("10")
+        await updateDoc(gameDocRef, {
+          maxTurnTime: 10,
+        })
+      }
+    }
+  }
+
+  const currentTurn = turns[currentTurnIndex]
+
+  // Assuming you already have the gameID and other context from your component
+  useEffect(() => {
+    if (
+      gameState?.winner == "" &&
+      currentTurn &&
+      gameState?.maxTurnTime &&
+      gameID
+    ) {
+      const interval = setInterval(async () => {
+        const now = Date.now() / 1000 // Current time in seconds
+        const startTimeSeconds = currentTurn.startTime.seconds // Start time from Firestore
+        const elapsed = now - startTimeSeconds // Elapsed time since the turn started
+        const remaining = Math.max(0, gameState.maxTurnTime - elapsed) // Remaining time
+
+        setTimeRemaining(remaining) // Update your local state for the timer display
+
+        // If time runs out, create a document in turnExpirationRequests
+        if (remaining <= 0) {
+          try {
+            // Create a document in the games/{gameID}/turnExpirationRequests collection
+            const expirationRequestsRef = collection(
+              db,
+              `games/${gameID}/turnExpirationRequests`,
+            )
+
+            await addDoc(expirationRequestsRef, {
+              timestamp: new Date(),
+              gameID: gameID,
+              turnNumber: currentTurn.turnNumber, // Optional: Track the current turn number
+              reason: "Turn timer expired", // Optional: Add a reason for the request
+            })
+
+            console.log(`Turn expiration request created for gameID: ${gameID}`)
+          } catch (error) {
+            console.error("Error creating turn expiration request:", error)
+          }
+        }
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+  }, [currentTurn, gameState, gameID])
 
   if (!gameState || error) {
     return (
@@ -382,9 +467,6 @@ const GamePage: React.FC = () => {
   }
 
   const { winner } = gameState
-  const currentTurn = turns[currentTurnIndex]
-  console.log(gameState)
-  console.log(currentTurn)
 
   // Render the grid
   const renderGrid = () => {
@@ -550,30 +632,38 @@ const GamePage: React.FC = () => {
           {winner ? (
             <>
               <Typography variant="h5" color="primary" sx={{ my: 2 }}>
-                Game Over! Winner: {winnerInfo?.nickname || winner}
+                Game Over!{" "}
+                {winner === "-1"
+                  ? "Nobody made a move"
+                  : `Winner: ${winnerInfo?.nickname || winner}`}
               </Typography>
               {/* Emoji Rain Effect */}
               {winnerEmoji && <EmojiRain emoji={winnerEmoji} />}
             </>
           ) : (
-            <Button
-              disabled={
-                hasSubmittedMove ||
-                currentTurn.hasMoved.includes(userID) ||
-                !playerInCurrentGame ||
-                !(
-                  selectedSquare !== null &&
-                  currentTurn.board[selectedSquare] === "" &&
-                  turns.length === currentTurn.turnNumber
-                )
-              }
-              color="primary"
-              onClick={handleMoveSubmit}
-              sx={{ my: 2 }}
-              fullWidth
-            >
-              Submit Move
-            </Button>
+            <>
+              <Typography variant="h6">
+                Time Remaining: {Math.ceil(timeRemaining)}s
+              </Typography>
+              <Button
+                disabled={
+                  hasSubmittedMove ||
+                  !!currentTurn.hasMoved[userID] ||
+                  !playerInCurrentGame ||
+                  !(
+                    selectedSquare !== null &&
+                    currentTurn.board[selectedSquare] === "" &&
+                    turns.length === currentTurn.turnNumber
+                  )
+                }
+                color="primary"
+                onClick={handleMoveSubmit}
+                sx={{ my: 2 }}
+                fullWidth
+              >
+                Submit Move
+              </Button>
+            </>
           )}
           {renderGrid()}
 
@@ -625,6 +715,21 @@ const GamePage: React.FC = () => {
               Board needs to be bigger than 4
             </Typography>
           )}
+          <TextField
+            label="Seconds per Turn"
+            type="number"
+            value={secondsPerTurn}
+            onChange={handleSecondsPerTurnChange}
+            onBlur={handleSecondsPerTurnBlur}
+            disabled={gameStarted}
+            fullWidth
+            sx={{ mt: 2 }}
+          />
+          {parseInt(secondsPerTurn) <= 0 && (
+            <Typography color="error">
+              Seconds per Turn must be greater than 0
+            </Typography>
+          )}
         </Box>
       )}
       <TableContainer sx={{ my: 2, width: "100%" }}>
@@ -632,7 +737,7 @@ const GamePage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Players</TableCell>
-              {gameStarted && <TableCell align="right">Has Moved</TableCell>}
+              {gameStarted && <TableCell align="right">Time Taken</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -643,7 +748,12 @@ const GamePage: React.FC = () => {
                 </TableCell>
                 {gameStarted && (
                   <TableCell align="right">
-                    {currentTurn?.hasMoved.includes(player.id) ? "Yes" : "No"}
+                    {currentTurn?.hasMoved[player.id]?.moveTime
+                      ? `${Math.round(
+                          currentTurn.hasMoved[player.id].moveTime.seconds -
+                            currentTurn.startTime.seconds,
+                        )}s`
+                      : "Not yet"}
                   </TableCell>
                 )}
               </TableRow>
@@ -664,7 +774,8 @@ const GamePage: React.FC = () => {
             disabled={
               gameState.started ||
               gameState.boardWidth < 5 ||
-              gameState.boardWidth > 20
+              gameState.boardWidth > 20 ||
+              parseInt(secondsPerTurn) <= 0
             }
             onClick={handleStartGame}
             sx={{ mb: 2 }}
@@ -678,7 +789,7 @@ const GamePage: React.FC = () => {
       {/* Highlight grid when waiting */}
       {currentTurn &&
         currentTurn.turnNumber === turns.length &&
-        currentTurn.hasMoved.includes(userID) && (
+        currentTurn.hasMoved[userID] && (
           <Box
             sx={{
               position: "fixed",
@@ -698,7 +809,7 @@ const GamePage: React.FC = () => {
               <br />
               {playerInfos
                 .filter(
-                  (player) => !currentTurn.hasMoved.includes(player.id), // Check if player hasn't moved
+                  (player) => !currentTurn.hasMoved[player.id], // Check if player hasn't moved
                 )
                 .map((player, index) => (
                   <React.Fragment key={player.id}>

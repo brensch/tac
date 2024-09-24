@@ -17,31 +17,37 @@ import {
   DialogContent,
   IconButton,
 } from "@mui/material"
-import CloseIcon from "@mui/icons-material/Close" // Import CloseIcon
+import CloseIcon from "@mui/icons-material/Close"
 import HomePage from "./pages/HomePage"
 import GamePage from "./pages/GamePage"
 import ProfilePage from "./pages/ProfilePage"
 import { UserProvider, useUser } from "./context/UserContext"
 import { getOrCreateUserWithNickname } from "./utils/user"
-import Cookies from "js-cookie"
 import { emojiList } from "@shared/types/Emojis"
 import Sessionpage from "./pages/SessionPage"
 import { Refresh } from "@mui/icons-material"
+import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>("")
-  const [isUserCreated, setIsUserCreated] = useState<boolean>(false)
   const [selectedEmoji, setSelectedEmoji] = useState<string>("")
   const [message, setMessage] = useState<string>("")
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(true) // Track auth loading state
+  const [isUserCreated, setIsUserCreated] = useState<boolean>(false) // Track if the user exists
 
-  // Check if the user ID is already in cookies
   useEffect(() => {
-    const storedUserID = Cookies.get("userID")
-    if (storedUserID) {
-      setIsUserCreated(true) // User already exists
-    }
-  }, []) // Run this once when the app loads
+    const auth = getAuth()
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoading(false) // Auth has finished loading
+
+      if (user) {
+        setIsUserCreated(true) // User exists
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const handleNicknameSubmit = async () => {
     if (!nickname.trim() || !selectedEmoji) {
@@ -52,25 +58,41 @@ const App: React.FC = () => {
     setIsUserCreated(true)
   }
 
-  useEffect(() => {
-    // Initialize the displayedEmojis array
-    randomizeEmojis()
-  }, [])
-
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
-    // Ensure the selectedEmoji is at the start
     const filteredEmojis = shuffledEmojis.filter(
       (emoji) => emoji !== selectedEmoji,
     )
     if (selectedEmoji === "") {
-      setDisplayedEmojis(filteredEmojis.slice(0, 12))
+      setDisplayedEmojis(filteredEmojis.slice(0, 20))
       return
     }
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
   }
 
-  // If the user hasn't been created, show the nickname and emoji prompt
+  useEffect(() => {
+    randomizeEmojis()
+  }, [])
+
+  // Show loading screen while auth is still loading
+  if (isLoading) {
+    return (
+      <Container sx={{ mt: 1 }}>
+        <Box
+          width="100%"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+        >
+          <Typography variant="h4" sx={{ my: 4 }}>
+            Hi 👋
+          </Typography>
+        </Box>
+      </Container>
+    )
+  }
+
+  // Show the "Glad you're here" screen if auth has loaded and no user is signed in
   if (!isUserCreated) {
     return (
       <Container sx={{ mt: 1 }}>
@@ -96,7 +118,7 @@ const App: React.FC = () => {
             sx={{
               display: "flex",
               flexWrap: "wrap",
-              gap: 2, // Add some spacing between buttons
+              gap: 2,
               justifyContent: "center",
               my: 2,
             }}
@@ -132,7 +154,7 @@ const App: React.FC = () => {
     )
   }
 
-  // If user is created, render the main app with UserProvider
+  // If the user exists, load the main app
   return (
     <UserProvider>
       <Router>
@@ -143,10 +165,9 @@ const App: React.FC = () => {
 }
 
 const AppContent: React.FC = () => {
-  const { nickname, emoji } = useUser() // Access nickname from UserContext
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false) // State to manage modal
+  const { nickname, emoji } = useUser()
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
 
-  // Handlers to open and close the modal
   const handleProfileOpen = () => {
     setIsProfileOpen(true)
   }
