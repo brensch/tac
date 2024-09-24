@@ -407,6 +407,7 @@ const GamePage: React.FC = () => {
   }
 
   const currentTurn = turns[currentTurnIndex]
+  const latestTurn = turns[turns.length - 1]
 
   // Assuming you already have the gameID and other context from your component
   useEffect(() => {
@@ -418,7 +419,7 @@ const GamePage: React.FC = () => {
     ) {
       const interval = setInterval(async () => {
         const now = Date.now() / 1000 // Current time in seconds
-        const startTimeSeconds = currentTurn.startTime.seconds // Start time from Firestore
+        const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
         const elapsed = now - startTimeSeconds // Elapsed time since the turn started
         const remaining = Math.max(0, gameState.maxTurnTime - elapsed) // Remaining time
 
@@ -642,9 +643,6 @@ const GamePage: React.FC = () => {
             </>
           ) : (
             <>
-              <Typography variant="h6">
-                Time Remaining: {Math.ceil(timeRemaining)}s
-              </Typography>
               <Button
                 disabled={
                   hasSubmittedMove ||
@@ -661,7 +659,7 @@ const GamePage: React.FC = () => {
                 sx={{ my: 2 }}
                 fullWidth
               >
-                Submit Move
+                Submit Move ({Math.ceil(timeRemaining)}s left)
               </Button>
             </>
           )}
