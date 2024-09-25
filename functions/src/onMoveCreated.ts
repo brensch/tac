@@ -49,10 +49,6 @@ export const onMoveCreated = functions.firestore
       const hasMoved = { ...currentTurn.hasMoved }
       hasMoved[moveData.playerID] = { moveTime: moveData.timestamp }
 
-      transaction.update(currentTurnRef, {
-        [`hasMoved.${moveData.playerID}`]: { moveTime: moveData.timestamp },
-      })
-
       // Check if all players have moved by comparing the updated hasMoved object with playerIDs
       const playersMoved = Object.keys(hasMoved)
       const allPlayersMoved = currentTurn.playerIDs.every((playerID) =>
@@ -72,5 +68,8 @@ export const onMoveCreated = functions.firestore
           "Not all players have moved, and time limit has not been reached yet.",
         )
       }
+      transaction.update(currentTurnRef, {
+        [`hasMoved.${moveData.playerID}`]: { moveTime: moveData.timestamp },
+      })
     })
   })

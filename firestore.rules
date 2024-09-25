@@ -21,6 +21,14 @@ service cloud.firestore {
       allow write: if isRequestFromCloudFunction();
       allow read: if true;
     }
+
+    match /games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
+      allow read, write: if true;
+    }
+
+        match /games/{gameID}/readyExpirationRequests/{expirationID} {
+      allow read, write: if true;
+    }
     
     // Game state
     match /games/{gameID} {

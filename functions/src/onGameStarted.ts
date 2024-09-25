@@ -23,7 +23,7 @@ export async function startGame(
     board: initialBoard,
     hasMoved: {},
     clashes: {},
-    startTime: admin.firestore.Timestamp.fromMillis(Date.now()),
+    startTime: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 1000),
     turnTimeLimitSeconds: gameData.maxTurnTime,
     playerIDs: gameData.playerIDs,
     latestTurn: true,

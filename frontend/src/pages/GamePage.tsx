@@ -110,6 +110,8 @@ const GamePage: React.FC = () => {
   const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [boardWidth, setBoardWidth] = useState<string>("8")
+  const [elapsedTime, setElapsedTime] = useState(0)
+
   const navigate = useNavigate()
 
   // New ref and state for dynamic font sizing
@@ -185,8 +187,6 @@ const GamePage: React.FC = () => {
       return () => unsubscribe()
     }
   }, [gameID, userID])
-
-  console.log(gameState)
 
   // Monitor player documents
   useEffect(() => {
@@ -400,6 +400,41 @@ const GamePage: React.FC = () => {
   }
 
   const currentTurn = turns[currentTurnIndex]
+  const latestTurn = turns[turns.length - 1]
+
+  useEffect(() => {
+    if (gameState && gameState.firstPlayerReadyTime && !gameState.started) {
+      const startTime = gameState.firstPlayerReadyTime.seconds
+
+      const interval = setInterval(async () => {
+        const now = Math.floor(Date.now() / 1000)
+        setElapsedTime(now - startTime)
+
+        if (now - startTime > 60) {
+          try {
+            // Create a document in the games/{gameID}/turnExpirationRequests collection
+            if (now - startTime > 60) {
+              const expirationRequestsRef = collection(
+                db,
+                `games/${gameID}/readyExpirationRequests`,
+              )
+
+              await addDoc(expirationRequestsRef, {
+                timestamp: new Date(),
+              })
+            }
+
+            console.log(`Turn expiration request created for gameID: ${gameID}`)
+          } catch (error) {
+            console.error("Error creating turn expiration request:", error)
+          }
+        }
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+    setElapsedTime(0)
+  }, [gameState?.firstPlayerReadyTime, gameID])
 
   // Assuming you already have the gameID and other context from your component
   useEffect(() => {
@@ -411,8 +446,7 @@ const GamePage: React.FC = () => {
     ) {
       const interval = setInterval(async () => {
         const now = Date.now() / 1000 // Current time in seconds
-        // const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
-        const startTimeSeconds = 1 // Start time from Firestore
+        const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
         const elapsed = now - startTimeSeconds // Elapsed time since the turn started
         const remaining = Math.max(0, gameState.maxTurnTime - elapsed) // Remaining time
 
@@ -424,7 +458,7 @@ const GamePage: React.FC = () => {
             // Create a document in the games/{gameID}/turnExpirationRequests collection
             const expirationRequestsRef = collection(
               db,
-              `games/${gameID}/turnExpirationRequests`,
+              `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
             )
 
             await addDoc(expirationRequestsRef, {
@@ -443,6 +477,7 @@ const GamePage: React.FC = () => {
 
       return () => clearInterval(interval)
     }
+    setTimeRemaining(latestTurn?.startTime?.seconds)
   }, [currentTurn, gameState, gameID])
 
   if (!gameState || error) {
@@ -769,9 +804,7 @@ const GamePage: React.FC = () => {
       </TableContainer>
       {!gameStarted && (
         <Box>
-          <Typography sx={{ mb: 2 }}>
-            Only press start once everyone has joined.
-          </Typography>
+          <Typography sx={{ mb: 2 }}>Press ready when you're ready.</Typography>
           <Button fullWidth onClick={handleShare} sx={{ mb: 2 }}>
             Invite
           </Button>
@@ -793,7 +826,9 @@ const GamePage: React.FC = () => {
             sx={{ mb: 2 }}
             fullWidth
           >
-            Ready
+            I'm ready
+            {elapsedTime !== 0 &&
+              `(starting in ${Math.max(60 - elapsedTime, 0)})`}
           </Button>
         </Box>
       )}
