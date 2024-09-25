@@ -13,9 +13,8 @@ service cloud.firestore {
         request.resource.data.move is int &&
         request.resource.data.gameID == gameID
       );
-      // Deny client-provided timestamp
       allow update, delete: if false;
-      allow read: if true;
+      allow read: if false;
     }
 
     match /games/{gameID}/turns/{turnNumber} {
@@ -29,12 +28,12 @@ service cloud.firestore {
       allow create: if isRequestFromCloudFunction() || (
         request.auth.uid != null &&
         request.resource.data.playerIDs.size() == 0 &&
+        request.resource.data.playersReady.size() == 0 &&
         request.resource.data.started == false &&
         request.resource.data.maxTurnTime > 0 &&
         request.resource.data.boardWidth >= 5 &&
         request.resource.data.sessionName == request.resource.data.sessionName &&
         request.resource.data.sessionIndex == 0 &&
-        request.resource.data.currentRound == 0 &&
         request.resource.data.winner == "" &&
         request.resource.data.nextGame == ""
       );
@@ -47,13 +46,6 @@ service cloud.firestore {
           request.resource.data.playerIDs.hasAll(resource.data.playerIDs) &&
           request.resource.data.playerIDs[resource.data.playerIDs.size()] == request.auth.uid
         ) ||
-        // Allow setting 'started' to true
-        (
-          !resource.data.started &&
-          request.resource.data.started == true &&
-          request.resource.data.maxTurnTime == resource.data.maxTurnTime &&
-          request.resource.data.boardWidth == resource.data.boardWidth
-        ) ||
         // Allow updating 'maxTurnTime' and 'boardWidth' before game starts
         (
           !resource.data.started &&
@@ -62,7 +54,24 @@ service cloud.firestore {
           request.resource.data.playerIDs == resource.data.playerIDs &&
           request.resource.data.sessionName == resource.data.sessionName &&
           request.resource.data.sessionIndex == resource.data.sessionIndex &&
-          request.resource.data.currentRound == resource.data.currentRound &&
+          request.resource.data.winner == resource.data.winner &&
+          request.resource.data.started == resource.data.started &&
+          request.resource.data.nextGame == resource.data.nextGame
+        ) ||
+        // Allow updating the playersReady list with own UID
+        (
+          !resource.data.started &&
+          request.resource.data.playersReady.size() == resource.data.playersReady.size() + 1 &&
+          request.resource.data.playersReady.hasAll(resource.data.playersReady) &&
+          request.resource.data.playersReady[resource.data.playersReady.size()] == request.auth.uid
+        ) ||
+        // Allow changing gameType to valid enum value ('connect4' or 'longest')
+        (
+          !resource.data.started &&
+          request.resource.data.gameType in ['connect4', 'longest'] &&
+          request.resource.data.playerIDs == resource.data.playerIDs &&
+          request.resource.data.sessionName == resource.data.sessionName &&
+          request.resource.data.sessionIndex == resource.data.sessionIndex &&
           request.resource.data.winner == resource.data.winner &&
           request.resource.data.started == resource.data.started &&
           request.resource.data.nextGame == resource.data.nextGame

@@ -15,6 +15,10 @@
   },
   "main": "lib/functions/src/index.js",
   "dependencies": {
+    "@google-cloud/firestore": "^7.10.0",
+    "@google-cloud/functions-framework": "^3.4.2",
+    "@google-cloud/logging": "^11.2.0",
+    "firebase": "^10.13.2",
     "firebase-admin": "^11.8.0",
     "firebase-functions": "^4.3.1"
   },

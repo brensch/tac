@@ -180,14 +180,9 @@ const GamePage: React.FC = () => {
         }
 
         // Check if the player has submitted a move
-        const movesRef = collection(db, `games/${gameID}/privateMoves`)
-        const movesQuery = query(
-          movesRef,
-          where("playerID", "==", userID),
-          where("moveNumber", "==", gameData.currentRound),
-        )
-        const movesSnapshot = await getDocs(movesQuery)
-        setHasSubmittedMove(!movesSnapshot.empty)
+        if (currentTurn) {
+          setHasSubmittedMove(!!currentTurn.hasMoved[userID])
+        }
       })
       return () => unsubscribe()
     }
@@ -250,14 +245,14 @@ const GamePage: React.FC = () => {
   }, [gameID, userID])
 
   // Determine if the game has started
-  const gameStarted = turns.length > 0
+  const gameStarted = gameState?.started
 
   // Start game
   const handleStartGame = async () => {
     if (gameState && gameID) {
       const gameDocRef = doc(db, "games", gameID)
       await updateDoc(gameDocRef, {
-        started: true,
+        playersReady: arrayUnion(userID), // Add the current userID to playersReady array
       })
     }
   }
@@ -304,7 +299,7 @@ const GamePage: React.FC = () => {
   const handleMoveSubmit = async () => {
     if (selectedSquare !== null && gameState && userID && gameID) {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
-      const moveNumber = gameState.currentRound
+      const moveNumber = currentTurn.turnNumber
 
       await addDoc(moveRef, {
         gameID,
@@ -574,6 +569,8 @@ const GamePage: React.FC = () => {
   const winnerInfo = playerInfos.find((p) => p.id === winner)
   const winnerEmoji = winnerInfo?.emoji || ""
 
+  console.log(gameState.playersReady)
+
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -735,7 +732,11 @@ const GamePage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Players</TableCell>
-              {gameStarted && <TableCell align="right">Time Taken</TableCell>}
+              {gameStarted ? (
+                <TableCell align="right">Time Taken</TableCell>
+              ) : (
+                <TableCell align="right">Ready</TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -744,7 +745,7 @@ const GamePage: React.FC = () => {
                 <TableCell>
                   {player.nickname} {player.emoji}
                 </TableCell>
-                {gameStarted && (
+                {gameStarted ? (
                   <TableCell align="right">
                     {currentTurn?.hasMoved[player.id]?.moveTime
                       ? `${Math.round(
@@ -752,6 +753,14 @@ const GamePage: React.FC = () => {
                             currentTurn.startTime.seconds,
                         )}s`
                       : "Not yet"}
+                  </TableCell>
+                ) : (
+                  <TableCell align="right">
+                    {gameState.playersReady.find(
+                      (readyPlayer) => readyPlayer === player.id,
+                    )
+                      ? "Yeah"
+                      : "Nah"}
                   </TableCell>
                 )}
               </TableRow>
@@ -768,7 +777,13 @@ const GamePage: React.FC = () => {
             Invite
           </Button>
           <Button
-            color="primary"
+            variant={
+              gameState.playersReady.find(
+                (readyPlayer) => readyPlayer === userID,
+              )
+                ? "contained"
+                : "outlined"
+            }
             disabled={
               gameState.started ||
               gameState.boardWidth < 5 ||
@@ -779,7 +794,7 @@ const GamePage: React.FC = () => {
             sx={{ mb: 2 }}
             fullWidth
           >
-            Start Game
+            Ready
           </Button>
         </Box>
       )}
