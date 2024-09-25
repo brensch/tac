@@ -2,25 +2,6 @@ import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { GameState, Turn, Move } from "./types/Game" // Adjust the import path as necessary
 
-// Function to check for a win condition
-function checkWinCondition(
-  board: string[],
-  boardWidth: number,
-  winLength: number,
-  playerIDs: string[],
-): { playerID: string; winningSquares: number[] }[] {
-  const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
-
-  playerIDs.forEach((playerID) => {
-    const result = hasPlayerWon(board, boardWidth, winLength, playerID)
-    if (result.hasWon) {
-      winningPlayers.push({ playerID, winningSquares: result.winningSquares })
-    }
-  })
-
-  return winningPlayers
-}
-
 export async function processTurn(
   transaction: FirebaseFirestore.Transaction,
   gameID: string,
@@ -96,12 +77,23 @@ export async function processTurn(
     }
   }
 
+  // Fetch the existing game data
+  const gameRef = admin.firestore().collection("games").doc(gameID)
+  const gameDoc = await transaction.get(gameRef)
+
+  if (!gameDoc.exists) {
+    logger.error("Game not found for creating a new game.", { gameID })
+    return
+  }
+
+  const gameData = gameDoc.data() as GameState
+
   // Check for a winner
   const winLength = 4 // Number of squares in a row needed to win
   const playerIDs = currentTurn.playerIDs
   const winningPlayers = checkWinCondition(
     newBoard,
-    currentTurn.board.length,
+    gameData.boardWidth,
     winLength,
     playerIDs,
   )
@@ -233,49 +225,169 @@ async function createNewGame(
   )
 }
 
-// Helper function to check if a player has won
-function hasPlayerWon(
+// Function to check for a win condition
+// function checkWinCondition2(
+//   board: string[],
+//   boardWidth: number,
+//   winLength: number,
+//   playerIDs: string[],
+// ): { playerID: string; winningSquares: number[] }[] {
+//   const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
+
+//   playerIDs.forEach((playerID) => {
+//     const result = hasPlayerWon(board, boardWidth, winLength, playerID)
+//     if (result.hasWon) {
+//       winningPlayers.push({ playerID, winningSquares: result.winningSquares })
+//     }
+//   })
+
+//   return winningPlayers
+// }
+
+// // Helper function to check if a player has won
+// function hasPlayerWon(
+//   board: string[],
+//   boardWidth: number,
+//   winLength: number,
+//   playerID: string,
+// ): { hasWon: boolean; winningSquares: number[] } {
+//   const size = boardWidth
+
+//   // Direction vectors: right, down, down-right, down-left
+//   const directions = [
+//     { x: 1, y: 0 }, // Horizontal
+//     { x: 0, y: 1 }, // Vertical
+//     { x: 1, y: 1 }, // Diagonal down-right
+//     { x: -1, y: 1 }, // Diagonal down-left
+//   ]
+
+//   for (let y = 0; y < size; y++) {
+//     for (let x = 0; x < size; x++) {
+//       for (const dir of directions) {
+//         let count = 0
+//         let winningSquares: number[] = []
+//         let dx = x
+//         let dy = y
+
+//         while (
+//           dx >= 0 &&
+//           dx < size &&
+//           dy >= 0 &&
+//           dy < size &&
+//           board[dy * size + dx] === playerID
+//         ) {
+//           winningSquares.push(dy * size + dx)
+//           count++
+//           if (count === winLength) {
+//             return { hasWon: true, winningSquares }
+//           }
+//           dx += dir.x
+//           dy += dir.y
+//         }
+//       }
+//     }
+//   }
+
+//   return { hasWon: false, winningSquares: [] }
+// }
+
+// Function to check for a win condition based on the longest continuous connected path
+export function checkWinCondition(
   board: string[],
   boardWidth: number,
   winLength: number,
-  playerID: string,
-): { hasWon: boolean; winningSquares: number[] } {
-  const size = boardWidth
+  playerIDs: string[],
+): { playerID: string; winningSquares: number[] }[] {
+  // Ensure no player wins unless all squares are filled
+  if (board.some((square) => square === "")) {
+    return [] // No winner if there are empty squares
+  }
 
-  // Direction vectors: right, down, down-right, down-left
+  const longestPaths: { playerID: string; winningSquares: number[] }[] = []
+
+  playerIDs.forEach((playerID) => {
+    const result = findLongestConnectedPathForPlayer(
+      board,
+      boardWidth,
+      playerID,
+    )
+    longestPaths.push({ playerID, winningSquares: result })
+  })
+
+  // Return the player(s) with the longest path
+  const longestPathLength = Math.max(
+    ...longestPaths.map((p) => p.winningSquares.length),
+  )
+
+  return longestPaths.filter(
+    (p) => p.winningSquares.length === longestPathLength,
+  )
+}
+
+// Helper function to find the longest connected path for a player
+function findLongestConnectedPathForPlayer(
+  board: string[],
+  boardWidth: number,
+  playerID: string,
+): number[] {
+  const size = boardWidth
+  let longestPath: number[] = []
+  const visited: Set<number> = new Set()
+
+  // Direction vectors: right, down, left, up
   const directions = [
-    { x: 1, y: 0 }, // Horizontal
-    { x: 0, y: 1 }, // Vertical
-    { x: 1, y: 1 }, // Diagonal down-right
-    { x: -1, y: 1 }, // Diagonal down-left
+    { x: 1, y: 0 }, // Right
+    { x: 0, y: 1 }, // Down
+    { x: -1, y: 0 }, // Left
+    { x: 0, y: -1 }, // Up
   ]
 
+  // Helper to convert (x, y) to a single index in the board array
+  const index = (x: number, y: number) => y * size + x
+
+  // Depth-first search (DFS) to find the longest connected path with logging
+  const dfs = (x: number, y: number, path: number[]): number[] => {
+    const currentPath = [...path, index(x, y)]
+    visited.add(index(x, y))
+
+    // Log the current position and playerID
+
+    let maxPath = currentPath
+
+    directions.forEach((dir) => {
+      const newX = x + dir.x
+      const newY = y + dir.y
+      const newIdx = index(newX, newY)
+
+      if (
+        newX >= 0 &&
+        newX < size &&
+        newY >= 0 &&
+        newY < size &&
+        board[newIdx] === playerID &&
+        !visited.has(newIdx)
+      ) {
+        const newPath = dfs(newX, newY, currentPath)
+        if (newPath.length > maxPath.length) {
+          maxPath = newPath
+        }
+      }
+    })
+
+    return maxPath
+  }
+
+  // Iterate over all squares in the board and initiate DFS for each unvisited square of the player
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      for (const dir of directions) {
-        let count = 0
-        let winningSquares: number[] = []
-        let dx = x
-        let dy = y
-
-        while (
-          dx >= 0 &&
-          dx < size &&
-          dy >= 0 &&
-          dy < size &&
-          board[dy * size + dx] === playerID
-        ) {
-          winningSquares.push(dy * size + dx)
-          count++
-          if (count === winLength) {
-            return { hasWon: true, winningSquares }
-          }
-          dx += dir.x
-          dy += dir.y
+      if (board[index(x, y)] === playerID && !visited.has(index(x, y))) {
+        const path = dfs(x, y, [])
+        if (path.length > longestPath.length) {
+          longestPath = path
         }
       }
     }
   }
 
-  return { hasWon: false, winningSquares: [] }
+  return longestPath
 }

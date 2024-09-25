@@ -530,6 +530,14 @@ const GamePage: React.FC = () => {
           const clash = clashes[index.toString()]
           const clashPlayers = clash ? clash.players : []
           const isWinningSquare = winningSquaresSet.has(index)
+          // console.log(
+          //   cell,
+          //   index,
+          //   gameStarted,
+          //   !hasSubmittedMove,
+          //   isCellEmpty,
+          //   !isBlocked,
+          // )
 
           return (
             <Box
