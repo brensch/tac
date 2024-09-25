@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "@google-cloud/firestore": "^7.10.0",
     "firebase": "^10.13.2",
     "firebase-admin": "^12.5.0"
   }

@@ -52,7 +52,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <Container sx={{ mt: 1 }}>
+    <Container sx={{ m: 1 }}>
       <Box
         width="100%"
         display="flex"

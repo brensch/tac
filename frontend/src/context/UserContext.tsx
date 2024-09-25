@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
-import { doc, onSnapshot, getDoc, setDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
-import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
+import { auth } from "../firebaseConfig"
+import SignupPage from "../pages/SignupPage"
+import { Container, Box, Typography } from "@mui/material"
 
 interface UserContextType {
   userID: string
@@ -17,45 +20,87 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   const [userID, setUserID] = useState<string>("")
   const [nickname, setNickname] = useState<string>("")
   const [emoji, setEmoji] = useState<string>("")
-  const auth = getAuth()
+  const [isUserDocLoaded, setIsUserDocLoaded] = useState<boolean>(false) // Flag to check if user doc is loaded
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) return
-      const uid = user.uid
-      setUserID(uid)
-
-      const userDocRef = doc(db, "users", uid)
-      const userDocSnap = await getDoc(userDocRef)
-
-      // Early return if Firestore doc doesn't exist, create a new one with default values
-      if (!userDocSnap.exists()) {
-        const defaultUserInfo = { nickname: "Unknown", emoji: "" }
-        await setDoc(userDocRef, defaultUserInfo)
-        setNickname(defaultUserInfo.nickname)
-        setEmoji(defaultUserInfo.emoji)
-      }
-
-      // Set initial user info from Firestore document
-      const userInfo = userDocSnap.data() as { nickname: string; emoji: string }
-      setNickname(userInfo.nickname || "Unknown")
-      setEmoji(userInfo.emoji || "")
-
-      // Subscribe to real-time updates from Firestore
-      const unsubscribeSnapshot = onSnapshot(userDocRef, (doc) => {
-        if (!doc.exists()) return // Early return if the document doesn't exist in Firestore
-        const userInfo = doc.data() as { nickname: string; emoji: string }
-        setNickname(userInfo.nickname || "Unknown")
-        setEmoji(userInfo.emoji || "")
-      })
-
-      // Cleanup Firestore listener when component unmounts
-      return () => unsubscribeSnapshot()
+    const unsubscribeAuth = onAuthStateChanged(auth, () => {
+      console.log("hi")
     })
 
-    // Cleanup auth listener when component unmounts
+    const checkAuth = async () => {
+      // Automatically log in anonymously if not authenticated
+      if (!auth.currentUser) {
+        console.log("logging")
+        await signInAnonymously(auth)
+        console.log("k")
+      }
+
+      const user = auth.currentUser
+      console.log(user)
+      if (user) {
+        const uid = user.uid
+        setUserID(uid)
+
+        const userDocRef = doc(db, "users", uid)
+        const userDocSnap = await getDoc(userDocRef)
+
+        // If no user document exists, prompt for nickname/emoji
+        if (!userDocSnap.exists()) {
+          setIsUserDocLoaded(true) // Show signup page
+        } else {
+          // Set user info from the document if it exists
+          const userInfo = userDocSnap.data() as {
+            nickname: string
+            emoji: string
+          }
+          setNickname(userInfo.nickname || "Unknown")
+          setEmoji(userInfo.emoji || "")
+          setIsUserDocLoaded(true) // Continue after loading user data
+        }
+      } else {
+        setIsUserDocLoaded(true) // Edge case where auth state is not set
+      }
+    }
+
+    checkAuth()
+
     return () => unsubscribeAuth()
-  }, [auth])
+  }, [])
+
+  // Save nickname and emoji once user submits the form
+  const handleSaveNicknameEmoji = async (nickname: string, emoji: string) => {
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      const userDocRef = doc(db, "users", uid)
+      await setDoc(userDocRef, { nickname, emoji }, { merge: true })
+      setNickname(nickname)
+      setEmoji(emoji)
+      setIsUserDocLoaded(true) // Continue with the app after saving
+    }
+  }
+
+  if (!isUserDocLoaded) {
+    // Show loading screen while auth is still loading
+    return (
+      <Container sx={{ mt: 1 }}>
+        <Box
+          width="100%"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+        >
+          <Typography variant="h4" sx={{ my: 4 }}>
+            Hi 👋
+          </Typography>
+        </Box>
+      </Container>
+    )
+  }
+
+  // If user doesn't have a nickname or emoji yet, show the form
+  if (!nickname || !emoji) {
+    return <SignupPage onSave={handleSaveNicknameEmoji} />
+  }
 
   return (
     <UserContext.Provider value={{ userID, nickname, emoji }}>
@@ -70,22 +115,4 @@ export const useUser = (): UserContextType => {
     throw new Error("useUser must be used within a UserProvider")
   }
   return context
-}
-
-// Fetches the user's nickname and emoji from Firestore (if needed for manual fetches elsewhere)
-export const getUserInfo = async (
-  userID: string,
-): Promise<{ nickname: string; emoji: string }> => {
-  const userDocRef = doc(db, "users", userID)
-  const userDocSnap = await getDoc(userDocRef)
-
-  if (!userDocSnap.exists()) {
-    return { nickname: "Unknown", emoji: "" }
-  }
-
-  const userData = userDocSnap.data() as { nickname: string; emoji: string }
-  return {
-    nickname: userData.nickname || "Unknown",
-    emoji: userData.emoji || "",
-  }
 }

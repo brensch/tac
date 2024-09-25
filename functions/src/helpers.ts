@@ -1,4 +1,3 @@
-import { Timestamp } from "firebase/firestore"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { GameState, Turn, Move } from "./types/Game" // Adjust the import path as necessary
@@ -155,7 +154,7 @@ export async function processTurn(
     hasMoved: {},
     clashes: clashes,
     winningSquares: winningSquares,
-    startTime: Timestamp.now(),
+    startTime: admin.firestore.Timestamp.now(),
     latestTurn: true,
     playerIDs: currentTurn.playerIDs,
     turnTimeLimitSeconds: currentTurn.turnTimeLimitSeconds,

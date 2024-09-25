@@ -10,8 +10,6 @@ import {
   collection,
   arrayUnion,
   query,
-  where,
-  getDocs,
   onSnapshot as onCollectionSnapshot,
   orderBy,
   serverTimestamp,
@@ -402,7 +400,6 @@ const GamePage: React.FC = () => {
   }
 
   const currentTurn = turns[currentTurnIndex]
-  const latestTurn = turns[turns.length - 1]
 
   // Assuming you already have the gameID and other context from your component
   useEffect(() => {
@@ -414,7 +411,8 @@ const GamePage: React.FC = () => {
     ) {
       const interval = setInterval(async () => {
         const now = Date.now() / 1000 // Current time in seconds
-        const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
+        // const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
+        const startTimeSeconds = 1 // Start time from Firestore
         const elapsed = now - startTimeSeconds // Elapsed time since the turn started
         const remaining = Math.max(0, gameState.maxTurnTime - elapsed) // Remaining time
 
@@ -748,10 +746,11 @@ const GamePage: React.FC = () => {
                 {gameStarted ? (
                   <TableCell align="right">
                     {currentTurn?.hasMoved[player.id]?.moveTime
-                      ? `${Math.round(
-                          currentTurn.hasMoved[player.id].moveTime.seconds -
-                            currentTurn.startTime.seconds,
-                        )}s`
+                      ? //   ? `${Math.round(
+                        //       currentTurn.hasMoved[player.id].moveTime.seconds -
+                        //         currentTurn.startTime.seconds,
+                        //     )}s`
+                        "yo"
                       : "Not yet"}
                   </TableCell>
                 ) : (

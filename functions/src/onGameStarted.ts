@@ -1,6 +1,5 @@
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
-import { Timestamp } from "firebase/firestore"
 import * as logger from "firebase-functions/logger"
 import { GameState, Turn } from "./types/Game"
 
@@ -24,7 +23,7 @@ export async function startGame(
     board: initialBoard,
     hasMoved: {},
     clashes: {},
-    startTime: Timestamp.fromMillis(Date.now()),
+    startTime: admin.firestore.Timestamp.fromMillis(Date.now()),
     turnTimeLimitSeconds: gameData.maxTurnTime,
     playerIDs: gameData.playerIDs,
     latestTurn: true,
@@ -65,7 +64,7 @@ export const onGameStarted = functions.firestore
       ) {
         // Set firstPlayerReadyTime to now if the first player is ready
         transaction.update(gameRef, {
-          firstPlayerReadyTime: Timestamp.now(),
+          firstPlayerReadyTime: admin.firestore.Timestamp.now(),
         })
 
         logger.info(
