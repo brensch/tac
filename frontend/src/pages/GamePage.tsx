@@ -132,6 +132,9 @@ const GamePage: React.FC = () => {
   // State for Time Remaining
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
+  const currentTurn = turns[currentTurnIndex]
+  const latestTurn = turns[turns.length - 1]
+
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
       if (gridRef.current) {
@@ -178,15 +181,17 @@ const GamePage: React.FC = () => {
             playerIDs: arrayUnion(userID),
           })
         }
-
-        // Check if the player has submitted a move
-        if (currentTurn) {
-          setHasSubmittedMove(!!currentTurn.hasMoved[userID])
-        }
       })
       return () => unsubscribe()
     }
   }, [gameID, userID])
+
+  useEffect(() => {
+    // Check if the player has submitted a move
+    if (currentTurn) {
+      setHasSubmittedMove(!!currentTurn.hasMoved[userID])
+    }
+  }, [currentTurn])
 
   // Monitor player documents
   useEffect(() => {
@@ -399,9 +404,6 @@ const GamePage: React.FC = () => {
     }
   }
 
-  const currentTurn = turns[currentTurnIndex]
-  const latestTurn = turns[turns.length - 1]
-
   useEffect(() => {
     if (gameState && gameState.firstPlayerReadyTime && !gameState.started) {
       const startTime = gameState.firstPlayerReadyTime.seconds
@@ -530,14 +532,14 @@ const GamePage: React.FC = () => {
           const clash = clashes[index.toString()]
           const clashPlayers = clash ? clash.players : []
           const isWinningSquare = winningSquaresSet.has(index)
-          // console.log(
-          //   cell,
-          //   index,
-          //   gameStarted,
-          //   !hasSubmittedMove,
-          //   isCellEmpty,
-          //   !isBlocked,
-          // )
+          console.log(
+            cell,
+            index,
+            gameStarted,
+            !hasSubmittedMove,
+            isCellEmpty,
+            !isBlocked,
+          )
 
           return (
             <Box
