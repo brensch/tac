@@ -42,6 +42,11 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
 } from "@mui/material"
 import { GameState, Move, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
@@ -116,7 +121,7 @@ const GamePage: React.FC = () => {
   const [expiredTurns, setExpiredTurns] = useState<number[]>([])
   const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
   const [latestTurn, setLatestTurn] = useState<Turn | undefined>()
-  // const [moves, setMoves] = useState<Move[]>([])
+  const [gameType, setGameType] = useState<"connect4" | "longboi">("connect4")
 
   const navigate = useNavigate()
 
@@ -187,6 +192,8 @@ const GamePage: React.FC = () => {
       return () => unsubscribe()
     }
   }, [gameID, userID])
+
+  console.log(currentTurn?.board)
 
   // Monitor player documents
   useEffect(() => {
@@ -413,6 +420,20 @@ const GamePage: React.FC = () => {
           boardWidth: 8,
         })
       }
+    }
+  }
+
+  // Handler for selecting game type
+  const handleGameTypeChange = async (
+    event: SelectChangeEvent<"connect4" | "longboi">,
+  ) => {
+    const selectedGameType = event.target.value as "connect4" | "longboi" // Type casting to the enum type
+    setGameType(selectedGameType)
+
+    // Update Firestore when game type is selected
+    if (gameID && !gameStarted) {
+      const gameDocRef = doc(db, "games", gameID)
+      await updateDoc(gameDocRef, { gameType: selectedGameType })
     }
   }
 
@@ -765,7 +786,7 @@ const GamePage: React.FC = () => {
                 sx={{ my: 2 }}
                 fullWidth
               >
-                Submit Move ({Math.ceil(timeRemaining)}s left)
+                Submit Move ({Math.max(0, timeRemaining).toFixed(1)}s left)
               </Button>
             </>
           )}
@@ -803,8 +824,9 @@ const GamePage: React.FC = () => {
       ) : (
         <Box sx={{ my: 2 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            New Game{" "}
+            New Game
           </Typography>
+
           <TextField
             label="Board Size"
             type="number"
@@ -819,6 +841,7 @@ const GamePage: React.FC = () => {
               Board needs to be bigger than 4
             </Typography>
           )}
+
           <TextField
             label="Seconds per Turn"
             type="number"
@@ -834,6 +857,21 @@ const GamePage: React.FC = () => {
               Seconds per Turn must be greater than 0
             </Typography>
           )}
+
+          {/* Game Type Dropdown */}
+          <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
+            <InputLabel id="game-type-label">Game Type</InputLabel>
+            <Select
+              labelId="game-type-label"
+              value={gameType}
+              onChange={handleGameTypeChange}
+              disabled={gameStarted}
+              label="Game Type" // Make sure this matches the InputLabel text
+            >
+              <MenuItem value="connect4">Connect 4</MenuItem>
+              <MenuItem value="longboi">Long Boi</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
       )}
       <TableContainer sx={{ my: 2, width: "100%" }}>

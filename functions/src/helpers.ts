@@ -24,11 +24,23 @@ export async function processTurn(
 
   // If no one moved, set winner to -1 (nobody won)
   if (movesThisRound.length === 0) {
-    // Call createNewGame function
     await createNewGame(transaction, gameID, "-1")
     logger.info("No moves this round. Winner set to -1", { gameID })
     return
   }
+
+  // Process only the latest move for each player
+  const latestMoves = movesThisRound
+    .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()) // Sort moves by timestamp, newest first
+    .reduce((acc, move) => {
+      if (!acc.find((m) => m.playerID === move.playerID)) {
+        acc.push(move) // Add only the latest move for each player
+      }
+      return acc
+    }, [] as Move[])
+
+  // Log filtered moves
+  logger.info(`Latest moves for round ${currentRound}`, { latestMoves })
 
   // Process moves and update the board
   const newBoard = [...currentTurn.board]
@@ -37,12 +49,9 @@ export async function processTurn(
   // Build a map of moves per square
   const moveMap: { [square: number]: string[] } = {}
 
-  movesThisRound.forEach((move) => {
-    // Check if the square is already blocked
+  latestMoves.forEach((move) => {
     if (currentTurn.board[move.move] === "-1") {
-      logger.info(`Square ${move.move} is blocked, move ignored`, {
-        move,
-      })
+      logger.info(`Square ${move.move} is blocked, move ignored`, { move })
       return // Ignore this move
     }
 
@@ -59,13 +68,10 @@ export async function processTurn(
     const players = moveMap[square]
 
     if (players.length === 1) {
-      // Only one player moved into this square
       const playerID = players[0]
       newBoard[square] = playerID
       logger.info(`Square ${square} captured by player ${playerID}`)
     } else if (players.length > 1) {
-      // Multiple players moved into the same square
-      // Square gets blocked permanently, and neither player gets it
       newBoard[square] = "-1"
       clashes[square] = {
         players,
@@ -89,30 +95,43 @@ export async function processTurn(
   const gameData = gameDoc.data() as GameState
 
   // Check for a winner
-  const winLength = 4 // Number of squares in a row needed to win
+  const winLength = 4
   const playerIDs = currentTurn.playerIDs
-  const winningPlayers = checkWinCondition(
-    newBoard,
-    gameData.boardWidth,
-    winLength,
-    playerIDs,
-  )
+
+  let winningPlayers: {
+    playerID: string
+    winningSquares: number[]
+  }[]
+
+  if (gameData.gameType === "connect4") {
+    winningPlayers = checkWinConditionConnect4(
+      newBoard,
+      gameData.boardWidth,
+      winLength,
+      playerIDs,
+    )
+  } else {
+    winningPlayers = checkWinConditionLongboi(
+      newBoard,
+      gameData.boardWidth,
+      winLength,
+      playerIDs,
+    )
+  }
 
   logger.info("Winning players", { winningPlayers })
 
   let winningSquares: number[] = []
 
   if (winningPlayers.length === 1) {
-    // We have a winner, call createNewGame function
     const winnerID = winningPlayers[0].playerID
     winningSquares = winningPlayers[0].winningSquares
     await createNewGame(transaction, gameID, winnerID)
     logger.info(`Player ${winnerID} has won the game!`, { gameID })
   } else if (winningPlayers.length > 1) {
-    // Multiple players won simultaneously
     const winningPlayerSet = new Set(winningPlayers.map((wp) => wp.playerID))
 
-    movesThisRound.forEach((move) => {
+    latestMoves.forEach((move) => {
       if (winningPlayerSet.has(move.playerID)) {
         const square = move.move
         newBoard[square] = "-1"
@@ -219,73 +238,73 @@ async function createNewGame(
 }
 
 // Function to check for a win condition
-// function checkWinCondition2(
-//   board: string[],
-//   boardWidth: number,
-//   winLength: number,
-//   playerIDs: string[],
-// ): { playerID: string; winningSquares: number[] }[] {
-//   const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
+function checkWinConditionConnect4(
+  board: string[],
+  boardWidth: number,
+  winLength: number,
+  playerIDs: string[],
+): { playerID: string; winningSquares: number[] }[] {
+  const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
 
-//   playerIDs.forEach((playerID) => {
-//     const result = hasPlayerWon(board, boardWidth, winLength, playerID)
-//     if (result.hasWon) {
-//       winningPlayers.push({ playerID, winningSquares: result.winningSquares })
-//     }
-//   })
+  playerIDs.forEach((playerID) => {
+    const result = hasPlayerWon(board, boardWidth, winLength, playerID)
+    if (result.hasWon) {
+      winningPlayers.push({ playerID, winningSquares: result.winningSquares })
+    }
+  })
 
-//   return winningPlayers
-// }
+  return winningPlayers
+}
 
-// // Helper function to check if a player has won
-// function hasPlayerWon(
-//   board: string[],
-//   boardWidth: number,
-//   winLength: number,
-//   playerID: string,
-// ): { hasWon: boolean; winningSquares: number[] } {
-//   const size = boardWidth
+// Helper function to check if a player has won
+function hasPlayerWon(
+  board: string[],
+  boardWidth: number,
+  winLength: number,
+  playerID: string,
+): { hasWon: boolean; winningSquares: number[] } {
+  const size = boardWidth
 
-//   // Direction vectors: right, down, down-right, down-left
-//   const directions = [
-//     { x: 1, y: 0 }, // Horizontal
-//     { x: 0, y: 1 }, // Vertical
-//     { x: 1, y: 1 }, // Diagonal down-right
-//     { x: -1, y: 1 }, // Diagonal down-left
-//   ]
+  // Direction vectors: right, down, down-right, down-left
+  const directions = [
+    { x: 1, y: 0 }, // Horizontal
+    { x: 0, y: 1 }, // Vertical
+    { x: 1, y: 1 }, // Diagonal down-right
+    { x: -1, y: 1 }, // Diagonal down-left
+  ]
 
-//   for (let y = 0; y < size; y++) {
-//     for (let x = 0; x < size; x++) {
-//       for (const dir of directions) {
-//         let count = 0
-//         let winningSquares: number[] = []
-//         let dx = x
-//         let dy = y
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      for (const dir of directions) {
+        let count = 0
+        let winningSquares: number[] = []
+        let dx = x
+        let dy = y
 
-//         while (
-//           dx >= 0 &&
-//           dx < size &&
-//           dy >= 0 &&
-//           dy < size &&
-//           board[dy * size + dx] === playerID
-//         ) {
-//           winningSquares.push(dy * size + dx)
-//           count++
-//           if (count === winLength) {
-//             return { hasWon: true, winningSquares }
-//           }
-//           dx += dir.x
-//           dy += dir.y
-//         }
-//       }
-//     }
-//   }
+        while (
+          dx >= 0 &&
+          dx < size &&
+          dy >= 0 &&
+          dy < size &&
+          board[dy * size + dx] === playerID
+        ) {
+          winningSquares.push(dy * size + dx)
+          count++
+          if (count === winLength) {
+            return { hasWon: true, winningSquares }
+          }
+          dx += dir.x
+          dy += dir.y
+        }
+      }
+    }
+  }
 
-//   return { hasWon: false, winningSquares: [] }
-// }
+  return { hasWon: false, winningSquares: [] }
+}
 
 // Function to check for a win condition based on the longest continuous connected path
-export function checkWinCondition(
+export function checkWinConditionLongboi(
   board: string[],
   boardWidth: number,
   winLength: number,
@@ -338,12 +357,16 @@ function findLongestConnectedPathForPlayer(
   // Helper to convert (x, y) to a single index in the board array
   const index = (x: number, y: number) => y * size + x
 
-  // Depth-first search (DFS) to find the longest connected path with logging
-  const dfs = (x: number, y: number, path: number[]): number[] => {
-    const currentPath = [...path, index(x, y)]
-    visited.add(index(x, y))
-
-    // Log the current position and playerID
+  // Depth-first search (DFS) to find the longest connected path
+  const dfs = (
+    x: number,
+    y: number,
+    path: number[],
+    visitedInPath: Set<number>,
+  ): number[] => {
+    const currentIdx = index(x, y)
+    const currentPath = [...path, currentIdx]
+    visitedInPath.add(currentIdx)
 
     let maxPath = currentPath
 
@@ -358,9 +381,9 @@ function findLongestConnectedPathForPlayer(
         newY >= 0 &&
         newY < size &&
         board[newIdx] === playerID &&
-        !visited.has(newIdx)
+        !visitedInPath.has(newIdx) // Check if it's part of a potential loop
       ) {
-        const newPath = dfs(newX, newY, currentPath)
+        const newPath = dfs(newX, newY, currentPath, new Set(visitedInPath))
         if (newPath.length > maxPath.length) {
           maxPath = newPath
         }
@@ -374,7 +397,7 @@ function findLongestConnectedPathForPlayer(
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       if (board[index(x, y)] === playerID && !visited.has(index(x, y))) {
-        const path = dfs(x, y, [])
+        const path = dfs(x, y, [], new Set())
         if (path.length > longestPath.length) {
           longestPath = path
         }

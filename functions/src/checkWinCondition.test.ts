@@ -1,4 +1,4 @@
-import { checkWinCondition } from "./helpers" // Import the function you're testing
+import { checkWinConditionLongboi } from "./helpers" // Import the function you're testing
 
 function displayBoardWithIndices(board: string[], boardWidth: number): void {
   const size = board.length
@@ -15,81 +15,174 @@ function displayBoardWithIndices(board: string[], boardWidth: number): void {
 }
 
 describe("checkWinCondition", () => {
-  test("should work", () => {
+  //   test("should work", () => {
+  //     const board = [
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "-1",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "X",
+  //       "O",
+  //       "O",
+  //       "O",
+  //       "X",
+  //     ]
+  //     const boardWidth = 5
+  //     const winLength = 5
+  //     const playerIDs = ["X", "O"]
+
+  //     displayBoardWithIndices(board, boardWidth)
+
+  //     const result = checkWinConditionLongboi(
+  //       board,
+  //       boardWidth,
+  //       winLength,
+  //       playerIDs,
+  //     )
+  //     expect(result).toEqual([])
+  //   })
+
+  //   test("should work", () => {
+  //     const board = [
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "X",
+  //       "O",
+  //       "O",
+  //       "O",
+  //       "-1",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "X",
+  //       "O",
+  //       "X",
+  //       "O",
+  //       "O",
+  //       "O",
+  //       "O",
+  //       "X",
+  //     ]
+  //     const boardWidth = 5
+  //     const winLength = 5
+  //     const playerIDs = ["X", "O"]
+
+  //     displayBoardWithIndices(board, boardWidth)
+
+  //     const result = checkWinConditionLongboi(
+  //       board,
+  //       boardWidth,
+  //       winLength,
+  //       playerIDs,
+  //     )
+  //     expect(result).toEqual([])
+  //   })
+
+  test("should get extra loop", () => {
     const board = [
-      "X",
-      "O",
-      "X",
-      "O",
-      "O",
-      "X",
-      "O",
-      "X",
-      "O",
+      "A",
+      "A",
+      "B",
+      "B",
+      "B",
+      "B",
+      "B",
+      "B",
+      "A",
       "-1",
-      "X",
-      "O",
-      "X",
-      "O",
-      "X",
-      "X",
-      "O",
-      "X",
-      "O",
-      "X",
-      "X",
-      "O",
-      "O",
-      "O",
-      "X",
+      "B",
+      "B",
+      "B",
+      "-1",
+      "C",
+      "C",
+      "A",
+      "A",
+      "-1",
+      "B",
+      "D",
+      "D",
+      "D",
+      "C",
+      "A",
+      "A",
+      "B",
+      "B",
+      "D",
+      "-1",
+      "E",
+      "C",
+      "A",
+      "D",
+      "B",
+      "-1",
+      "D",
+      "A",
+      "C",
+      "C",
+      "A",
+      "B",
+      "B",
+      "D",
+      "D",
+      "D",
+      "C",
+      "C",
+      "B",
+      "B",
+      "B",
+      "B",
+      "B",
+      "D",
+      "C",
+      "C",
+      "A",
+      "-1",
+      "A",
+      "D",
+      "D",
+      "D",
+      "D",
+      "A",
     ]
-    const boardWidth = 5
-    const winLength = 5
-    const playerIDs = ["X", "O"]
+    const boardWidth = 8
+    const winLength = 8
+    const playerIDs = ["A", "B", "C", "D"]
 
     displayBoardWithIndices(board, boardWidth)
 
-    const result = checkWinCondition(board, boardWidth, winLength, playerIDs)
+    const result = checkWinConditionLongboi(
+      board,
+      boardWidth,
+      winLength,
+      playerIDs,
+    )
     expect(result).toEqual([])
   })
 
-  test("should work", () => {
-    const board = [
-      "X",
-      "O",
-      "X",
-      "O",
-      "X",
-      "X",
-      "O",
-      "O",
-      "O",
-      "-1",
-      "X",
-      "O",
-      "X",
-      "O",
-      "X",
-      "O",
-      "X",
-      "X",
-      "O",
-      "X",
-      "O",
-      "O",
-      "O",
-      "O",
-      "X",
-    ]
-    const boardWidth = 5
-    const winLength = 5
-    const playerIDs = ["X", "O"]
-
-    displayBoardWithIndices(board, boardWidth)
-
-    const result = checkWinCondition(board, boardWidth, winLength, playerIDs)
-    expect(result).toEqual([])
-  })
   //   test("should return no winner if board is not fully filled", () => {
   //     const board = [
   //       "X",
