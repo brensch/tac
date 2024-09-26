@@ -13,9 +13,10 @@ import {
   onSnapshot as onCollectionSnapshot,
   orderBy,
   serverTimestamp,
+  where,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
-import { db } from "../firebaseConfig"
+import { auth, db } from "../firebaseConfig"
 
 import {
   Button,
@@ -41,7 +42,7 @@ import {
   ListItemText,
   Divider,
 } from "@mui/material"
-import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
+import { GameState, Move, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
 
 const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
@@ -111,6 +112,7 @@ const GamePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [boardWidth, setBoardWidth] = useState<string>("8")
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [moves, setMoves] = useState<Move[]>([])
 
   const navigate = useNavigate()
 
@@ -228,6 +230,39 @@ const GamePage: React.FC = () => {
       }
     }
   }, [gameState?.playerIDs])
+
+  // // Monitor private move documents
+  // useEffect(() => {
+  //   if (gameID && auth.currentUser?.uid) {
+  //     const movesMap: { [id: string]: Move } = {}
+  //     const movesQuery = query(
+  //       collection(db, `games/${gameID}/privateMoves`),
+  //       where("playerID", "==", auth.currentUser.uid),
+  //     )
+  //     console.log("getting moves")
+
+  //     const unsubscribe = onSnapshot(movesQuery, (querySnapshot) => {
+  //       console.log("got moves")
+
+  //       querySnapshot.forEach((doc) => {
+  //         const moveData = doc.data() as Move
+  //         movesMap[doc.id] = {
+  //           gameID: moveData.gameID,
+  //           playerID: moveData.playerID,
+  //           move: moveData.move,
+  //           moveNumber: moveData.moveNumber,
+  //           timestamp: moveData.timestamp,
+  //         }
+  //       })
+
+  //       setMoves(Object.values(movesMap))
+  //     })
+
+  //     return () => {
+  //       unsubscribe()
+  //     }
+  //   }
+  // }, [gameID, auth.currentUser?.uid])
 
   // Monitor the turns collection
   useEffect(() => {
@@ -431,7 +466,7 @@ const GamePage: React.FC = () => {
             console.error("Error creating turn expiration request:", error)
           }
         }
-      }, 1000)
+      }, 100)
 
       return () => clearInterval(interval)
     }
@@ -475,7 +510,7 @@ const GamePage: React.FC = () => {
             console.error("Error creating turn expiration request:", error)
           }
         }
-      }, 1000)
+      }, 100)
 
       return () => clearInterval(interval)
     }
@@ -500,7 +535,7 @@ const GamePage: React.FC = () => {
   const { winner } = gameState
 
   // Render the grid
-  const renderGrid = () => {
+  const renderGrid = (disabled: boolean) => {
     if (!currentTurn) {
       return <Typography>Loading board...</Typography>
     }
@@ -523,6 +558,8 @@ const GamePage: React.FC = () => {
           maxWidth: 600,
           margin: "0 auto",
           border: "2px solid black",
+          opacity: disabled ? 0.5 : 1, // Adjust opacity if disabled
+          pointerEvents: disabled ? "none" : "auto", // Disable interactions if disabled
         }}
       >
         {board.map((cell, index) => {
@@ -532,23 +569,18 @@ const GamePage: React.FC = () => {
           const clash = clashes[index.toString()]
           const clashPlayers = clash ? clash.players : []
           const isWinningSquare = winningSquaresSet.has(index)
-          console.log(
-            cell,
-            index,
-            gameStarted,
-            !hasSubmittedMove,
-            isCellEmpty,
-            !isBlocked,
-          )
 
           return (
             <Box
               key={index}
               onClick={() => {
-                if (clash) {
-                  handleClashClick(clash)
-                } else {
-                  handleSquareClick(index)
+                if (!disabled) {
+                  // Only allow clicks if not disabled
+                  if (clash) {
+                    handleClashClick(clash)
+                  } else {
+                    handleSquareClick(index)
+                  }
                 }
               }}
               sx={{
@@ -556,11 +588,17 @@ const GamePage: React.FC = () => {
                 paddingBottom: "100%", // Maintain aspect ratio
                 position: "relative",
                 border: "1px solid black",
-                cursor:
-                  gameStarted && !hasSubmittedMove && isCellEmpty && !isBlocked
-                    ? "pointer"
-                    : "default",
-                backgroundColor: isWinningSquare
+                cursor: disabled
+                  ? "default"
+                  : gameStarted &&
+                    !hasSubmittedMove &&
+                    isCellEmpty &&
+                    !isBlocked
+                  ? "pointer"
+                  : "default",
+                backgroundColor: disabled
+                  ? "#f0f0f0" // Grey background if disabled
+                  : isWinningSquare
                   ? "green"
                   : isSelected
                   ? "#cfe8fc"
@@ -611,8 +649,6 @@ const GamePage: React.FC = () => {
 
   const winnerInfo = playerInfos.find((p) => p.id === winner)
   const winnerEmoji = winnerInfo?.emoji || ""
-
-  console.log(gameState.playersReady)
 
   return (
     <Box>
@@ -703,7 +739,7 @@ const GamePage: React.FC = () => {
               </Button>
             </>
           )}
-          {renderGrid()}
+          {renderGrid(hasSubmittedMove)}
 
           {/* Navigation controls */}
           <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>

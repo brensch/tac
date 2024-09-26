@@ -14,7 +14,7 @@ service cloud.firestore {
         request.resource.data.gameID == gameID
       );
       allow update, delete: if false;
-      allow read: if false;
+      allow read: if request.auth.uid == resource.data.playerID;
     }
 
     match /games/{gameID}/turns/{turnNumber} {
@@ -26,7 +26,7 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-        match /games/{gameID}/readyExpirationRequests/{expirationID} {
+    match /games/{gameID}/readyExpirationRequests/{expirationID} {
       allow read, write: if true;
     }
     

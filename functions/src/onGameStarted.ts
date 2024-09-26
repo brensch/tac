@@ -17,16 +17,19 @@ export async function startGame(
 
   // Create the Turn 1 document
   const turnRef = admin.firestore().collection(`games/${gameID}/turns`).doc("1")
+  const now = Date.now()
 
   const firstTurn: Turn = {
     turnNumber: 1,
     board: initialBoard,
     hasMoved: {},
     clashes: {},
-    startTime: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 1000),
+    startTime: admin.firestore.Timestamp.fromMillis(now),
+    endTime: admin.firestore.Timestamp.fromMillis(
+      now + gameData.maxTurnTime * 1000,
+    ),
     turnTimeLimitSeconds: gameData.maxTurnTime,
     playerIDs: gameData.playerIDs,
-    latestTurn: true,
   }
 
   // Set the currentRound to 1 and mark the game as started in the game document

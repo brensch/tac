@@ -20,8 +20,8 @@ export interface Turn {
   clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
   winningSquares?: number[] // The list of squares involved in a winning condition
   startTime: admin.firestore.Timestamp // When the turn started
+  endTime: admin.firestore.Timestamp // When the turn ended
   turnTimeLimitSeconds: number
-  latestTurn: boolean // ensures if an old move comes in on the last player's move that we don't create two new turns
 }
 
 export interface GameState {

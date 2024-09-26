@@ -140,34 +140,22 @@ export async function processTurn(
     .collection(`games/${gameID}/turns`)
     .doc(nextRound.toString())
 
+  const now = Date.now()
   const nextTurn: Turn = {
     turnNumber: nextRound,
     board: newBoard,
     hasMoved: {},
     clashes: clashes,
     winningSquares: winningSquares,
-    startTime: admin.firestore.Timestamp.now(),
-    latestTurn: true,
+    startTime: admin.firestore.Timestamp.fromMillis(now),
+    endTime: admin.firestore.Timestamp.fromMillis(
+      now + gameData.maxTurnTime * 1000,
+    ),
     playerIDs: currentTurn.playerIDs,
     turnTimeLimitSeconds: currentTurn.turnTimeLimitSeconds,
   }
 
-  transaction.update(
-    admin
-      .firestore()
-      .collection(`games/${gameID}/turns`)
-      .doc(currentTurn.turnNumber.toString()),
-    {
-      latestTurn: false,
-    },
-  )
-
   transaction.set(nextTurnRef, nextTurn)
-
-  // Increment the currentRound in the game document
-  transaction.update(admin.firestore().collection("games").doc(gameID), {
-    currentRound: nextRound,
-  })
 
   logger.info(`Round ${currentRound} completed. Moved to round ${nextRound}`, {
     gameID,
