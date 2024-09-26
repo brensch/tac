@@ -21,7 +21,6 @@ export interface Turn {
   winningSquares?: number[] // The list of squares involved in a winning condition
   startTime: admin.firestore.Timestamp // When the turn started
   endTime: admin.firestore.Timestamp // When the turn ended
-  turnTimeLimitSeconds: number
 }
 
 export interface GameState {

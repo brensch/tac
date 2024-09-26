@@ -14,6 +14,7 @@ import {
   orderBy,
   serverTimestamp,
   where,
+  getDocs,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
 import { auth, db } from "../firebaseConfig"
@@ -112,7 +113,10 @@ const GamePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [boardWidth, setBoardWidth] = useState<string>("8")
   const [elapsedTime, setElapsedTime] = useState(0)
-  const [moves, setMoves] = useState<Move[]>([])
+  const [expiredTurns, setExpiredTurns] = useState<number[]>([])
+  const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
+  const [latestTurn, setLatestTurn] = useState<Turn | undefined>()
+  // const [moves, setMoves] = useState<Move[]>([])
 
   const navigate = useNavigate()
 
@@ -134,9 +138,6 @@ const GamePage: React.FC = () => {
   // State for Time Remaining
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
-  const currentTurn = turns[currentTurnIndex]
-  const latestTurn = turns[turns.length - 1]
-
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
       if (gridRef.current) {
@@ -150,7 +151,7 @@ const GamePage: React.FC = () => {
     return () => {
       window.removeEventListener("resize", updateContainerWidth)
     }
-  }, [gameState?.boardWidth, currentTurnIndex])
+  }, [gameState?.boardWidth, currentTurn])
 
   // Monitor the game document
   useEffect(() => {
@@ -162,7 +163,6 @@ const GamePage: React.FC = () => {
           return
         }
         const gameData = docSnapshot.data() as GameState
-        console.log("yo", gameData)
         setGameState(gameData)
 
         // Set boardWidth and secondsPerTurn from gameData
@@ -187,13 +187,6 @@ const GamePage: React.FC = () => {
       return () => unsubscribe()
     }
   }, [gameID, userID])
-
-  useEffect(() => {
-    // Check if the player has submitted a move
-    if (currentTurn) {
-      setHasSubmittedMove(!!currentTurn.hasMoved[userID])
-    }
-  }, [currentTurn])
 
   // Monitor player documents
   useEffect(() => {
@@ -274,13 +267,21 @@ const GamePage: React.FC = () => {
         const turnsList: Turn[] = querySnapshot.docs.map(
           (doc) => doc.data() as Turn,
         )
+
         setTurns(turnsList)
+        setLatestTurn(turnsList[turnsList.length - 1])
+        setHasSubmittedMove(!!turnsList[turnsList.length - 1]?.hasMoved[userID])
+
         setCurrentTurnIndex(turnsList.length - 1)
       })
 
       return () => unsubscribe()
     }
   }, [gameID, userID])
+
+  useEffect(() => {
+    setCurrentTurn(turns[currentTurnIndex])
+  }, [turns, currentTurnIndex])
 
   // Determine if the game has started
   const gameStarted = gameState?.started
@@ -297,7 +298,7 @@ const GamePage: React.FC = () => {
 
   // Handle selecting a square
   const handleSquareClick = (index: number) => {
-    const currentTurn = turns[turns.length - 1]
+    if (!currentTurn) return
     const clash = currentTurn.clashes[index.toString()]
     if (clash) {
       handleClashClick(clash)
@@ -335,6 +336,8 @@ const GamePage: React.FC = () => {
 
   // Submit a move
   const handleMoveSubmit = async () => {
+    if (!currentTurn) return
+
     if (selectedSquare !== null && gameState && userID && gameID) {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
       const moveNumber = currentTurn.turnNumber
@@ -461,9 +464,11 @@ const GamePage: React.FC = () => {
               })
             }
 
-            console.log(`Turn expiration request created for gameID: ${gameID}`)
+            console.log(
+              `ready expiration request created for gameID: ${gameID}`,
+            )
           } catch (error) {
-            console.error("Error creating turn expiration request:", error)
+            console.error("Error creating ready expiration request:", error)
           }
         }
       }, 100)
@@ -473,48 +478,73 @@ const GamePage: React.FC = () => {
     setElapsedTime(0)
   }, [gameState?.firstPlayerReadyTime, gameID])
 
-  // Assuming you already have the gameID and other context from your component
   useEffect(() => {
     if (
-      gameState?.winner == "" &&
-      currentTurn &&
-      gameState?.maxTurnTime &&
-      gameID
-    ) {
-      const interval = setInterval(async () => {
-        const now = Date.now() / 1000 // Current time in seconds
-        const startTimeSeconds = latestTurn.startTime.seconds // Start time from Firestore
-        const elapsed = now - startTimeSeconds // Elapsed time since the turn started
-        const remaining = Math.max(0, gameState.maxTurnTime - elapsed) // Remaining time
+      !latestTurn ||
+      gameState?.winner !== "" ||
+      !currentTurn ||
+      !gameState?.maxTurnTime ||
+      !gameID
+    )
+      return
 
-        setTimeRemaining(remaining) // Update your local state for the timer display
+    let intervalTime = 100 // Initial interval time
+    let intervalId: NodeJS.Timeout
 
-        // If time runs out, create a document in turnExpirationRequests
-        if (remaining <= 0) {
-          try {
-            // Create a document in the games/{gameID}/turnExpirationRequests collection
-            const expirationRequestsRef = collection(
-              db,
-              `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
-            )
+    const intervalFunction = async () => {
+      const now = Date.now() / 1000 // Current time in seconds
+      const endTimeSeconds = latestTurn.endTime.seconds // End time from Firestore
+      const remaining = endTimeSeconds - now // Time remaining for the turn
 
+      setTimeRemaining(remaining) // Update your local state for the timer display
+
+      // Check if the turn has already expired in your local state
+      if (expiredTurns.includes(currentTurn.turnNumber)) {
+        return
+      }
+
+      // If the time runs out, check Firestore for existing expiration requests
+      if (remaining <= 0) {
+        try {
+          const expirationRequestsRef = collection(
+            db,
+            `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
+          )
+
+          // Query Firestore for any existing expiration requests
+          const existingRequests = await getDocs(query(expirationRequestsRef))
+          if (existingRequests.empty) {
+            // No existing expiration requests, create a new one
             await addDoc(expirationRequestsRef, {
               timestamp: new Date(),
-              gameID: gameID,
-              turnNumber: currentTurn.turnNumber, // Optional: Track the current turn number
-              reason: "Turn timer expired", // Optional: Add a reason for the request
+              playerID: userID,
             })
 
-            console.log(`Turn expiration request created for gameID: ${gameID}`)
-          } catch (error) {
-            console.error("Error creating turn expiration request:", error)
-          }
-        }
-      }, 100)
+            setExpiredTurns((prevTurns) => [
+              ...prevTurns,
+              currentTurn.turnNumber,
+            ])
 
-      return () => clearInterval(interval)
+            console.log(`Turn expiration request created for gameID: ${gameID}`)
+          } else {
+            console.log(
+              `Expiration request already exists for turn ${currentTurn.turnNumber}`,
+            )
+          }
+        } catch (error) {
+          console.error("Error creating turn expiration request:", error)
+        }
+
+        // Slow down the interval after expiration to reduce resource usage
+        clearInterval(intervalId) // Clear the current interval
+        intervalTime = 1000 // Increase interval time
+        intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
+      }
     }
-    setTimeRemaining(latestTurn?.startTime?.seconds)
+
+    intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
+
+    return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
   }, [currentTurn, gameState, gameID])
 
   if (!gameState || error) {
@@ -722,12 +752,12 @@ const GamePage: React.FC = () => {
               <Button
                 disabled={
                   hasSubmittedMove ||
-                  !!currentTurn.hasMoved[userID] ||
+                  !!currentTurn?.hasMoved[userID] ||
                   !playerInCurrentGame ||
                   !(
                     selectedSquare !== null &&
-                    currentTurn.board[selectedSquare] === "" &&
-                    turns.length === currentTurn.turnNumber
+                    currentTurn?.board[selectedSquare] === "" &&
+                    turns.length === currentTurn?.turnNumber
                   )
                 }
                 color="primary"
@@ -827,11 +857,10 @@ const GamePage: React.FC = () => {
                 {gameStarted ? (
                   <TableCell align="right">
                     {currentTurn?.hasMoved[player.id]?.moveTime
-                      ? //   ? `${Math.round(
-                        //       currentTurn.hasMoved[player.id].moveTime.seconds -
-                        //         currentTurn.startTime.seconds,
-                        //     )}s`
-                        "yo"
+                      ? `${Math.round(
+                          currentTurn.hasMoved[player.id].moveTime.seconds -
+                            currentTurn.startTime.seconds,
+                        )}s`
                       : "Not yet"}
                   </TableCell>
                 ) : (

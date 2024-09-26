@@ -25,10 +25,7 @@ export async function startGame(
     hasMoved: {},
     clashes: {},
     startTime: admin.firestore.Timestamp.fromMillis(now),
-    endTime: admin.firestore.Timestamp.fromMillis(
-      now + gameData.maxTurnTime * 1000,
-    ),
-    turnTimeLimitSeconds: gameData.maxTurnTime,
+    endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // make first move 60 seconds
     playerIDs: gameData.playerIDs,
   }
 

@@ -32,15 +32,14 @@ export const onMoveCreated = functions.firestore
 
       const currentTurn = currentTurnDoc.data() as Turn
       const now = Timestamp.now()
-      const elapsedTime = now.seconds - currentTurn.startTime.seconds
-      const timesUp = elapsedTime > currentTurn.turnTimeLimitSeconds
+      const timesUp = now.toMillis() > currentTurn.endTime.toMillis()
 
       // Check if the move was submitted within the allowed time for this turn and that it's the current turn
       if (timesUp) {
         logger.error("Move submitted after allowable time", {
           gameID,
           playerID: moveData.playerID,
-          elapsedTime,
+          currentTurn: currentTurn.endTime,
         })
         return
       }

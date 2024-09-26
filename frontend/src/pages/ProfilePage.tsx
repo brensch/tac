@@ -52,12 +52,14 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <Container sx={{ m: 1 }}>
+    <Container sx={{ m: 1, maxWidth: "100%" }}>
       <Box
         width="100%"
+        maxWidth="600px" // Restrict the maximum width
         display="flex"
         flexDirection="column"
         alignItems="center"
+        mx="auto" // Center horizontally
       >
         <TextField
           label="Nickname"

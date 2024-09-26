@@ -99,7 +99,9 @@ const AppContent: React.FC = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ overflowX: "hidden" }}>
+          {" "}
+          {/* Prevent horizontal scroll */}
           <ProfilePage />
         </DialogContent>
       </Dialog>

@@ -152,7 +152,6 @@ export async function processTurn(
       now + gameData.maxTurnTime * 1000,
     ),
     playerIDs: currentTurn.playerIDs,
-    turnTimeLimitSeconds: currentTurn.turnTimeLimitSeconds,
   }
 
   transaction.set(nextTurnRef, nextTurn)
@@ -178,6 +177,12 @@ async function createNewGame(
   }
 
   const gameData = gameDoc.data() as GameState
+
+  // if someone already cooked, abort
+  if (gameData.winner !== "" || gameData.nextGame !== "") {
+    logger.warn("new game already cooked.", { gameID })
+    return
+  }
 
   // Generate a new game
   const newGameData: GameState = {
