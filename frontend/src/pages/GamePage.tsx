@@ -13,11 +13,10 @@ import {
   onSnapshot as onCollectionSnapshot,
   orderBy,
   serverTimestamp,
-  where,
   getDocs,
 } from "firebase/firestore"
 import { useUser } from "../context/UserContext"
-import { auth, db } from "../firebaseConfig"
+import { db } from "../firebaseConfig"
 
 import {
   Button,
@@ -48,7 +47,7 @@ import {
   Select,
   SelectChangeEvent,
 } from "@mui/material"
-import { GameState, Move, PlayerInfo, Turn } from "@shared/types/Game"
+import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
 
 const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
