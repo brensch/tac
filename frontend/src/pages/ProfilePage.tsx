@@ -45,6 +45,7 @@ const ProfilePage: React.FC = () => {
   }
 
   const handleEmojiClick = async (emoji: string) => {
+    console.log(userID)
     setSelectedEmoji(emoji)
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, { emoji })

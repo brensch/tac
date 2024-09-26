@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
+import { doc, onSnapshot, setDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
 import { auth } from "../firebaseConfig"
@@ -23,46 +23,42 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isUserDocLoaded, setIsUserDocLoaded] = useState<boolean>(false) // Flag to check if user doc is loaded
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, () => {
-      console.log("hi")
-    })
-
-    const checkAuth = async () => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       // Automatically log in anonymously if not authenticated
-      if (!auth.currentUser) {
-        console.log("logging")
+      if (!user) {
         await signInAnonymously(auth)
-        console.log("k")
       }
 
-      const user = auth.currentUser
-      console.log(user)
-      if (user) {
-        const uid = user.uid
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        const uid = currentUser.uid
         setUserID(uid)
 
         const userDocRef = doc(db, "users", uid)
-        const userDocSnap = await getDoc(userDocRef)
 
-        // If no user document exists, prompt for nickname/emoji
-        if (!userDocSnap.exists()) {
-          setIsUserDocLoaded(true) // Show signup page
-        } else {
-          // Set user info from the document if it exists
-          const userInfo = userDocSnap.data() as {
-            nickname: string
-            emoji: string
+        // Real-time listener for user document updates
+        const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const userInfo = docSnapshot.data() as {
+              nickname: string
+              emoji: string
+            }
+            setNickname(userInfo.nickname || "Unknown")
+            setEmoji(userInfo.emoji || "")
+          } else {
+            setIsUserDocLoaded(true) // Show signup page if no user doc
           }
-          setNickname(userInfo.nickname || "Unknown")
-          setEmoji(userInfo.emoji || "")
-          setIsUserDocLoaded(true) // Continue after loading user data
+        })
+
+        setIsUserDocLoaded(true) // Continue after loading user data
+
+        return () => {
+          unsubscribeUserDoc() // Unsubscribe from the listener when component unmounts
         }
       } else {
         setIsUserDocLoaded(true) // Edge case where auth state is not set
       }
-    }
-
-    checkAuth()
+    })
 
     return () => unsubscribeAuth()
   }, [])
