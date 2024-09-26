@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useUser } from "../context/UserContext"
 import {
   Container,
@@ -22,19 +22,19 @@ const ProfilePage: React.FC = () => {
   const [message, setMessage] = useState<string>("")
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
-  useEffect(() => {
-    // Initialize the displayedEmojis array
-    randomizeEmojis()
-  }, [])
-
-  const randomizeEmojis = () => {
+  const randomizeEmojis = useCallback(() => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
     // Ensure the selectedEmoji is at the start
     const filteredEmojis = shuffledEmojis.filter(
       (emoji) => emoji !== selectedEmoji,
     )
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 11)])
-  }
+  }, [selectedEmoji, setDisplayedEmojis])
+
+  useEffect(() => {
+    // Initialize the displayedEmojis array
+    randomizeEmojis()
+  }, [randomizeEmojis])
 
   const handleUpdateNickname = async () => {
     if (!nickname.trim()) {

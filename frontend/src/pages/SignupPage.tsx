@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Box, TextField, Button, Typography, Container } from "@mui/material"
 import { Refresh } from "@mui/icons-material"
 import { emojiList } from "@shared/types/Emojis"
@@ -13,21 +13,23 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
   const [message, setMessage] = useState<string>("")
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
-  const randomizeEmojis = () => {
+  const randomizeEmojis = useCallback(() => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
     const filteredEmojis = shuffledEmojis.filter(
       (emoji) => emoji !== selectedEmoji,
     )
+
     if (selectedEmoji === "") {
       setDisplayedEmojis(filteredEmojis.slice(0, 20))
       return
     }
+
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 19)])
-  }
+  }, [selectedEmoji, setDisplayedEmojis])
 
   useEffect(() => {
     randomizeEmojis()
-  }, [])
+  }, [randomizeEmojis])
 
   const handleSubmit = () => {
     if (!nickname.trim() || !selectedEmoji) {

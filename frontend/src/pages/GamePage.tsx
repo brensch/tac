@@ -192,8 +192,6 @@ const GamePage: React.FC = () => {
     }
   }, [gameID, userID])
 
-  console.log(currentTurn?.board)
-
   // Monitor player documents
   useEffect(() => {
     if (gameState?.playerIDs) {
@@ -496,7 +494,7 @@ const GamePage: React.FC = () => {
       return () => clearInterval(interval)
     }
     setElapsedTime(0)
-  }, [gameState?.firstPlayerReadyTime, gameID])
+  }, [gameState, gameID])
 
   useEffect(() => {
     if (
@@ -565,7 +563,7 @@ const GamePage: React.FC = () => {
     intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
 
     return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
-  }, [currentTurn, gameState, gameID])
+  }, [latestTurn, userID, currentTurn, gameState, gameID, expiredTurns])
 
   if (!gameState || error) {
     return (
