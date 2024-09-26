@@ -40,7 +40,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider,
   FormControl,
   InputLabel,
   MenuItem,
@@ -49,6 +48,7 @@ import {
 } from "@mui/material"
 import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
+import { Connect4Rules, LongBoiRules } from "../constants/Rules"
 
 const EmojiRain: React.FC<{ emoji: string }> = ({ emoji }) => {
   const [emojis, setEmojis] = React.useState<number[]>([])
@@ -121,6 +121,9 @@ const GamePage: React.FC = () => {
   const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
   const [latestTurn, setLatestTurn] = useState<Turn | undefined>()
   const [gameType, setGameType] = useState<"connect4" | "longboi">("connect4")
+  const [RulesComponent, setRulesComponent] = useState<React.FC>(
+    () => Connect4Rules,
+  )
 
   const navigate = useNavigate()
 
@@ -180,6 +183,12 @@ const GamePage: React.FC = () => {
             ? gameData.maxTurnTime.toString()
             : "10",
         )
+
+        if (gameData.gameType === "connect4") {
+          setRulesComponent(() => Connect4Rules)
+        } else {
+          setRulesComponent(() => LongBoiRules)
+        }
 
         // Add user to the game if not already in it and game hasn't started
         if (!gameData.started && !gameData.playerIDs.includes(userID)) {
@@ -727,16 +736,7 @@ const GamePage: React.FC = () => {
         <>
           {turns.length === 1 && (
             <Box sx={{ mt: 2 }}>
-              <Typography>1. Select a square by pressing it</Typography>
-              <Typography>2. Press 'Submit Move'</Typography>
-              <Typography>
-                3. Read your opponents' minds to not pick the same square as
-                them. If you fail to do this, that square will get blocked
-                forever (❌)
-              </Typography>
-              <Typography sx={{ mb: 1 }}>
-                4. Get 4 squares in a row to win
-              </Typography>
+              <RulesComponent />
             </Box>
           )}
           {gameState.nextGame !== "" && (
@@ -1001,30 +1001,7 @@ const GamePage: React.FC = () => {
         <DialogTitle>Game Rules</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            <Typography>1. Select a square by pressing it</Typography>
-            <Typography>2. Press 'Submit Move'</Typography>
-            <Typography>
-              3. Read your opponents' minds to not pick the same square as them.
-              If you fail to do this, that square will get blocked forever (❌)
-            </Typography>
-            <Typography sx={{ mb: 2 }}>
-              4. Get 4 squares in a row to win
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              If more than one person wins at the same time, the squares they
-              would have won with get blocked
-            </Typography>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              If more than one person selects the same square, that square gets
-              blocked
-            </Typography>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Press on a blocked square to see the reason a square got blocked
-            </Typography>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              You can see previous turns using the arrows below the board
-            </Typography>
+            <RulesComponent />
           </DialogContentText>
         </DialogContent>
         <DialogActions>

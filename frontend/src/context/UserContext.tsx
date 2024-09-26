@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
-import { doc, onSnapshot, setDoc } from "firebase/firestore"
+import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
 import { auth } from "../firebaseConfig"
@@ -20,13 +20,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   const [userID, setUserID] = useState<string>("")
   const [nickname, setNickname] = useState<string>("")
   const [emoji, setEmoji] = useState<string>("")
-  const [isUserDocLoaded, setIsUserDocLoaded] = useState<boolean>(false) // Flag to check if user doc is loaded
+  const [authLoaded, setAuthLoaded] = useState<boolean>(false) // Auth flag
+  const [userDocLoaded, setUserDocLoaded] = useState<boolean>(false) // User doc flag
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      // Automatically log in anonymously if not authenticated
       if (!user) {
-        await signInAnonymously(auth)
+        try {
+          await signInAnonymously(auth)
+        } catch (error) {
+          console.error("Failed to sign in anonymously:", error)
+          setAuthLoaded(true) // Ensure authLoaded is set even if sign-in fails
+          return
+        }
       }
 
       const currentUser = auth.currentUser
@@ -46,17 +52,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
             setNickname(userInfo.nickname || "Unknown")
             setEmoji(userInfo.emoji || "")
           } else {
-            setIsUserDocLoaded(true) // Show signup page if no user doc
+            console.log("No user document exists, prompting user for info.")
           }
+          setUserDocLoaded(true) // Set user doc loaded after trying to fetch data
         })
 
-        setIsUserDocLoaded(true) // Continue after loading user data
+        setAuthLoaded(true) // Auth is now loaded since we have a user
 
         return () => {
-          unsubscribeUserDoc() // Unsubscribe from the listener when component unmounts
+          unsubscribeUserDoc() // Unsubscribe from Firestore listener on unmount
         }
       } else {
-        setIsUserDocLoaded(true) // Edge case where auth state is not set
+        setAuthLoaded(true) // Auth is now loaded even if no currentUser
       }
     })
 
@@ -71,12 +78,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       await setDoc(userDocRef, { nickname, emoji }, { merge: true })
       setNickname(nickname)
       setEmoji(emoji)
-      setIsUserDocLoaded(true) // Continue with the app after saving
+      setUserDocLoaded(true)
     }
   }
 
-  if (!isUserDocLoaded) {
-    // Show loading screen while auth is still loading
+  // Ensure both auth and user doc are loaded before rendering the app
+  if (!authLoaded || !userDocLoaded) {
     return (
       <Container sx={{ mt: 1 }}>
         <Box
