@@ -1,5 +1,5 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { useUser } from "../../../context/UserContext"
 import { db } from "../../../firebaseConfig"
 
@@ -36,11 +36,15 @@ const GameActive: React.FC = () => {
     handlePrevTurn,
     timeRemaining,
     selectedSquare,
+    latestTurn,
   } = useGameStateContext()
+
+  const [clicked, setClicked] = useState(false)
 
   // Submit a move
   const handleMoveSubmit = async () => {
     if (!currentTurn) return
+    setClicked(true)
 
     if (selectedSquare !== null && gameState && userID && gameID) {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
@@ -56,20 +60,13 @@ const GameActive: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    setClicked(false)
+  }, [latestTurn])
+
   if (!gameState) return
 
   const playerInCurrentGame = gameState.playerIDs.includes(userID)
-
-  console.log(selectedSquare)
-
-  console.log(
-    hasSubmittedMove,
-    !!currentTurn?.hasMoved[userID],
-    !playerInCurrentGame,
-    selectedSquare !== null,
-    currentTurn?.board[selectedSquare!] !== "",
-    turns.length !== currentTurn?.turnNumber,
-  )
 
   if (!gameState.started || !currentTurn) return
   return (
@@ -85,6 +82,7 @@ const GameActive: React.FC = () => {
         {!gameState.nextGame && (
           <Button
             disabled={
+              clicked ||
               hasSubmittedMove ||
               !!currentTurn?.hasMoved[userID] ||
               !playerInCurrentGame ||
