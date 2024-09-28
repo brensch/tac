@@ -125,7 +125,7 @@ const GameActive: React.FC = () => {
           <ArrowBack />
         </IconButton>
         <Typography variant="body2" sx={{ marginX: 2 }}>
-          Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."} of{" "}
+          {currentTurn ? currentTurn.turnNumber : "Loading..."} of{" "}
           {turns.length}
         </Typography>
         <IconButton
