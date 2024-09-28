@@ -84,7 +84,7 @@ const GameActive: React.FC = () => {
   return (
     <Stack spacing={2} pt={2}>
       {/* Alert if player joined late */}
-      {!playerInCurrentGame && (
+      {!playerInCurrentGame && !gameState.nextGame && (
         <Alert severity="warning">
           This game started before you joined. Watch until the next game starts.
         </Alert>
@@ -109,7 +109,8 @@ const GameActive: React.FC = () => {
           onClick={handleMoveSubmit}
           fullWidth
         >
-          Submit Move ({Math.max(0, timeRemaining).toFixed(1)}s left)
+          Submit Move ({Math.max(0, timeRemaining).toFixed(1)}, round{" "}
+          {latestTurn?.turnNumber})
         </Button>
       )}
       {latestTurn?.turnNumber == 1 && selectedSquare === null && (
