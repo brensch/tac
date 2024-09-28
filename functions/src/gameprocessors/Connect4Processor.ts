@@ -77,69 +77,94 @@ export class Connect4Processor extends GameProcessor {
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
-    const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
-    const clashes: Record<string, any> = { ...this.currentTurn.clashes }
+    try {
+      const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
+      const clashes: Record<string, any> = { ...this.currentTurn.clashes }
 
-    // Build a map of moves per column
-    const moveMap: { [column: number]: string[] } = {}
+      // Build a map of moves per column
+      const moveMap: { [column: number]: string[] } = {}
 
-    this.latestMoves.forEach((move) => {
-      if (moveMap[move.move]) {
-        moveMap[move.move].push(move.playerID)
-      } else {
-        moveMap[move.move] = [move.playerID]
-      }
-    })
-
-    // Apply moves to the board
-    for (const columnStr in moveMap) {
-      const column = parseInt(columnStr, 10)
-      const players = moveMap[column]
-
-      if (players.length === 1) {
-        const playerID = players[0]
-        const row = this.findAvailableRow(newBoard, column)
-        if (row !== -1) {
-          const index = row * this.currentTurn.boardWidth + column
-          newBoard[index].playerID = playerID
-          logger.info(
-            `Connect4: Player ${playerID} placed at column ${column}, row ${row}.`,
-          )
+      this.latestMoves.forEach((move) => {
+        if (moveMap[move.move]) {
+          moveMap[move.move].push(move.playerID)
         } else {
-          logger.warn(
-            `Connect4: Column ${column} is full. Move by player ${players[0]} ignored.`,
-          )
+          moveMap[move.move] = [move.playerID]
         }
-      } else if (players.length > 1) {
-        // Conflict: multiple players attempted to place in the same column
-        // Block the column by marking it as eaten
-        for (
-          let row: number = this.currentTurn.boardWidth - 1;
-          row >= 0;
-          row--
-        ) {
-          const index = row * this.currentTurn.boardWidth + column
-          if (newBoard[index].playerID === null) {
-            newBoard[index].playerID = null
-            newBoard[index].eaten = true
-            clashes[index] = {
-              players,
-              reason: "Multiple players attempted to place in the same column.",
-            }
+      })
+
+      // Apply moves to the board
+      for (const columnStr in moveMap) {
+        const column = parseInt(columnStr, 10)
+        const players = moveMap[column]
+
+        if (players.length === 1) {
+          const playerID = players[0]
+          const row = this.findAvailableRow(newBoard, column)
+          if (row !== -1) {
+            const index = row * this.currentTurn.boardWidth + column
+            newBoard[index].playerID = playerID
+            newBoard[index].allowedPlayers = [] // Mark as occupied
             logger.info(
-              `Connect4: Column ${column} at row ${row} is blocked due to conflict among players ${players.join(
-                ", ",
-              )}.`,
+              `Connect4: Player ${playerID} placed at column ${column}, row ${row}.`,
             )
-            break
+
+            // Make the square above available if within bounds and unoccupied
+            const aboveRow = row - 1
+            if (aboveRow >= 0) {
+              const aboveIndex = aboveRow * this.currentTurn.boardWidth + column
+              if (newBoard[aboveIndex].playerID === null) {
+                newBoard[aboveIndex].allowedPlayers = [
+                  ...this.currentTurn.playerIDs,
+                ]
+                logger.info(
+                  `Connect4: Square above column ${column}, row ${aboveRow} is now available.`,
+                )
+              }
+            }
+          } else {
+            logger.warn(
+              `Connect4: Column ${column} is full. Move by player ${players[0]} ignored.`,
+            )
+          }
+        } else if (players.length > 1) {
+          // Conflict: multiple players attempted to place in the same column
+          // Block the column by marking the lowest available square as eaten
+          for (
+            let row: number = this.currentTurn.boardWidth - 1;
+            row >= 0;
+            row--
+          ) {
+            const index = row * this.currentTurn.boardWidth + column
+            if (newBoard[index].playerID === null) {
+              newBoard[index].playerID = null
+              newBoard[index].eaten = true
+              newBoard[index].allowedPlayers = [] // Ensure it's blocked
+              clashes[index] = {
+                players,
+                reason:
+                  "Multiple players attempted to place in the same column.",
+              }
+              logger.info(
+                `Connect4: Column ${column} at row ${row} is blocked due to conflict among players ${players.join(
+                  ", ",
+                )}.`,
+              )
+              break
+            }
           }
         }
       }
-    }
 
-    // Update the board and clashes in the current turn
-    this.currentTurn.board = newBoard
-    this.currentTurn.clashes = clashes
+      // Update the board and clashes in the current turn
+      this.currentTurn.board = newBoard
+      this.currentTurn.clashes = clashes
+    } catch (error) {
+      logger.error(
+        `Connect4: Error applying moves for game ${this.gameID}:`,
+        error,
+      )
+      throw error
+    }
   }
 
   /**
@@ -148,38 +173,48 @@ export class Connect4Processor extends GameProcessor {
    */
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
-    const newBoard = this.currentTurn.board
-    const winLength = 4 // Standard Connect Four
-    const playerIDs = this.currentTurn.playerIDs
+    try {
+      const newBoard = this.currentTurn.board
+      const winLength = 4 // Standard Connect Four
+      const playerIDs = this.currentTurn.playerIDs
 
-    const winningPlayers = this.checkWinConditionConnect4(
-      newBoard,
-      this.currentTurn.boardWidth,
-      winLength,
-      playerIDs,
-    )
-
-    const winners: Winner[] = []
-
-    if (winningPlayers.length === 1) {
-      const winnerID = winningPlayers[0].playerID
-      const winningSquares = winningPlayers[0].winningSquares
-      const score = this.calculateScore(winningSquares.length)
-      winners.push({ playerID: winnerID, score, winningSquares })
-      logger.info(`Connect4: Player ${winnerID} has won the game!`)
-    } else if (winningPlayers.length > 1) {
-      // Handle multiple winners
-      winners.push(
-        ...winningPlayers.map((wp) => ({
-          playerID: wp.playerID,
-          score: this.calculateScore(wp.winningSquares.length),
-          winningSquares: wp.winningSquares,
-        })),
+      const winningPlayers = this.checkWinConditionConnect4(
+        newBoard,
+        this.currentTurn.boardWidth,
+        winLength,
+        playerIDs,
       )
-      logger.info(`Connect4: Multiple players have won the game!`, { winners })
-    }
 
-    return winners
+      const winners: Winner[] = []
+
+      if (winningPlayers.length === 1) {
+        const winnerID = winningPlayers[0].playerID
+        const winningSquares = winningPlayers[0].winningSquares
+        const score = this.calculateScore(winningSquares.length)
+        winners.push({ playerID: winnerID, score, winningSquares })
+        logger.info(`Connect4: Player ${winnerID} has won the game!`)
+      } else if (winningPlayers.length > 1) {
+        // Handle multiple winners
+        winners.push(
+          ...winningPlayers.map((wp) => ({
+            playerID: wp.playerID,
+            score: this.calculateScore(wp.winningSquares.length),
+            winningSquares: wp.winningSquares,
+          })),
+        )
+        logger.info(`Connect4: Multiple players have won the game!`, {
+          winners,
+        })
+      }
+
+      return winners
+    } catch (error) {
+      logger.error(
+        `Connect4: Error finding winners for game ${this.gameID}:`,
+        error,
+      )
+      throw error
+    }
   }
 
   /**
@@ -313,11 +348,19 @@ export class Connect4Processor extends GameProcessor {
         isTail: false,
         isHead: false,
         eaten: false,
-        allowedPlayers: [...playerIDs],
+        allowedPlayers: [], // Initially, no squares are available
       }))
 
-    // Additional logic for Connect4 initial board, e.g., allow bottom row only
-    // For simplicity, all squares are allowed for all players
+    // Mark only the bottom row as available
+    for (let column = 0; column < boardWidth; column++) {
+      const bottomRow = boardWidth - 1
+      const index = bottomRow * boardWidth + column
+      board[index].allowedPlayers = [...playerIDs]
+    }
+
+    logger.info("Connect4: Board initialized with bottom row available.", {
+      board,
+    })
 
     return board
   }

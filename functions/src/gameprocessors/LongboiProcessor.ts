@@ -81,18 +81,41 @@ export class LongboiProcessor extends GameProcessor {
       const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
       const clashes: Record<string, any> = { ...this.currentTurn.clashes }
 
-      // Apply moves to the board without conflict handling (assuming Longboi doesn't have move conflicts)
+      // Apply moves to the board
       this.latestMoves.forEach((move) => {
         const squareIndex = move.move
         if (squareIndex >= 0 && squareIndex < newBoard.length) {
-          newBoard[squareIndex].playerID = move.playerID
-          // Optionally, update other Square properties based on Longboi rules
-          logger.info(
-            `Longboi: Square ${squareIndex} captured by player ${move.playerID}`,
-          )
+          const square = newBoard[squareIndex]
+          if (square.playerID === null) {
+            square.playerID = move.playerID
+            square.allowedPlayers = [] // Mark as occupied
+            logger.info(
+              `Longboi: Square ${squareIndex} captured by player ${move.playerID}`,
+              { squareIndex, playerID: move.playerID },
+            )
+
+            // Make adjacent squares available based on Longboi's rules
+            if (!this.currentTurn) return
+            this.updateAdjacentSquares(
+              newBoard,
+              squareIndex,
+              this.currentTurn.boardWidth,
+            )
+          } else {
+            // Conflict: Square already occupied
+            clashes[squareIndex] = {
+              players: [move.playerID],
+              reason: "Square already occupied.",
+            }
+            logger.warn(
+              `Longboi: Square ${squareIndex} already occupied. Move by player ${move.playerID} ignored.`,
+              { squareIndex, playerID: move.playerID },
+            )
+          }
         } else {
           logger.warn(
             `Longboi: Invalid move index ${squareIndex} by player ${move.playerID}.`,
+            { squareIndex, playerID: move.playerID },
           )
         }
       })
@@ -120,37 +143,49 @@ export class LongboiProcessor extends GameProcessor {
       const winLength = 4 // Example condition
       const playerIDs = this.currentTurn.playerIDs
 
-      const winningPlayers = this.checkWinConditionLongboi(
-        newBoard,
-        this.currentTurn.boardWidth,
-        winLength,
-        playerIDs,
+      const isBoardFull = newBoard.every(
+        (square) => square.playerID !== null || square.eaten,
       )
 
+      if (!isBoardFull) {
+        // The game continues; no winners yet
+        return []
+      }
+
+      // Since the board is full, calculate each player's longest path
       const winners: Winner[] = []
 
-      if (winningPlayers.length === 1) {
-        const winnerID = winningPlayers[0].playerID
-        const winningSquares = winningPlayers[0].winningSquares
-        const score = this.calculateScore(winningSquares.length)
-        winners.push({ playerID: winnerID, score, winningSquares })
-        logger.info(`Longboi: Player ${winnerID} has won the game!`, {
-          gameID: this.gameID,
-        })
-      } else if (winningPlayers.length > 1) {
-        // Handle multiple winners
-        winners.push(
-          ...winningPlayers.map((wp) => ({
-            playerID: wp.playerID,
-            score: this.calculateScore(wp.winningSquares.length),
-            winningSquares: wp.winningSquares,
-          })),
+      playerIDs.forEach((playerID) => {
+        if (!this.currentTurn) return
+        const longestPath = this.findLongestConnectedPathForPlayer(
+          newBoard,
+          this.currentTurn.boardWidth,
+          playerID,
         )
-        logger.info(`Longboi: Multiple players have won the game!`, {
-          winners,
-          gameID: this.gameID,
-        })
-      }
+
+        if (longestPath.length >= winLength) {
+          const score = this.calculateScore(longestPath.length)
+          winners.push({
+            playerID,
+            score,
+            winningSquares: longestPath,
+          })
+          logger.info(
+            `Longboi: Player ${playerID} has a path of length ${longestPath.length}.`,
+            {
+              gameID: this.gameID,
+            },
+          )
+        } else {
+          // Players who do not meet the win condition can be excluded or handled as needed
+          logger.info(
+            `Longboi: Player ${playerID} does not meet the win condition.`,
+            {
+              gameID: this.gameID,
+            },
+          )
+        }
+      })
 
       return winners
     } catch (error) {
@@ -173,49 +208,6 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
-   * Checks for a win condition in Longboi based on the longest continuous connected path.
-   * @param board The current game board.
-   * @param boardWidth The width of the board.
-   * @param winLength The target length for winning.
-   * @param playerIDs Array of player IDs.
-   * @returns An array of winning players with their winning squares.
-   */
-  private checkWinConditionLongboi(
-    board: Square[],
-    boardWidth: number,
-    winLength: number,
-    playerIDs: string[],
-  ): { playerID: string; winningSquares: number[] }[] {
-    // Ensure no player wins unless all squares are filled
-    if (board.some((square) => square.playerID === null)) {
-      return [] // No winner if there are empty squares
-    }
-
-    const longestPaths: { playerID: string; winningSquares: number[] }[] = []
-
-    playerIDs.forEach((playerID) => {
-      const result = this.findLongestConnectedPathForPlayer(
-        board,
-        boardWidth,
-        playerID,
-      )
-      longestPaths.push({ playerID, winningSquares: result })
-    })
-
-    // Determine the maximum path length
-    const longestPathLength = Math.max(
-      ...longestPaths.map((p) => p.winningSquares.length),
-    )
-
-    // Return players with the longest path and meeting the win length
-    return longestPaths.filter(
-      (p) =>
-        p.winningSquares.length === longestPathLength &&
-        longestPathLength >= winLength,
-    )
-  }
-
-  /**
    * Helper function to find the longest connected path for a player in Longboi.
    * @param board The current game board.
    * @param boardWidth The width of the board.
@@ -231,12 +223,16 @@ export class LongboiProcessor extends GameProcessor {
     let longestPath: number[] = []
     const visited: Set<number> = new Set()
 
-    // Direction vectors: right, down, left, up
+    // Direction vectors: right, down, left, up, and diagonals
     const directions = [
       { x: 1, y: 0 }, // Right
-      { x: 0, y: 1 }, // Down
       { x: -1, y: 0 }, // Left
+      { x: 0, y: 1 }, // Down
       { x: 0, y: -1 }, // Up
+      { x: 1, y: 1 }, // Down-Right
+      { x: -1, y: 1 }, // Down-Left
+      { x: 1, y: -1 }, // Up-Right
+      { x: -1, y: -1 }, // Up-Left
     ]
 
     // Helper to convert (x, y) to a single index in the board array
@@ -316,14 +312,68 @@ export class LongboiProcessor extends GameProcessor {
         isTail: false,
         isHead: false,
         eaten: false,
-        allowedPlayers: [...playerIDs],
+        allowedPlayers: [], // Initially, no squares are available
       }))
 
-    // Customize initial board for 'longboi' as needed
-    // Example: Place specific markers
-    // board[0].isHead = true
-    // board[boardSize - 1].isTail = true
+    // Define which squares are initially available.
+    // For example, only the bottom row is available.
+    for (let column = 0; column < boardWidth; column++) {
+      const bottomRow = boardWidth - 1
+      const index = bottomRow * boardWidth + column
+      board[index].allowedPlayers = [...playerIDs]
+    }
+
+    logger.info("Longboi: Board initialized with bottom row available.", {
+      board,
+    })
 
     return board
+  }
+
+  /**
+   * Updates adjacent squares to make them available after a move.
+   * @param board The current game board.
+   * @param squareIndex The index of the square that was just occupied.
+   * @param gameWidth The width of the board.
+   */
+  private updateAdjacentSquares(
+    board: Square[],
+    squareIndex: number,
+    gameWidth: number,
+  ): void {
+    const size = gameWidth
+    const x = squareIndex % size
+    const y = Math.floor(squareIndex / size)
+
+    // Define adjacent directions (up, down, left, right, diagonals)
+    const directions = [
+      { dx: 1, dy: 0 }, // Right
+      { dx: -1, dy: 0 }, // Left
+      { dx: 0, dy: 1 }, // Down
+      { dx: 0, dy: -1 }, // Up
+      { dx: 1, dy: 1 }, // Down-Right
+      { dx: -1, dy: 1 }, // Down-Left
+      { dx: 1, dy: -1 }, // Up-Right
+      { dx: -1, dy: -1 }, // Up-Left
+    ]
+
+    directions.forEach((dir) => {
+      const newX = x + dir.dx
+      const newY = y + dir.dy
+      if (newX >= 0 && newX < size && newY >= 0 && newY < size) {
+        const adjacentIndex = newY * size + newX
+        const adjacentSquare = board[adjacentIndex]
+        if (adjacentSquare.playerID === null && !adjacentSquare.eaten) {
+          // Make the square available for all players if not already available
+          if (adjacentSquare.allowedPlayers.length === 0) {
+            adjacentSquare.allowedPlayers = [...this.currentTurn!.playerIDs]
+            logger.info(
+              `Longboi: Square ${adjacentIndex} is now available for all players.`,
+              { squareIndex: adjacentIndex },
+            )
+          }
+        }
+      }
+    })
   }
 }
