@@ -26,6 +26,8 @@ interface GameStateContextType {
   handleNextTurn: () => void
   handleLatestTurn: () => void
   setCurrentTurnIndex: React.Dispatch<React.SetStateAction<number>>
+  selectedSquare: number | null
+  setSelectedSquare: React.Dispatch<React.SetStateAction<number | null>>
   startGame: () => Promise<void>
   submitMove: (selectedSquare: number) => Promise<void>
   error: string | null
@@ -51,6 +53,7 @@ export const GameStateProvider: React.FC<{
   const [error, setError] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
   const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
+  const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
 
   // Subscribe to game document
   useEffect(() => {
@@ -163,48 +166,27 @@ export const GameStateProvider: React.FC<{
 
       setTimeRemaining(remaining) // Update your local state for the timer display
 
-      //   // Check if the turn has already expired in your local state
-      //   if (expiredTurns.includes(currentTurn.turnNumber)) {
-      //     return
-      //   }
+      if (remaining > -1) {
+        return
+      }
+      // If the time runs out, check Firestore for existing expiration requests
+      const expirationRequestsRef = collection(
+        db,
+        `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
+      )
 
-      //   // If the time runs out, check Firestore for existing expiration requests
-      //   if (remaining <= 0) {
-      //     try {
-      //       const expirationRequestsRef = collection(
-      //         db,
-      //         `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
-      //       )
+      // No existing expiration requests, create a new one
+      await addDoc(expirationRequestsRef, {
+        timestamp: new Date(),
+        playerID: userID,
+      })
 
-      //       // Query Firestore for any existing expiration requests
-      //       const existingRequests = await getDocs(query(expirationRequestsRef))
-      //       if (existingRequests.empty) {
-      //         // No existing expiration requests, create a new one
-      //         await addDoc(expirationRequestsRef, {
-      //           timestamp: new Date(),
-      //           playerID: userID,
-      //         })
+      console.log(`Turn expiration request created for gameID: ${gameID}`)
 
-      //         setExpiredTurns((prevTurns) => [
-      //           ...prevTurns,
-      //           currentTurn.turnNumber,
-      //         ])
-
-      //         console.log(`Turn expiration request created for gameID: ${gameID}`)
-      //       } else {
-      //         console.log(
-      //           `Expiration request already exists for turn ${currentTurn.turnNumber}`,
-      //         )
-      //       }
-      //     } catch (error) {
-      //       console.error("Error creating turn expiration request:", error)
-      //     }
-
-      //   // Slow down the interval after expiration to reduce resource usage
-      //   clearInterval(intervalId) // Clear the current interval
-      //   intervalTime = 1000 // Increase interval time
-      //   intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
-      //   }
+      // Slow down the interval after expiration to reduce resource usage
+      clearInterval(intervalId) // Clear the current interval
+      intervalTime = 3000 // Increase interval time
+      intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
     }
 
     intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
@@ -282,6 +264,8 @@ export const GameStateProvider: React.FC<{
         currentTurnIndex,
         startGame,
         submitMove,
+        setSelectedSquare,
+        selectedSquare,
         error,
         gameID,
         timeRemaining,

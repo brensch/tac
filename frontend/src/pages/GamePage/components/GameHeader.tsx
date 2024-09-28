@@ -25,9 +25,6 @@ const GameHeader: React.FC = () => {
     }
   }
 
-  console.log("hi")
-  //   return <div></div>
-
   return (
     <Box>
       {/* Header */}

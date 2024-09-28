@@ -13,6 +13,8 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji }) => {
     setEmojis(emojiArray)
   }, [])
 
+  console.log("wot")
+
   return (
     <div
       style={{

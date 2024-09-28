@@ -1,5 +1,5 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
-import React, { useLayoutEffect, useRef, useState } from "react"
+import React, { useState } from "react"
 import { useUser } from "../../../context/UserContext"
 import { db } from "../../../firebaseConfig"
 
@@ -20,7 +20,6 @@ import {
 
 import { useGameStateContext } from "../../../context/GameStateContext"
 import GameGrid from "../components/GameGrid"
-import ClashDialog from "./ClashDialog"
 
 const GameActive: React.FC = () => {
   const { userID } = useUser()
@@ -36,64 +35,8 @@ const GameActive: React.FC = () => {
     handleNextTurn,
     handlePrevTurn,
     timeRemaining,
+    selectedSquare,
   } = useGameStateContext()
-
-  const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
-  const [clashReason, setClashReason] = useState<string>("")
-  const [openClashDialog, setOpenClashDialog] = useState(false)
-
-  // New ref and state for dynamic font sizing
-  const gridRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState<number>(0)
-
-  // Handle dynamic container width
-  useLayoutEffect(() => {
-    const updateContainerWidth = () => {
-      if (gridRef.current) {
-        setContainerWidth(gridRef.current.offsetWidth)
-      }
-    }
-
-    updateContainerWidth() // Initial measurement
-
-    window.addEventListener("resize", updateContainerWidth)
-    return () => {
-      window.removeEventListener("resize", updateContainerWidth)
-    }
-  }, [gameState?.boardWidth, currentTurn])
-
-  // Handle selecting a square
-  const handleSquareClick = (index: number) => {
-    if (!currentTurn) return
-    const clash = currentTurn.clashes[index.toString()]
-    if (clash) {
-      handleClashClick(clash)
-      return
-    }
-
-    if (gameState?.started && !hasSubmittedMove) {
-      const cellValue = currentTurn.board[index]
-
-      if (cellValue === "" || cellValue === null) {
-        setSelectedSquare(index)
-      }
-    }
-  }
-
-  // Handle clash click
-  const handleClashClick = (clash: { players: string[]; reason: string }) => {
-    // const players = clash.players.map(
-    //   (id) =>
-    //     playerInfos.find((p) => p.id === id) || {
-    //       id,
-    //       nickname: "Unknown",
-    //       emoji: "",
-    //     },
-    // )
-    // setClashPlayersList(players)
-    // setClashReason(clash.reason)
-    // setOpenClashDialog(true)
-  }
 
   // Submit a move
   const handleMoveSubmit = async () => {
@@ -115,11 +58,16 @@ const GameActive: React.FC = () => {
 
   if (!gameState) return
 
-  const { winner } = gameState
+  console.log(currentTurn)
 
   const playerInCurrentGame = gameState.playerIDs.includes(userID)
-  const winnerInfo = playerInfos.find((p) => p.id === winner)
-  const winnerEmoji = winnerInfo?.emoji || ""
+
+  console.log(
+    !!currentTurn,
+    currentTurn?.turnNumber === turns.length,
+    currentTurn?.hasMoved[userID],
+    currentTurn?.hasMoved,
+  )
 
   if (!gameState.started || !currentTurn) return
   return (
@@ -132,17 +80,15 @@ const GameActive: React.FC = () => {
             starts.
           </Alert>
         )}
-        <>
+        {!gameState.nextGame && (
           <Button
             disabled={
               hasSubmittedMove ||
               !!currentTurn?.hasMoved[userID] ||
               !playerInCurrentGame ||
-              !(
-                selectedSquare !== null &&
-                currentTurn?.board[selectedSquare] === "" &&
-                turns.length === currentTurn?.turnNumber
-              )
+              !selectedSquare ||
+              currentTurn?.board[selectedSquare] !== "" ||
+              turns.length !== currentTurn?.turnNumber
             }
             color="primary"
             onClick={handleMoveSubmit}
@@ -151,17 +97,9 @@ const GameActive: React.FC = () => {
           >
             Submit Move ({Math.max(0, timeRemaining).toFixed(1)}s left)
           </Button>
-        </>
-        ){/* Game Grid */}
-        <GameGrid
-          currentTurn={currentTurn}
-          playerInfos={playerInfos}
-          gameState={gameState}
-          selectedSquare={selectedSquare}
-          onSquareClick={handleSquareClick}
-          containerWidth={containerWidth}
-          disabled={hasSubmittedMove}
-        />
+        )}
+        {/* Game Grid */}
+        {<GameGrid />}
         {/* Navigation controls */}
         <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
           <IconButton onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>

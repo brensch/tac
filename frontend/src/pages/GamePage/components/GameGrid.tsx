@@ -1,39 +1,47 @@
-import React, { useState } from "react"
+import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box, Typography } from "@mui/material"
 import { PlayerInfo, Turn, GameState } from "@shared/types/Game"
 import { useUser } from "../../../context/UserContext"
 import ClashDialog from "./ClashDialog"
+import { useGameStateContext } from "../../../context/GameStateContext"
 
-interface GameGridProps {
-  currentTurn: Turn
-  playerInfos: PlayerInfo[]
-  gameState: GameState
-  selectedSquare: number | null
-  onSquareClick: (index: number) => void
-  containerWidth: number
-  disabled: boolean
-}
+const GameGrid: React.FC = ({}) => {
+  const {
+    gameState,
+    playerInfos,
+    hasSubmittedMove,
+    currentTurn,
+    selectedSquare,
+    setSelectedSquare,
+  } = useGameStateContext()
 
-const GameGrid: React.FC<GameGridProps> = ({
-  currentTurn,
-  playerInfos,
-  gameState,
-  selectedSquare,
-  onSquareClick,
-  containerWidth,
-  disabled,
-}) => {
-  const { board, clashes, winningSquares } = currentTurn
-  const gridSize = gameState.boardWidth || 8 // Default to 8 if undefined
+  const { board, clashes, winningSquares } = currentTurn!
+  const gridSize = gameState?.boardWidth || 8 // Default to 8 if undefined
   const winningSquaresSet = new Set(winningSquares || [])
   const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
   const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
+  //   handle size
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(0)
 
   // Calculate cell size and font size
   const cellSize = containerWidth ? containerWidth / gridSize : 0
   const fontSize = cellSize ? Math.min(cellSize * 0.6, 48) : 16 // Set a max font size
   const user = useUser()
+
+  useLayoutEffect(() => {
+    const updateContainerWidth = () => {
+      if (gridRef.current) {
+        setContainerWidth(gridRef.current.offsetWidth)
+      }
+    }
+    updateContainerWidth() // Initial measurement
+    window.addEventListener("resize", updateContainerWidth)
+    return () => {
+      window.removeEventListener("resize", updateContainerWidth)
+    }
+  }, [gameState?.boardWidth, currentTurn])
 
   const handleClashClick = (clash: { players: string[]; reason: string }) => {
     const players = clash.players.map(
@@ -49,8 +57,29 @@ const GameGrid: React.FC<GameGridProps> = ({
     setOpenClashDialog(true)
   }
 
+  // Handle selecting a square
+  const handleSquareClick = (index: number) => {
+    if (!currentTurn) return
+    const clash = currentTurn.clashes[index.toString()]
+    if (clash) {
+      handleClashClick(clash)
+      return
+    }
+
+    if (gameState?.started && !hasSubmittedMove) {
+      const cellValue = currentTurn.board[index]
+
+      if (cellValue === "" || cellValue === null) {
+        setSelectedSquare(index)
+      }
+    }
+  }
+
+  const disabled = hasSubmittedMove
+
   return (
     <Box
+      ref={gridRef}
       sx={{
         display: "grid",
         gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
@@ -78,7 +107,7 @@ const GameGrid: React.FC<GameGridProps> = ({
               if (clash) {
                 handleClashClick(clash)
               } else {
-                onSquareClick(index)
+                handleSquareClick(index)
               }
             }}
             sx={{
@@ -88,8 +117,8 @@ const GameGrid: React.FC<GameGridProps> = ({
               border: "1px solid black",
               cursor: disabled
                 ? "default"
-                : gameState.started &&
-                  !currentTurn.hasMoved[user.userID] && // Adjust condition as needed
+                : gameState?.started &&
+                  !currentTurn?.hasMoved[user.userID] && // Adjust condition as needed
                   isCellEmpty &&
                   !isBlocked
                 ? "pointer"
