@@ -77,6 +77,11 @@ const theme = createTheme({
             backgroundColor: "#81d681", // Slightly darker green on hover
             boxShadow: "none", // No drop shadow on hover
           },
+          "&.Mui-disabled": {
+            backgroundColor: "#d3d3d3", // Grey background when disabled
+            border: "1px solid #a9a9a9", // Darker grey border when disabled
+            color: "#808080", // Grey font color when disabled
+          },
         },
         outlined: {
           backgroundColor: "#fff", // White background for outlined buttons

@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   IconButton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -81,60 +82,64 @@ const GameActive: React.FC = () => {
 
   if (!gameState.started || !currentTurn) return
   return (
-    <Box>
-      <>
-        {/* Alert if player joined late */}
-        {!playerInCurrentGame && (
-          <Alert sx={{ mt: 2 }} severity="warning">
-            This game started before you joined. Watch until the next game
-            starts.
-          </Alert>
-        )}
-        {latestTurn?.turnNumber == 1 && <RulesComponent />}
-        {!gameState.nextGame && (
-          <Button
-            disabled={
-              clicked ||
-              hasSubmittedMove ||
-              !!currentTurn?.hasMoved[userID] ||
-              !playerInCurrentGame ||
-              selectedSquare === null ||
-              currentTurn?.board[selectedSquare] !== "" ||
-              turns.length !== currentTurn?.turnNumber
-            }
-            color="primary"
-            onClick={handleMoveSubmit}
-            sx={{ my: 2 }}
-            fullWidth
-          >
-            Submit Move ({Math.max(0, timeRemaining).toFixed(1)}s left)
-          </Button>
-        )}
-        {/* Game Grid */}
-        {<GameGrid />}
-        {/* Navigation controls */}
-        <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-          <IconButton onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="body2" sx={{ marginX: 2 }}>
-            Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."}{" "}
-            of {turns.length}
-          </Typography>
-          <IconButton
-            onClick={handleNextTurn}
-            disabled={currentTurnIndex >= turns.length - 1}
-          >
-            <ArrowForward />
-          </IconButton>
-          <IconButton
-            onClick={handleLatestTurn}
-            disabled={currentTurnIndex >= turns.length - 1}
-          >
-            <LastPage />
-          </IconButton>
+    <Stack spacing={2} pt={2}>
+      {/* Alert if player joined late */}
+      {!playerInCurrentGame && (
+        <Alert severity="warning">
+          This game started before you joined. Watch until the next game starts.
+        </Alert>
+      )}
+      {latestTurn?.turnNumber == 1 && (
+        <Box>
+          <RulesComponent />
         </Box>
-      </>
+      )}
+      {!gameState.nextGame && (
+        <Button
+          disabled={
+            clicked ||
+            hasSubmittedMove ||
+            !!currentTurn?.hasMoved[userID] ||
+            !playerInCurrentGame ||
+            selectedSquare === null ||
+            currentTurn?.board[selectedSquare] !== "" ||
+            turns.length !== currentTurn?.turnNumber
+          }
+          variant="contained"
+          onClick={handleMoveSubmit}
+          fullWidth
+        >
+          Submit Move ({Math.max(0, timeRemaining).toFixed(1)}s left)
+        </Button>
+      )}
+      {latestTurn?.turnNumber == 1 && selectedSquare === null && (
+        <Typography>Tap a square to get started!</Typography>
+      )}
+
+      {/* Game Grid */}
+      {<GameGrid />}
+      {/* Navigation controls */}
+      <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
+        <IconButton onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="body2" sx={{ marginX: 2 }}>
+          Viewing Turn {currentTurn ? currentTurn.turnNumber : "Loading..."} of{" "}
+          {turns.length}
+        </Typography>
+        <IconButton
+          onClick={handleNextTurn}
+          disabled={currentTurnIndex >= turns.length - 1}
+        >
+          <ArrowForward />
+        </IconButton>
+        <IconButton
+          onClick={handleLatestTurn}
+          disabled={currentTurnIndex >= turns.length - 1}
+        >
+          <LastPage />
+        </IconButton>
+      </Box>
 
       {/* Players Table */}
       <TableContainer sx={{ my: 2, width: "100%" }}>
@@ -199,7 +204,7 @@ const GameActive: React.FC = () => {
             </Typography>
           </Box>
         )}
-    </Box>
+    </Stack>
   )
 }
 

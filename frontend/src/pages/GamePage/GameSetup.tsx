@@ -276,12 +276,13 @@ const GameSetup: React.FC = () => {
       <Typography>Press ready when you're ready.</Typography>
 
       <Button
-        variant={playersReady.includes(userID) ? "outlined" : "contained"}
+        variant="contained"
         disabled={
           started ||
           gameState.boardWidth < 5 ||
           gameState.boardWidth > 20 ||
-          parseInt(secondsPerTurn) <= 0
+          parseInt(secondsPerTurn) <= 0 ||
+          gameState.playersReady.includes(userID)
         }
         onClick={handleStartGame}
         fullWidth
