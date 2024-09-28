@@ -1,4 +1,12 @@
-import { arrayUnion, doc, updateDoc } from "firebase/firestore"
+// src/pages/GamePage/components/GameSetup.tsx
+
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  updateDoc,
+} from "firebase/firestore"
 import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { useUser } from "../../../context/UserContext"
@@ -32,12 +40,69 @@ const GameSetup: React.FC = () => {
   const [boardWidth, setBoardWidth] = useState<string>("8")
   const [gameType, setGameType] = useState<GameType>("connect4")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
+  const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null) // To store interval ID
 
+  // Update local state when gameState changes
   useEffect(() => {
-    setBoardWidth(`${gameState?.boardWidth}`)
-    if (gameState?.gameType) setGameType(gameState?.gameType)
-    setSecondsPerTurn(`${gameState?.maxTurnTime}`)
+    if (gameState) {
+      setBoardWidth(`${gameState.boardWidth}`)
+      if (gameState.gameType) setGameType(gameState.gameType)
+      setSecondsPerTurn(`${gameState.maxTurnTime}`)
+    }
   }, [gameState])
+
+  // Initialize countdown when firstPlayerReadyTime is set
+  useEffect(() => {
+    if (!gameState?.firstPlayerReadyTime) return
+
+    let intervalTime = 100 // Initial interval time
+    let intervalId: NodeJS.Timeout
+
+    const startDelay = 60 // seconds
+    const firstReadyTime = gameState.firstPlayerReadyTime.toDate().getTime() // Convert Firestore Timestamp to JS Date
+    const intervalFunction = async () => {
+      const now = Date.now()
+      const elapsedSeconds = (now - firstReadyTime) / 1000
+      console.log(elapsedSeconds)
+      const remaining = startDelay - elapsedSeconds
+      setCountdown(Math.max(remaining, 0))
+
+      if (elapsedSeconds < 60) {
+        return
+      }
+
+      const expirationRequestsRef = collection(
+        db,
+        `games/${gameID}/readyExpirationRequests`,
+      )
+
+      await addDoc(expirationRequestsRef, {
+        timestamp: new Date(),
+      })
+
+      console.log(`ready expiration request created for gameID: ${gameID}`)
+
+      // Slow down the interval after expiration to reduce resource usage
+      clearInterval(intervalId) // Clear the current interval
+      intervalTime = 3000 // Increase interval time
+      intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
+    }
+    intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
+
+    return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
+  }, [gameState?.firstPlayerReadyTime])
+
+  console.log(gameState)
+  // Optional: Trigger game start when countdown reaches zero
+  useEffect(() => {
+    if (countdown === 0 && intervalId) {
+      clearInterval(intervalId)
+      setIntervalId(null)
+      // Optionally, trigger game start here if not handled elsewhere
+      // handleStartGame();
+    }
+  }, [countdown, intervalId])
 
   // Start game
   const handleStartGame = async () => {
@@ -45,6 +110,7 @@ const GameSetup: React.FC = () => {
       const gameDocRef = doc(db, "games", gameID)
       await updateDoc(gameDocRef, {
         playersReady: arrayUnion(userID), // Add the current userID to playersReady array
+        firstPlayerReadyTime: gameState.firstPlayerReadyTime || new Date(), // Ensure firstPlayerReadyTime is set
       })
     }
   }
@@ -53,7 +119,7 @@ const GameSetup: React.FC = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Tactic toes",
+          title: "Tactic Toes",
           text: "This game is completely unrelated to toes.",
           url: `/session/${gameState?.sessionName}`,
         })
@@ -231,9 +297,13 @@ const GameSetup: React.FC = () => {
             sx={{ mb: 2 }}
             fullWidth
           >
-            I'm ready
-            {/* {elapsedTime !== 0 &&
-              `(starting in ${Math.max(60 - elapsedTime, 0)})`} */}
+            {gameState.firstPlayerReadyTime ? (
+              <Typography variant="body2" color="textSecondary">
+                {`Waiting for others (they have ${countdown.toFixed(1)}s)`}
+              </Typography>
+            ) : (
+              "I'm ready"
+            )}
           </Button>
         </Box>
       )}
