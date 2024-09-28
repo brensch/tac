@@ -108,7 +108,9 @@ const GameActive: React.FC = () => {
             !!currentTurn?.hasMoved[userID] ||
             !playerInCurrentGame ||
             selectedSquare === null ||
-            currentTurn?.board[selectedSquare] !== "" ||
+            !currentTurn?.board[selectedSquare].allowedPlayers.includes(
+              userID,
+            ) ||
             turns.length !== currentTurn?.turnNumber
           }
           variant="contained"

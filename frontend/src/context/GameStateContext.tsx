@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
-import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
+import { GameState, PlayerInfo, Turn, Winner, Square } from "@shared/types/Game"
 
 interface GameStateContextType {
   gameState: GameState | null
@@ -162,7 +162,7 @@ export const GameStateProvider: React.FC<{
   useEffect(() => {
     if (
       !latestTurn ||
-      gameState?.winner !== "" ||
+      (gameState?.winner.length && gameState?.winner.length > 0) || // Updated condition
       !currentTurn ||
       !gameState?.maxTurnTime ||
       !gameID
@@ -209,11 +209,12 @@ export const GameStateProvider: React.FC<{
 
   // Function to start the game
   const startGame = async () => {
-    if (gameID && !gameState?.started) {
+    if (gameID && gameState && !gameState.started) {
       const gameDocRef = doc(db, "games", gameID)
       try {
         await updateDoc(gameDocRef, {
-          playersReady: arrayUnion(userID),
+          started: true,
+          firstPlayerReadyTime: serverTimestamp(),
         })
       } catch (err) {
         console.error("Error starting the game:", err)
@@ -248,6 +249,15 @@ export const GameStateProvider: React.FC<{
 
     const moveRef = collection(db, `games/${gameID}/privateMoves`)
     const moveNumber = latestTurn.turnNumber
+
+    // Fetch the latest turn's board to verify allowedPlayers
+    const selectedCell: Square = latestTurn.board[selectedSquare]
+
+    // Check if the user is allowed to move into the selected square
+    if (!selectedCell.allowedPlayers.includes(userID)) {
+      setError("You are not allowed to move into this square.")
+      return
+    }
 
     try {
       await addDoc(moveRef, {

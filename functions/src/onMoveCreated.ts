@@ -2,8 +2,8 @@ import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { Turn, Move } from "./types/Game" // Adjust the import path as necessary
-import { processTurn } from "./helpers"
 import { Timestamp } from "firebase/firestore"
+import { processTurn } from "./gameprocessors/processTurn"
 
 // Main function to process a move
 export const onMoveCreated = functions.firestore

@@ -1,9 +1,17 @@
+// src/components/GameGrid.tsx
+
 import { Box } from "@mui/material"
-import { PlayerInfo } from "@shared/types/Game"
+import { PlayerInfo, Square } from "@shared/types/Game"
 import React, { useLayoutEffect, useRef, useState } from "react"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
+
+// Define the Clash interface based on your existing code
+interface Clash {
+  players: string[]
+  reason: string
+}
 
 const GameGrid: React.FC = () => {
   const {
@@ -15,13 +23,16 @@ const GameGrid: React.FC = () => {
     setSelectedSquare,
   } = useGameStateContext()
 
-  const { board, clashes, winningSquares } = currentTurn!
+  const { board, clashes, winners } = currentTurn!
   const gridSize = gameState?.boardWidth || 8 // Default to 8 if undefined
-  const winningSquaresSet = new Set(winningSquares || [])
+  const winningSquaresSet = new Set(
+    (winners?.length && winners?.length > 0 && winners[0].winningSquares) || [],
+  )
   const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
   const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
-  //   handle size
+
+  // Handle responsive sizing
   const gridRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState<number>(0)
 
@@ -43,7 +54,7 @@ const GameGrid: React.FC = () => {
     }
   }, [gameState?.boardWidth, currentTurn])
 
-  const handleClashClick = (clash: { players: string[]; reason: string }) => {
+  const handleClashClick = (clash: Clash) => {
     const players = clash.players.map(
       (id) =>
         playerInfos.find((p) => p.id === id) || {
@@ -67,10 +78,10 @@ const GameGrid: React.FC = () => {
     }
 
     if (gameState?.started && !hasSubmittedMove) {
-      const cellValue = currentTurn.board[index]
-      console.log(index, cellValue)
+      const cell: Square = currentTurn.board[index]
 
-      if (cellValue === "") {
+      // Check if the current user is allowed to move into this square
+      if (cell.allowedPlayers.includes(user.userID)) {
         setSelectedSquare(index)
       }
     }
@@ -92,13 +103,15 @@ const GameGrid: React.FC = () => {
         pointerEvents: disabled ? "none" : "auto", // Disable interactions if disabled
       }}
     >
-      {board.map((cell, index) => {
+      {board.map((cell: Square, index: number) => {
         const isSelected = selectedSquare === index
-        const isCellEmpty = cell === ""
-        const isBlocked = cell === "-1"
+        const isBlocked = cell.eaten
         const clash = clashes[index.toString()]
         const clashPlayers = clash ? clash.players : []
         const isWinningSquare = winningSquaresSet.has(index)
+
+        // Determine if the current user can move into this square
+        const canUserMoveHere = cell.allowedPlayers.includes(user.userID)
 
         return (
           <Box
@@ -120,17 +133,20 @@ const GameGrid: React.FC = () => {
                 ? "default"
                 : gameState?.started &&
                   !currentTurn?.hasMoved[user.userID] && // Adjust condition as needed
-                  isCellEmpty &&
-                  !isBlocked
+                  (canUserMoveHere ||
+                    (!canUserMoveHere && cell.playerID === null && !isBlocked))
                 ? "pointer"
                 : "default",
               backgroundColor: isWinningSquare
                 ? "green"
                 : isSelected
                 ? "#cfe8fc"
+                : canUserMoveHere
+                ? "lightgreen" // Highlight squares where user can move
                 : isBlocked
                 ? "#ddd"
                 : "white",
+              transition: "background-color 0.3s",
             }}
           >
             <Box
@@ -146,17 +162,18 @@ const GameGrid: React.FC = () => {
                 fontSize: `${fontSize}px`, // Dynamic font size
                 textAlign: "center",
                 padding: 1,
+                userSelect: "none",
               }}
             >
               {isBlocked
                 ? "❌"
-                : cell
-                ? playerInfos.find((p) => p.id === cell)?.emoji || cell[0]
+                : cell.playerID
+                ? playerInfos.find((p) => p.id === cell.playerID)?.emoji || "❓"
                 : clashPlayers.length > 0
                 ? clashPlayers
                     .map(
-                      (playerID) =>
-                        playerInfos.find((p) => p.id === playerID)?.emoji || "",
+                      (player) =>
+                        playerInfos.find((p) => p.id === player)?.emoji || "❓",
                     )
                     .join(", ")
                 : ""}

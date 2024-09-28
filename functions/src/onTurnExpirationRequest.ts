@@ -1,8 +1,8 @@
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
-import { processTurn } from "./helpers"
 import { Turn } from "./types/Game"
+import { processTurn } from "./gameprocessors/processTurn"
 
 // Firestore trigger for when a client indicates that a turn might have expired
 export const onTurnExpirationRequest = functions.firestore

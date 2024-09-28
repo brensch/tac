@@ -4,7 +4,7 @@ import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { GameState } from "./types/Game"
-import { startGame } from "./onGameStarted"
+import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 
 export const onReadyExpirationRequest = functions.firestore
   .document("games/{gameID}/readyExpirationRequests/{requestID}")
@@ -37,7 +37,23 @@ export const onReadyExpirationRequest = functions.firestore
     if (elapsedSeconds >= 60) {
       logger.info(`Ready expiration passed, starting game ${gameID}`)
       await admin.firestore().runTransaction(async (transaction) => {
-        startGame(transaction, gameID, gameData)
+        const processor = getGameProcessor(
+          transaction,
+          gameID,
+          [],
+          gameData.gameType,
+        )
+
+        if (processor) {
+          // Initialize the game using the processor's method
+          await processor.initializeGame(gameData)
+
+          logger.info(`Game ${gameID} has been initialized.`)
+        } else {
+          logger.error(
+            `No processor found for gameType when starting: ${gameData.gameType} in game ${gameID}`,
+          )
+        }
       })
     } else {
       logger.info(`Not enough time has passed since first player was ready.`)

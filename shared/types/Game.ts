@@ -2,6 +2,23 @@
 
 import * as admin from "firebase-admin"
 
+// Define the Square interface with the required fields
+export interface Square {
+  playerID: string | null // The ID of the player occupying the square, null if empty
+  isTail: boolean // Indicates if the square is a tail
+  isHead: boolean // Indicates if the square is a head
+  eaten: boolean // Indicates if the square has been eaten
+  allowedPlayers: string[] // List of player IDs who can move into this square on the next turn
+}
+
+// Define the Winner interface
+export interface Winner {
+  playerID: string
+  score: number
+  winningSquares: number[]
+}
+
+// Updated Move interface remains the same
 export interface Move {
   gameID: string
   moveNumber: number // The turn number
@@ -10,33 +27,42 @@ export interface Move {
   timestamp: admin.firestore.Timestamp // Server timestamp when the move was submitted
 }
 
+// Updated Turn interface using the Square type for the board
 export interface Turn {
   turnNumber: number
-  board: string[] // The board state after this turn
-  playerIDs: string[] // this is to avoid a lookup of game for every move serverside
+  board: Square[] // The board state after this turn, represented as an array of Square objects
+  boardWidth: number
+  gameType: string
+  playerIDs: string[] // This is to avoid a lookup of game for every move server-side
   hasMoved: {
     [playerID: string]: { moveTime: admin.firestore.Timestamp }
   } // Map of playerID to moveTime
   clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
-  winningSquares?: number[] // The list of squares involved in a winning condition
+  winners?: Winner[] // The list of squares involved in a winning condition
+  turnTime: number
   startTime: admin.firestore.Timestamp // When the turn started
   endTime: admin.firestore.Timestamp // When the turn ended
 }
 
 export type GameType = "connect4" | "longboi"
+
+// Updated GameState interface with the new 'winner' structure
 export interface GameState {
   sessionName: string
   sessionIndex: number
   gameType: GameType
   playerIDs: string[] // List of player IDs in the game
   boardWidth: number // The width of the board, to easily work with 1D array
-  winner: string
+  winner: Winner[] // Updated to an array of winner objects
   started: boolean
   nextGame: string // New field for the ID of the next game
   maxTurnTime: number // Time limit per turn in seconds
 
   playersReady: string[]
   firstPlayerReadyTime?: admin.firestore.Timestamp
+
+  // Initialize the board as part of the game state
+  board?: Square[] // The initial board state
 }
 
 export interface PlayerInfo {
@@ -45,19 +71,34 @@ export interface PlayerInfo {
   emoji: string
 }
 
-// Function to initialize a new game without the board
-const initializeGame = (sessionName: string): GameState => {
+// Function to initialize a new game with an empty board
+const initializeGame = (
+  sessionName: string,
+  boardWidth: number = 8,
+): GameState => {
+  // Initialize the board with empty squares
+  const board: Square[] = Array(boardWidth * boardWidth)
+    .fill(null)
+    .map(() => ({
+      playerID: null,
+      isTail: false,
+      isHead: false,
+      eaten: false,
+      allowedPlayers: [],
+    }))
+
   return {
     sessionName: sessionName,
     gameType: "connect4",
     sessionIndex: 0,
     playerIDs: [],
     playersReady: [],
-    boardWidth: 8,
-    winner: "",
+    boardWidth: boardWidth,
+    winner: [], // Initialize as empty array
     started: false,
     nextGame: "",
     maxTurnTime: 10, // Default time limit per turn in seconds
+    board, // Assign the initialized board
   }
 }
 
