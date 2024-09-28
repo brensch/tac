@@ -290,7 +290,7 @@ const GameSetup: React.FC = () => {
         <Typography variant="body2">
           {gameState.playersReady.includes(userID)
             ? `Waiting for others`
-            : "I'm ready"}
+            : "Ready?"}
           {!!gameState.firstPlayerReadyTime &&
             ` (starting in ${countdown.toFixed(1)}s)`}
         </Typography>
