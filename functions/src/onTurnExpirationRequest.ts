@@ -63,7 +63,10 @@ export const onTurnExpirationRequest = functions.firestore
         // Process the expired turn inside the transaction
         await processTurn(transaction, gameID, currentTurn)
       } else {
-        logger.info(`Turn ${turnNumber} has not expired yet.`)
+        logger.info(`Turn ${turnNumber} has not expired yet.`, {
+          now: now.toMillis(),
+          end: currentTurn.endTime.toMillis(),
+        })
       }
     })
   })

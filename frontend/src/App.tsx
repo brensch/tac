@@ -18,7 +18,7 @@ import {
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
 import HomePage from "./pages/HomePage"
-import GamePage from "./pages/GamePage"
+import GamePage from "./pages/GamePage/index"
 import ProfilePage from "./pages/ProfilePage"
 import { UserProvider, useUser } from "./context/UserContext"
 import Sessionpage from "./pages/SessionPage"

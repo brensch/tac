@@ -23,10 +23,11 @@ export interface Turn {
   endTime: admin.firestore.Timestamp // When the turn ended
 }
 
+export type GameType = "connect4" | "longboi"
 export interface GameState {
   sessionName: string
   sessionIndex: number
-  gameType: string
+  gameType: GameType
   playerIDs: string[] // List of player IDs in the game
   boardWidth: number // The width of the board, to easily work with 1D array
   winner: string
