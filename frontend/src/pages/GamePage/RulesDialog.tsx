@@ -15,17 +15,24 @@ interface RulesDialogProps {
   rules?: string
 }
 
+export const getRulesComponent = (rules?: string): React.FC => {
+  switch (rules) {
+    case "connect4":
+      return Connect4Rules
+    case "longboi":
+      return LongBoiRules
+    default:
+      return Connect4Rules // Fallback if no valid rules type is provided
+  }
+}
+
 const RulesDialog: React.FC<RulesDialogProps> = ({ open, onClose, rules }) => {
-  const [RulesComponent, setRulesComponent] = useState<React.FC>(
-    () => Connect4Rules,
+  const [RulesComponent, setRulesComponent] = useState<React.FC>(() =>
+    getRulesComponent(rules),
   )
 
   useEffect(() => {
-    if (rules === "connect4") {
-      setRulesComponent(() => Connect4Rules)
-    } else {
-      setRulesComponent(() => LongBoiRules)
-    }
+    setRulesComponent(() => getRulesComponent(rules))
   }, [rules])
 
   return (

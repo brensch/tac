@@ -45,7 +45,6 @@ const GameHeader: React.FC = () => {
             onClick={() => setOpenRulesDialog(true)}
             sx={{
               height: 30,
-              width: "80px",
               backgroundColor: "#ffd1dc", // Pastel pink
               color: "#000",
               "&:hover": {
@@ -54,13 +53,12 @@ const GameHeader: React.FC = () => {
             }}
             startIcon={<Book />}
           >
-            Rules
+            {gameState?.gameType}
           </Button>
           <Button
             onClick={handleShare}
             sx={{
               height: 30,
-              width: "90px",
               backgroundColor: "#b3e5fc", // Pastel blue
               color: "#000",
               "&:hover": {

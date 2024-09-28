@@ -21,7 +21,7 @@ import {
 
 import { useGameStateContext } from "../../context/GameStateContext"
 import GameGrid from "./GameGrid"
-import { Connect4Rules, LongBoiRules } from "../../constants/Rules"
+import UserRulesAccept from "./UserRuleAccept"
 
 const GameActive: React.FC = () => {
   const { userID } = useUser()
@@ -40,10 +40,10 @@ const GameActive: React.FC = () => {
     selectedSquare,
     latestTurn,
   } = useGameStateContext()
-  const [RulesComponent, setRulesComponent] = useState<React.FC>(
-    () => Connect4Rules,
-  )
+
   const [clicked, setClicked] = useState(false)
+  const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(true) // Show rules dialog initially
+  const [isRulesAccepted, setIsRulesAccepted] = useState(false) // Track if rules have been accepted
 
   // Submit a move
   const handleMoveSubmit = async () => {
@@ -65,35 +65,41 @@ const GameActive: React.FC = () => {
   }
 
   useEffect(() => {
-    if (gameState?.gameType === "connect4") {
-      setRulesComponent(() => Connect4Rules)
-    } else {
-      setRulesComponent(() => LongBoiRules)
-    }
-  }, [gameState?.gameType])
-
-  useEffect(() => {
     setClicked(false)
   }, [latestTurn])
+
+  const handleRulesAccepted = () => {
+    setIsRulesAccepted(true)
+    setIsRulesDialogOpen(false)
+  }
 
   if (!gameState) return
 
   const playerInCurrentGame = gameState.playerIDs.includes(userID)
 
   if (!gameState.started || !currentTurn) return
+
   return (
     <Stack spacing={2} pt={2}>
+      {/* Rules Dialog - Only shown on the first turn */}
+      {latestTurn?.turnNumber === 1 &&
+        !isRulesAccepted &&
+        timeRemaining > 0 && (
+          <UserRulesAccept
+            open={isRulesDialogOpen}
+            onClose={handleRulesAccepted} // Close dialog after "I understand" is checked
+            rules={gameState?.gameType}
+            timeRemaining={timeRemaining}
+          />
+        )}
+
       {/* Alert if player joined late */}
       {!playerInCurrentGame && !gameState.nextGame && (
         <Alert severity="warning">
           This game started before you joined. Watch until the next game starts.
         </Alert>
       )}
-      {latestTurn?.turnNumber == 1 && (
-        <Box>
-          <RulesComponent />
-        </Box>
-      )}
+
       {!gameState.nextGame && (
         <Button
           disabled={
@@ -119,6 +125,7 @@ const GameActive: React.FC = () => {
 
       {/* Game Grid */}
       {<GameGrid />}
+
       {/* Navigation controls */}
       <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
         <IconButton onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>

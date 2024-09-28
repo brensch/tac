@@ -11,10 +11,11 @@ export const Connect4Rules: React.FC = () => {
 export const LongBoiRules: React.FC = () => {
   return (
     <>
-      <Typography>Get the longest line of connected squares to win.</Typography>
       <Typography>
-        Diagonal connections don't count, only up down left right.
+        Form the longest single path by connecting squares up, down, left, or
+        right.
       </Typography>
+      <Typography>Diagonal connections and branches don't count.</Typography>
     </>
   )
 }

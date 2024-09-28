@@ -32,6 +32,8 @@ import {
 } from "@mui/material"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { GameType } from "@shared/types/Game"
+import { getRulesComponent } from "./RulesDialog"
+import { Connect4Rules } from "../../constants/Rules"
 
 const GameSetup: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -43,6 +45,7 @@ const GameSetup: React.FC = () => {
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null) // To store interval ID
+  const [RulesComponent, setRulesComponent] = useState<React.FC>(Connect4Rules)
 
   // Update local state when gameState changes
   useEffect(() => {
@@ -177,6 +180,10 @@ const GameSetup: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    setRulesComponent(() => getRulesComponent(gameState?.gameType))
+  }, [gameState?.gameType])
+
   if (!gameState || gameState.started) return null
 
   const { started, playersReady } = gameState
@@ -227,6 +234,9 @@ const GameSetup: React.FC = () => {
           <MenuItem value="longboi">Long Boi</MenuItem>
         </Select>
       </FormControl>
+
+      {/* Game rules */}
+      <RulesComponent />
 
       {/* Players Table */}
       <TableContainer>
