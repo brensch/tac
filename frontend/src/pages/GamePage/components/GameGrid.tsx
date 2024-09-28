@@ -1,11 +1,11 @@
+import { Box } from "@mui/material"
+import { PlayerInfo } from "@shared/types/Game"
 import React, { useLayoutEffect, useRef, useState } from "react"
-import { Box, Typography } from "@mui/material"
-import { PlayerInfo, Turn, GameState } from "@shared/types/Game"
+import { useGameStateContext } from "../../../context/GameStateContext"
 import { useUser } from "../../../context/UserContext"
 import ClashDialog from "./ClashDialog"
-import { useGameStateContext } from "../../../context/GameStateContext"
 
-const GameGrid: React.FC = ({}) => {
+const GameGrid: React.FC = () => {
   const {
     gameState,
     playerInfos,
