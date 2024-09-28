@@ -193,8 +193,7 @@ const GameSetup: React.FC = () => {
         <Table size="small" sx={{ borderCollapse: "collapse" }}>
           <TableHead>
             <TableRow>
-              <TableCell>Players</TableCell>
-
+              <TableCell>Player</TableCell>
               <TableCell align="right">Ready</TableCell>
             </TableRow>
           </TableHead>

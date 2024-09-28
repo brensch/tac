@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from "react"
+// src/context/GameStateContext.tsx
+
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react"
 import {
   doc,
   onSnapshot,
@@ -55,6 +63,9 @@ export const GameStateProvider: React.FC<{
   const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
 
+  // Use useRef to persist playersMap across renders
+  const playersMapRef = useRef<{ [id: string]: PlayerInfo }>({})
+
   // Subscribe to game document
   useEffect(() => {
     if (gameID && userID !== "") {
@@ -88,7 +99,6 @@ export const GameStateProvider: React.FC<{
   useEffect(() => {
     if (gameState?.playerIDs) {
       const unsubscribes: (() => void)[] = []
-      const playersMap: { [id: string]: PlayerInfo } = {}
 
       gameState.playerIDs.forEach((playerID) => {
         const playerDocRef = doc(db, "users", playerID)
@@ -96,19 +106,20 @@ export const GameStateProvider: React.FC<{
         const unsubscribe = onSnapshot(playerDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const playerData = docSnap.data() as PlayerInfo
-            playersMap[playerID] = {
+            playersMapRef.current[playerID] = {
               id: playerID,
               nickname: playerData?.nickname || "Unknown",
               emoji: playerData.emoji || "🦍",
             }
           } else {
-            playersMap[playerID] = {
+            playersMapRef.current[playerID] = {
               id: playerID,
               nickname: "Unknown",
               emoji: "🦍",
             }
           }
-          setPlayerInfos(Object.values(playersMap))
+          // Update playerInfos based on the current playersMap
+          setPlayerInfos(Object.values(playersMapRef.current))
         })
 
         unsubscribes.push(unsubscribe)
@@ -142,10 +153,12 @@ export const GameStateProvider: React.FC<{
     }
   }, [gameID, userID])
 
+  // Manage current turn based on currentTurnIndex
   useEffect(() => {
     setCurrentTurn(turns[currentTurnIndex])
   }, [turns, currentTurnIndex])
 
+  // Handle turn expiration
   useEffect(() => {
     if (
       !latestTurn ||
@@ -258,20 +271,20 @@ export const GameStateProvider: React.FC<{
         playerInfos,
         turns,
         latestTurn,
-        hasSubmittedMove,
         currentTurn,
-        setCurrentTurnIndex,
         currentTurnIndex,
+        hasSubmittedMove,
+        handlePrevTurn,
+        handleNextTurn,
+        handleLatestTurn,
+        setCurrentTurnIndex,
+        selectedSquare,
+        setSelectedSquare,
         startGame,
         submitMove,
-        setSelectedSquare,
-        selectedSquare,
         error,
         gameID,
         timeRemaining,
-        handleLatestTurn,
-        handleNextTurn,
-        handlePrevTurn,
       }}
     >
       {children}
