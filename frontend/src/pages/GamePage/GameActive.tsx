@@ -20,6 +20,7 @@ import {
 
 import { useGameStateContext } from "../../context/GameStateContext"
 import GameGrid from "./GameGrid"
+import { Connect4Rules, LongBoiRules } from "../../constants/Rules"
 
 const GameActive: React.FC = () => {
   const { userID } = useUser()
@@ -38,7 +39,9 @@ const GameActive: React.FC = () => {
     selectedSquare,
     latestTurn,
   } = useGameStateContext()
-
+  const [RulesComponent, setRulesComponent] = useState<React.FC>(
+    () => Connect4Rules,
+  )
   const [clicked, setClicked] = useState(false)
 
   // Submit a move
@@ -61,6 +64,14 @@ const GameActive: React.FC = () => {
   }
 
   useEffect(() => {
+    if (gameState?.gameType === "connect4") {
+      setRulesComponent(() => Connect4Rules)
+    } else {
+      setRulesComponent(() => LongBoiRules)
+    }
+  }, [gameState?.gameType])
+
+  useEffect(() => {
     setClicked(false)
   }, [latestTurn])
 
@@ -79,6 +90,7 @@ const GameActive: React.FC = () => {
             starts.
           </Alert>
         )}
+        {latestTurn?.turnNumber == 1 && <RulesComponent />}
         {!gameState.nextGame && (
           <Button
             disabled={

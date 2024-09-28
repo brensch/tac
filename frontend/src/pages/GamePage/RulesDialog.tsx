@@ -26,7 +26,7 @@ const RulesDialog: React.FC<RulesDialogProps> = ({ open, onClose, rules }) => {
     } else {
       setRulesComponent(() => LongBoiRules)
     }
-  }, [rules]) // Run this effect only when 'rules' changes
+  }, [rules])
 
   return (
     <Dialog open={open} onClose={onClose}>

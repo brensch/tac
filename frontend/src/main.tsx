@@ -72,6 +72,7 @@ const theme = createTheme({
         contained: {
           backgroundColor: "#90ee90", // Light green for contained buttons
           border: "1px solid #000", // Black border
+          color: "#000", // Black font color for contained buttons
           "&:hover": {
             backgroundColor: "#81d681", // Slightly darker green on hover
             boxShadow: "none", // No drop shadow on hover

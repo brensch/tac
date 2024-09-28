@@ -13,13 +13,13 @@ import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"
 
 import {
-  Box,
   Button,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   SelectChangeEvent,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -31,6 +31,7 @@ import {
 } from "@mui/material"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { GameType } from "@shared/types/Game"
+import { PersonAdd } from "@mui/icons-material"
 
 const GameSetup: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -198,60 +199,58 @@ const GameSetup: React.FC = () => {
   const { started, playersReady } = gameState
 
   return (
-    <Box>
-      <Box sx={{ my: 2 }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>
-          New Game
+    <Stack spacing={2} pt={2}>
+      <Typography variant="h5">New Game</Typography>
+
+      <TextField
+        label="Board Size"
+        type="number"
+        value={boardWidth}
+        onChange={handleBoardWidthChange}
+        onBlur={handleBoardWidthBlur}
+        disabled={started}
+        fullWidth
+      />
+      {gameState.boardWidth < 5 && (
+        <Typography color="error">Board needs to be bigger than 4</Typography>
+      )}
+
+      <TextField
+        label="Seconds per Turn"
+        type="number"
+        value={secondsPerTurn}
+        onChange={handleSecondsPerTurnChange}
+        onBlur={handleSecondsPerTurnBlur}
+        disabled={started}
+        fullWidth
+      />
+      {parseInt(secondsPerTurn) <= 0 && (
+        <Typography color="error">
+          Seconds per Turn must be greater than 0
         </Typography>
+      )}
 
-        <TextField
-          label="Board Size"
-          type="number"
-          value={boardWidth}
-          onChange={handleBoardWidthChange}
-          onBlur={handleBoardWidthBlur}
+      {/* Game Type Dropdown */}
+      <FormControl fullWidth variant="outlined">
+        <InputLabel id="game-type-label">Game Type</InputLabel>
+        <Select
+          labelId="game-type-label"
+          value={gameType}
+          onChange={handleGameTypeChange}
           disabled={started}
-          fullWidth
-        />
-        {gameState.boardWidth < 5 && (
-          <Typography color="error">Board needs to be bigger than 4</Typography>
-        )}
-
-        <TextField
-          label="Seconds per Turn"
-          type="number"
-          value={secondsPerTurn}
-          onChange={handleSecondsPerTurnChange}
-          onBlur={handleSecondsPerTurnBlur}
-          disabled={started}
-          fullWidth
-          sx={{ mt: 2 }}
-        />
-        {parseInt(secondsPerTurn) <= 0 && (
-          <Typography color="error">
-            Seconds per Turn must be greater than 0
-          </Typography>
-        )}
-
-        {/* Game Type Dropdown */}
-        <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
-          <InputLabel id="game-type-label">Game Type</InputLabel>
-          <Select
-            labelId="game-type-label"
-            value={gameType}
-            onChange={handleGameTypeChange}
-            disabled={started}
-            label="Game Type" // Make sure this matches the InputLabel text
-          >
-            <MenuItem value="connect4">Connect 4</MenuItem>
-            <MenuItem value="longboi">Long Boi</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+          label="Game Type" // Make sure this matches the InputLabel text
+        >
+          <MenuItem value="connect4">Connect 4</MenuItem>
+          <MenuItem value="longboi">Long Boi</MenuItem>
+        </Select>
+      </FormControl>
 
       {/* Players Table */}
-      <TableContainer sx={{ my: 2, width: "100%" }}>
-        <Table size="small" sx={{ borderCollapse: "collapse" }}>
+      <Button fullWidth onClick={handleShare} startIcon={<PersonAdd />}>
+        Invite
+      </Button>
+      <TableContainer>
+        <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Player</TableCell>
@@ -274,35 +273,28 @@ const GameSetup: React.FC = () => {
       </TableContainer>
 
       {/* Ready Section */}
-      {!started && (
-        <Box>
-          <Typography sx={{ mb: 2 }}>Press ready when you're ready.</Typography>
-          <Button fullWidth onClick={handleShare} sx={{ mb: 2 }}>
-            Invite
-          </Button>
-          <Button
-            variant={playersReady.includes(userID) ? "contained" : "outlined"}
-            disabled={
-              started ||
-              gameState.boardWidth < 5 ||
-              gameState.boardWidth > 20 ||
-              parseInt(secondsPerTurn) <= 0
-            }
-            onClick={handleStartGame}
-            sx={{ mb: 2 }}
-            fullWidth
-          >
-            <Typography variant="body2" color="textSecondary">
-              {gameState.playersReady.includes(userID)
-                ? `Waiting for others`
-                : "I'm ready"}
-              {!!gameState.firstPlayerReadyTime &&
-                ` (starting in ${countdown.toFixed(1)}s)`}
-            </Typography>
-          </Button>
-        </Box>
-      )}
-    </Box>
+      <Typography>Press ready when you're ready.</Typography>
+
+      <Button
+        variant={playersReady.includes(userID) ? "outlined" : "contained"}
+        disabled={
+          started ||
+          gameState.boardWidth < 5 ||
+          gameState.boardWidth > 20 ||
+          parseInt(secondsPerTurn) <= 0
+        }
+        onClick={handleStartGame}
+        fullWidth
+      >
+        <Typography variant="body2">
+          {gameState.playersReady.includes(userID)
+            ? `Waiting for others`
+            : "I'm ready"}
+          {!!gameState.firstPlayerReadyTime &&
+            ` (starting in ${countdown.toFixed(1)}s)`}
+        </Typography>
+      </Button>
+    </Stack>
   )
 }
 
