@@ -43,14 +43,14 @@ const GameHeader: React.FC = () => {
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button
             onClick={() => setOpenRulesDialog(true)}
-            sx={{ height: 30, width: "100px" }} // Static width for the button
+            sx={{ height: 30, width: "80px" }} // Static width for the button
             startIcon={<Book />}
           >
             Rules
           </Button>
           <Button
             onClick={handleShare}
-            sx={{ height: 30, width: "100px" }} // Static width for the button
+            sx={{ height: 30, width: "90px" }} // Static width for the button
             startIcon={<PersonAdd />}
           >
             Invite
