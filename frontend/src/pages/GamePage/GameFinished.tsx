@@ -27,7 +27,7 @@ const GameFinished: React.FC = () => {
   const winners: Winner[] = gameState.winner || []
 
   // If there are no winners, display a message accordingly
-  const unFinished = !winners || winners.length === 0
+  const unFinished = gameState.nextGame === ""
   if (unFinished) return null
 
   // Build a list of all players with their scores
@@ -90,7 +90,7 @@ const GameFinished: React.FC = () => {
             component={Paper}
             sx={{ maxWidth: 600, margin: "auto", my: 2 }}
           >
-            <Table>
+            <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell align="center">

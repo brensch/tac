@@ -10,28 +10,6 @@ service cloud.firestore {
              request.auth.token.firebase.sign_in_provider == "firebase";
     }
 
-    // Helper Function: Validate a Square object
-    function isValidSquare(square) {
-      return square is map &&
-             (square.playerID is string || square.playerID == null) &&
-             square.isTail is bool &&
-             square.isHead is bool &&
-             square.eaten is bool &&
-             square.allowedPlayers is list &&
-             square.allowedPlayers.size() >= 0 &&
-             square.allowedPlayers.hasOnly([/^[a-zA-Z0-9_-]+$/]); // Adjust regex based on userID format
-    }
-
-    // Helper Function: Validate a Winner object
-    function isValidWinner(winner) {
-      return winner is map &&
-             winner.playerID is string &&
-             winner.score is int && // Assuming score is an integer
-             winner.winningSquares is list &&
-             winner.winningSquares.size() > 0 &&
-             winner.winningSquares.hasOnly(int);
-    }
-
     // Moves Collection
     match /games/{gameID}/privateMoves/{moveID} {
       allow create: if isRequestFromCloudFunction() || (
@@ -40,34 +18,31 @@ service cloud.firestore {
         request.resource.data.timestamp == request.time &&
         request.resource.data.moveNumber is int &&
         request.resource.data.move is int &&
-        request.resource.data.gameID == gameID &&
-        // Ensure move index is within board bounds
-        request.resource.data.move >= 0 &&
-        request.resource.data.move < get(/databases/$(database)/documents/games/$(gameID)).data.boardWidth * get(/databases/$(database)/documents/games/$(gameID)).data.boardWidth
+        request.resource.data.gameID == gameID
       );
-      allow update, delete: if false; // Prevent updates and deletes
-      allow read: if request.auth.uid == resource.data.playerID; // Players can read their own moves
+      allow update, delete: if false;
+      allow read: if request.auth.uid == resource.data.playerID;
     }
 
     // Turns Collection
     match /games/{gameID}/turns/{turnNumber} {
-      allow write: if isRequestFromCloudFunction(); // Only Cloud Functions can write turns
-      allow read: if request.auth.uid != null; // Allow all authenticated users to read turns (adjust as needed)
+      allow write: if isRequestFromCloudFunction();
+      allow read: if true;
     }
 
     // Expiration Requests Subcollection within Turns
     match /games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
-      allow read, write: if request.auth.uid != null; // Adjust permissions as necessary
+      allow read, write: if true;
     }
 
     // Ready Expiration Requests Collection
     match /games/{gameID}/readyExpirationRequests/{expirationID} {
-      allow read, write: if request.auth.uid != null; // Adjust permissions as necessary
+      allow read, write: if true;
     }
-
+    
     // Game Document
     match /games/{gameID} {
-      allow read: if request.auth.uid != null; // Allow all authenticated users to read game state
+      allow read: if true;
 
       // Create Game Document
       allow create: if isRequestFromCloudFunction() || (
@@ -82,8 +57,7 @@ service cloud.firestore {
         request.resource.data.winner.size() == 0 && // winner is now an empty array
         request.resource.data.nextGame == "" &&
         request.resource.data.board is list && // Ensure board is a list
-        request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth && // Validate board size
-        request.resource.data.board.hasOnly(isValidSquare) // Validate each square
+        request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth // Validate board size
       );
 
       // Update Game Document
@@ -112,8 +86,7 @@ service cloud.firestore {
             request.resource.data.started == resource.data.started &&
             request.resource.data.nextGame == resource.data.nextGame &&
             request.resource.data.board is list &&
-            request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth && // Validate board size
-            request.resource.data.board.hasOnly(isValidSquare) // Validate each square
+            request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth // Validate board size
           )
           ||
           // Allow updating the playersReady list with own UID
@@ -122,7 +95,7 @@ service cloud.firestore {
             request.resource.data.playersReady.size() == resource.data.playersReady.size() + 1 && // Size increased by 1
             request.resource.data.playersReady.hasAll(resource.data.playersReady) && // Contains all existing playersReady
             request.resource.data.playersReady.hasAny([request.auth.uid]) && // Contains the current user
-            !request.resource.data.playersReady.hasAny([request.auth.uid]) // Current user was not already ready
+            !request.data.playersReady.hasAny([request.auth.uid]) // Current user was not already ready
           )
           ||
           // Allow changing gameType to valid enum value ('connect4' or 'longboi')
@@ -140,27 +113,26 @@ service cloud.firestore {
         )
       ) &&
       (
-        // Ensure 'winner' array is either unchanged or valid
+        // Ensure 'winner' array is either unchanged or empty
         (request.resource.data.winner == resource.data.winner)
       ) &&
       (
         // Ensure 'board' array remains valid
         (request.resource.data.board is list &&
-         request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth &&
-         request.resource.data.board.hasOnly(isValidSquare))
+         request.resource.data.board.size() == request.resource.data.boardWidth * request.resource.data.boardWidth)
       );
     }
 
     // Users Collection
     match /users/{userID} {
       allow write: if request.auth.uid == userID || isRequestFromCloudFunction();
-      allow read: if request.auth.uid != null; // Allow all authenticated users to read user data (adjust as needed)
+      allow read: if true;
     }
 
     // Turn Expiration Requests Subcollection
     match /games/{gameID}/turnExpirationRequests/{requestID} {
-      allow create: if request.auth.uid != null;
-      allow read: if request.auth.uid != null; // Adjust permissions as necessary
+      allow create: if request.auth != null;
+      allow read: if true;
     }
   }
 

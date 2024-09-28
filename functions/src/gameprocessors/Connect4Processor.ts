@@ -319,14 +319,54 @@ export class Connect4Processor extends GameProcessor {
    * @returns The row index where a piece can be placed or -1 if the column is full.
    */
   private findAvailableRow(board: Square[], column: number): number {
-    if (!this.currentTurn) return -1
+    if (!this.currentTurn) {
+      logger.error("Connect4: Current turn is undefined.")
+      return -1
+    }
+
     const boardWidth = this.currentTurn.boardWidth
+
+    // Validate column
+    if (column < 0 || column >= boardWidth) {
+      logger.error(
+        `Connect4: Invalid column ${column} requested. Valid range is 0 to ${
+          boardWidth - 1
+        }.`,
+      )
+      return -1
+    }
+
     for (let row = boardWidth - 1; row >= 0; row--) {
+      // Assuming square board
       const index = row * boardWidth + column
-      if (board[index].playerID === null) {
+
+      // Check if index is within bounds
+      if (index < 0 || index >= board.length) {
+        logger.error(
+          `Connect4: Calculated index ${index} is out of bounds for board size ${board.length}.`,
+        )
+        continue
+      }
+
+      const square = board[index]
+
+      // Additional check to ensure square is properly initialized
+      if (!square) {
+        logger.error(`Connect4: Square at index ${index} is undefined.`)
+        continue
+      }
+
+      if (square.playerID === null) {
+        logger.info(
+          `Connect4: Available row found at row ${row} for column ${column}.`,
+        )
         return row
       }
     }
+
+    logger.warn(
+      `Connect4: No available rows found in column ${column}. Column is full.`,
+    )
     return -1 // Column is full
   }
 

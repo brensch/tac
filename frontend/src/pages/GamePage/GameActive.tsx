@@ -79,6 +79,10 @@ const GameActive: React.FC = () => {
 
   if (!gameState.started || !currentTurn) return
 
+  console.log(gameState)
+  console.log(selectedSquare)
+  console.log(currentTurn.board)
+
   return (
     <Stack spacing={2} pt={2}>
       {/* Rules Dialog - Only shown on the first turn */}

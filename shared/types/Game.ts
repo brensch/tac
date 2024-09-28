@@ -60,9 +60,6 @@ export interface GameState {
 
   playersReady: string[]
   firstPlayerReadyTime?: admin.firestore.Timestamp
-
-  // Initialize the board as part of the game state
-  board?: Square[] // The initial board state
 }
 
 export interface PlayerInfo {
@@ -71,22 +68,11 @@ export interface PlayerInfo {
   emoji: string
 }
 
-// Function to initialize a new game with an empty board
+// Function to initialize a new game
 const initializeGame = (
   sessionName: string,
   boardWidth: number = 8,
 ): GameState => {
-  // Initialize the board with empty squares
-  const board: Square[] = Array(boardWidth * boardWidth)
-    .fill(null)
-    .map(() => ({
-      playerID: null,
-      isTail: false,
-      isHead: false,
-      eaten: false,
-      allowedPlayers: [],
-    }))
-
   return {
     sessionName: sessionName,
     gameType: "connect4",
@@ -98,7 +84,6 @@ const initializeGame = (
     started: false,
     nextGame: "",
     maxTurnTime: 10, // Default time limit per turn in seconds
-    board, // Assign the initialized board
   }
 }
 
