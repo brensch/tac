@@ -32,7 +32,6 @@ import {
 } from "@mui/material"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { GameType } from "@shared/types/Game"
-import { PersonAdd } from "@mui/icons-material"
 
 const GameSetup: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
