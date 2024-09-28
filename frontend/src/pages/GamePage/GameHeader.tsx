@@ -22,7 +22,13 @@ const GameHeader: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center" }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Typography
           variant="h6"
           sx={{
@@ -34,20 +40,22 @@ const GameHeader: React.FC = () => {
         >
           {gameState?.sessionName}
         </Typography>
-        <Button
-          onClick={() => setOpenRulesDialog(true)}
-          sx={{ height: 30, ml: 2 }}
-          startIcon={<Book />}
-        >
-          Rules
-        </Button>
-        <Button
-          onClick={handleShare}
-          sx={{ height: 30, ml: 2 }}
-          startIcon={<PersonAdd />}
-        >
-          Invite
-        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            onClick={() => setOpenRulesDialog(true)}
+            sx={{ height: 30, width: "100px" }} // Static width for the button
+            startIcon={<Book />}
+          >
+            Rules
+          </Button>
+          <Button
+            onClick={handleShare}
+            sx={{ height: 30, width: "100px" }} // Static width for the button
+            startIcon={<PersonAdd />}
+          >
+            Invite
+          </Button>
+        </Box>
       </Box>
 
       {/* Rules Dialog */}
