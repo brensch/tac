@@ -58,15 +58,17 @@ const GameActive: React.FC = () => {
 
   if (!gameState) return
 
-  console.log(currentTurn)
-
   const playerInCurrentGame = gameState.playerIDs.includes(userID)
 
+  console.log(selectedSquare)
+
   console.log(
-    !!currentTurn,
-    currentTurn?.turnNumber === turns.length,
-    currentTurn?.hasMoved[userID],
-    currentTurn?.hasMoved,
+    hasSubmittedMove,
+    !!currentTurn?.hasMoved[userID],
+    !playerInCurrentGame,
+    selectedSquare !== null,
+    currentTurn?.board[selectedSquare!] !== "",
+    turns.length !== currentTurn?.turnNumber,
   )
 
   if (!gameState.started || !currentTurn) return
@@ -86,7 +88,7 @@ const GameActive: React.FC = () => {
               hasSubmittedMove ||
               !!currentTurn?.hasMoved[userID] ||
               !playerInCurrentGame ||
-              !selectedSquare ||
+              selectedSquare === null ||
               currentTurn?.board[selectedSquare] !== "" ||
               turns.length !== currentTurn?.turnNumber
             }

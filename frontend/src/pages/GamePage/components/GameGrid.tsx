@@ -68,8 +68,9 @@ const GameGrid: React.FC = () => {
 
     if (gameState?.started && !hasSubmittedMove) {
       const cellValue = currentTurn.board[index]
+      console.log(index, cellValue)
 
-      if (cellValue === "" || cellValue === null) {
+      if (cellValue === "") {
         setSelectedSquare(index)
       }
     }
