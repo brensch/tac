@@ -13,6 +13,7 @@ import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"
 
 import {
+  Box,
   Button,
   FormControl,
   InputLabel,
@@ -111,23 +112,6 @@ const GameSetup: React.FC = () => {
     }
   }
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Tactic Toes",
-          text: "This game is completely unrelated to toes.",
-          url: `/session/${gameState?.sessionName}`,
-        })
-        console.log("Content shared successfully")
-      } catch (error) {
-        console.error("Error sharing content:", error)
-      }
-    } else {
-      console.log("Web Share API is not supported in your browser.")
-    }
-  }
-
   // Handle board width change
   const handleBoardWidthChange = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -201,35 +185,35 @@ const GameSetup: React.FC = () => {
   return (
     <Stack spacing={2} pt={2}>
       <Typography variant="h5">New Game</Typography>
+      <Box sx={{ display: "flex", gap: 2 }}>
+        <TextField
+          label="Board Size"
+          type="number"
+          value={boardWidth}
+          onChange={handleBoardWidthChange}
+          onBlur={handleBoardWidthBlur}
+          disabled={started}
+          fullWidth
+        />
+        {gameState.boardWidth < 5 && (
+          <Typography color="error">Board needs to be bigger than 4</Typography>
+        )}
 
-      <TextField
-        label="Board Size"
-        type="number"
-        value={boardWidth}
-        onChange={handleBoardWidthChange}
-        onBlur={handleBoardWidthBlur}
-        disabled={started}
-        fullWidth
-      />
-      {gameState.boardWidth < 5 && (
-        <Typography color="error">Board needs to be bigger than 4</Typography>
-      )}
-
-      <TextField
-        label="Seconds per Turn"
-        type="number"
-        value={secondsPerTurn}
-        onChange={handleSecondsPerTurnChange}
-        onBlur={handleSecondsPerTurnBlur}
-        disabled={started}
-        fullWidth
-      />
-      {parseInt(secondsPerTurn) <= 0 && (
-        <Typography color="error">
-          Seconds per Turn must be greater than 0
-        </Typography>
-      )}
-
+        <TextField
+          label="Seconds per Turn"
+          type="number"
+          value={secondsPerTurn}
+          onChange={handleSecondsPerTurnChange}
+          onBlur={handleSecondsPerTurnBlur}
+          disabled={started}
+          fullWidth
+        />
+        {parseInt(secondsPerTurn) <= 0 && (
+          <Typography color="error">
+            Seconds per Turn must be greater than 0
+          </Typography>
+        )}
+      </Box>
       {/* Game Type Dropdown */}
       <FormControl fullWidth variant="outlined">
         <InputLabel id="game-type-label">Game Type</InputLabel>
@@ -246,9 +230,6 @@ const GameSetup: React.FC = () => {
       </FormControl>
 
       {/* Players Table */}
-      <Button fullWidth onClick={handleShare} startIcon={<PersonAdd />}>
-        Invite
-      </Button>
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -273,7 +254,6 @@ const GameSetup: React.FC = () => {
       </TableContainer>
 
       {/* Ready Section */}
-      <Typography>Press ready when you're ready.</Typography>
 
       <Button
         variant="contained"

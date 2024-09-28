@@ -43,14 +43,30 @@ const GameHeader: React.FC = () => {
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button
             onClick={() => setOpenRulesDialog(true)}
-            sx={{ height: 30, width: "80px" }} // Static width for the button
+            sx={{
+              height: 30,
+              width: "80px",
+              backgroundColor: "#ffd1dc", // Pastel pink
+              color: "#000",
+              "&:hover": {
+                backgroundColor: "#ffb6c1", // Slightly darker pastel pink
+              },
+            }}
             startIcon={<Book />}
           >
             Rules
           </Button>
           <Button
             onClick={handleShare}
-            sx={{ height: 30, width: "90px" }} // Static width for the button
+            sx={{
+              height: 30,
+              width: "90px",
+              backgroundColor: "#b3e5fc", // Pastel blue
+              color: "#000",
+              "&:hover": {
+                backgroundColor: "#81d4fa", // Slightly darker pastel blue
+              },
+            }}
             startIcon={<PersonAdd />}
           >
             Invite
