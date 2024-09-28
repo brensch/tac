@@ -129,7 +129,7 @@ export const GameStateProvider: React.FC<{
         unsubscribes.forEach((unsubscribe) => unsubscribe())
       }
     }
-  }, [gameState?.playerIDs])
+  }, [gameState?.playerIDs, gameID])
 
   // Subscribe to turns collection
   useEffect(() => {

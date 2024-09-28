@@ -1,7 +1,7 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import React, { useEffect, useState } from "react"
-import { useUser } from "../../../context/UserContext"
-import { db } from "../../../firebaseConfig"
+import { useUser } from "../../context/UserContext"
+import { db } from "../../firebaseConfig"
 
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
 import {
@@ -18,8 +18,8 @@ import {
   Typography,
 } from "@mui/material"
 
-import { useGameStateContext } from "../../../context/GameStateContext"
-import GameGrid from "../components/GameGrid"
+import { useGameStateContext } from "../../context/GameStateContext"
+import GameGrid from "./GameGrid"
 
 const GameActive: React.FC = () => {
   const { userID } = useUser()

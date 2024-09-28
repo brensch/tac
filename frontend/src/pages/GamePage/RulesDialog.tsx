@@ -7,7 +7,7 @@ import {
   DialogActions,
   Button,
 } from "@mui/material"
-import { Connect4Rules, LongBoiRules } from "../../../constants/Rules"
+import { Connect4Rules, LongBoiRules } from "../../constants/Rules"
 
 interface RulesDialogProps {
   open: boolean

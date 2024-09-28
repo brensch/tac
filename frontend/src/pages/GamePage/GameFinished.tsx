@@ -2,7 +2,7 @@ import React from "react"
 
 import { Button, Typography } from "@mui/material"
 
-import { useGameStateContext } from "../../../context/GameStateContext"
+import { useGameStateContext } from "../../context/GameStateContext"
 import EmojiRain from "./EmojiRain"
 import { useNavigate } from "react-router-dom"
 

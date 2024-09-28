@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { Box, Button, Typography } from "@mui/material"
-import RulesDialog from "../components/RulesDialog"
-import { useGameStateContext } from "../../../context/GameStateContext"
+import RulesDialog from "./RulesDialog"
+import { useGameStateContext } from "../../context/GameStateContext"
 
 const GameHeader: React.FC = () => {
   const { gameState } = useGameStateContext()

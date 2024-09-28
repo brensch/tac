@@ -9,8 +9,8 @@ import {
 } from "firebase/firestore"
 import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { useUser } from "../../../context/UserContext"
-import { db } from "../../../firebaseConfig"
+import { useUser } from "../../context/UserContext"
+import { db } from "../../firebaseConfig"
 
 import {
   Box,
@@ -29,7 +29,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material"
-import { useGameStateContext } from "../../../context/GameStateContext"
+import { useGameStateContext } from "../../context/GameStateContext"
 import { GameType } from "@shared/types/Game"
 
 const GameSetup: React.FC = () => {
@@ -54,7 +54,7 @@ const GameSetup: React.FC = () => {
 
   // Initialize countdown when firstPlayerReadyTime is set
   useEffect(() => {
-    if (!gameState?.firstPlayerReadyTime) return
+    if (!gameState?.firstPlayerReadyTime || gameState.started) return
 
     let intervalTime = 100 // Initial interval time
     let intervalId: NodeJS.Timeout
@@ -64,7 +64,6 @@ const GameSetup: React.FC = () => {
     const intervalFunction = async () => {
       const now = Date.now()
       const elapsedSeconds = (now - firstReadyTime) / 1000
-      console.log(elapsedSeconds)
       const remaining = startDelay - elapsedSeconds
       setCountdown(Math.max(remaining, 0))
 
@@ -93,14 +92,10 @@ const GameSetup: React.FC = () => {
     return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
   }, [gameState?.firstPlayerReadyTime])
 
-  console.log(gameState)
-  // Optional: Trigger game start when countdown reaches zero
   useEffect(() => {
     if (countdown === 0 && intervalId) {
       clearInterval(intervalId)
       setIntervalId(null)
-      // Optionally, trigger game start here if not handled elsewhere
-      // handleStartGame();
     }
   }, [countdown, intervalId])
 
@@ -297,13 +292,13 @@ const GameSetup: React.FC = () => {
             sx={{ mb: 2 }}
             fullWidth
           >
-            {gameState.firstPlayerReadyTime ? (
-              <Typography variant="body2" color="textSecondary">
-                {`Waiting for others (they have ${countdown.toFixed(1)}s)`}
-              </Typography>
-            ) : (
-              "I'm ready"
-            )}
+            <Typography variant="body2" color="textSecondary">
+              {gameState.playersReady.includes(userID)
+                ? `Waiting for others`
+                : "I'm ready"}
+              {!!gameState.firstPlayerReadyTime &&
+                ` (starting in ${countdown.toFixed(1)}s)`}
+            </Typography>
           </Button>
         </Box>
       )}

@@ -2,10 +2,10 @@ import React from "react"
 import { useParams } from "react-router-dom"
 
 import { GameStateProvider } from "../../context/GameStateContext"
-import GameActive from "./components/GameActive"
-import GameHeader from "./components/GameHeader"
-import GameSetup from "./components/GameSetup"
-import GameFinished from "./components/GameFinished"
+import GameActive from "./GameActive"
+import GameHeader from "./GameHeader"
+import GameSetup from "./GameSetup"
+import GameFinished from "./GameFinished"
 
 const GamePage: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -13,8 +13,7 @@ const GamePage: React.FC = () => {
   if (!gameID) return
 
   return (
-    <GameStateProvider gameID={gameID}>
-      <></>
+    <GameStateProvider key={gameID} gameID={gameID}>
       <GameHeader />
       <GameFinished />
       <GameSetup />
