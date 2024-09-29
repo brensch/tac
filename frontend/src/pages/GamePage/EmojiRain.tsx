@@ -2,9 +2,10 @@ import React from "react"
 
 interface EmojiRainProps {
   emoji: string
+  top: number // Accept the top position as a prop
 }
 
-const EmojiRain: React.FC<EmojiRainProps> = ({ emoji }) => {
+const EmojiRain: React.FC<EmojiRainProps> = ({ emoji, top }) => {
   const [emojis, setEmojis] = React.useState<number[]>([])
 
   React.useEffect(() => {
@@ -17,7 +18,7 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji }) => {
     <div
       style={{
         position: "fixed",
-        top: -20,
+        top: `${top}px`, // Use the dynamic top position
         left: 0,
         width: "100%",
         height: "120%",
@@ -37,7 +38,7 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji }) => {
             key={i}
             style={{
               position: "absolute",
-              top: `-50px`, // Start above the screen
+              top: `-50px`, // Start above the container
               left: `${left}%`,
               fontSize: `${size}px`,
               animation: `fall ${duration}s linear ${delay}s infinite`,

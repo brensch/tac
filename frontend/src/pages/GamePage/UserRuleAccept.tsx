@@ -10,11 +10,12 @@ import {
   FormControlLabel,
 } from "@mui/material"
 import { getRulesComponent } from "./RulesDialog"
+import { GameType } from "@shared/types/Game"
 
 interface RulesDialogProps {
   open: boolean
   onClose: () => void
-  rules?: string
+  rules?: GameType
   timeRemaining: number
 }
 

@@ -29,6 +29,7 @@ export async function createNextTurn(
     boardWidth: currentTurn.boardWidth,
     gameType: currentTurn.gameType,
     playerIDs: currentTurn.playerIDs,
+    playerHealth: currentTurn.playerHealth,
     hasMoved: {}, // Reset hasMoved for the new turn
     clashes: {}, // Reset clashes for the new turn
     turnTime: currentTurn.turnTime,

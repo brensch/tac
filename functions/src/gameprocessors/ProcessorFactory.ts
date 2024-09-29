@@ -5,6 +5,8 @@ import { Turn, Move } from "@shared/types/Game"
 import { Connect4Processor } from "./Connect4Processor"
 import { LongboiProcessor } from "./LongboiProcessor"
 import { GameProcessor } from "./GameProcessor"
+import { TacticToeProcessor } from "./TacticToeProcessor"
+import { SnekProcessor } from "./SnekProcessor"
 
 export function getGameProcessor(
   transaction: Transaction,
@@ -23,6 +25,15 @@ export function getGameProcessor(
       )
     case "longboi":
       return new LongboiProcessor(transaction, gameID, latestMoves, currentTurn)
+    case "tactictoes":
+      return new TacticToeProcessor(
+        transaction,
+        gameID,
+        latestMoves,
+        currentTurn,
+      )
+    case "snek":
+      return new SnekProcessor(transaction, gameID, latestMoves, currentTurn)
     default:
       console.error(`Unsupported game type: ${gameType}`)
       return null

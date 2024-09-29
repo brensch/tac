@@ -7,20 +7,30 @@ import {
   DialogActions,
   Button,
 } from "@mui/material"
-import { Connect4Rules, LongBoiRules } from "../../constants/Rules"
+import {
+  Connect4Rules,
+  LongBoiRules,
+  SnekRules,
+  TacticToesRules,
+} from "../../constants/Rules"
+import { GameType } from "@shared/types/Game"
 
 interface RulesDialogProps {
   open: boolean
   onClose: () => void
-  rules?: string
+  rules?: GameType
 }
 
-export const getRulesComponent = (rules?: string): React.FC => {
+export const getRulesComponent = (rules?: GameType): React.FC => {
   switch (rules) {
     case "connect4":
       return Connect4Rules
     case "longboi":
       return LongBoiRules
+    case "tactictoes":
+      return TacticToesRules
+    case "snek":
+      return SnekRules
     default:
       return Connect4Rules // Fallback if no valid rules type is provided
   }

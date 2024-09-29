@@ -73,6 +73,9 @@ const GameActive: React.FC = () => {
     setIsRulesDialogOpen(false)
   }
 
+  console.log(currentTurn?.board)
+  console.log(selectedSquare)
+
   if (!gameState) return
 
   const playerInCurrentGame = gameState.playerIDs.includes(userID)

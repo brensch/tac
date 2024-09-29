@@ -44,7 +44,7 @@ export class Connect4Processor extends GameProcessor {
         gameType: gameState.gameType,
         hasMoved: {},
         clashes: {},
-
+        playerHealth: [], //not used
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
         endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
@@ -146,7 +146,7 @@ export class Connect4Processor extends GameProcessor {
             const index = row * this.currentTurn.boardWidth + column
             if (newBoard[index].playerID === null) {
               newBoard[index].playerID = null
-              newBoard[index].eaten = true
+              newBoard[index].food = false
               newBoard[index].allowedPlayers = [] // Ensure it's blocked
               clashes[index] = {
                 players,
@@ -394,9 +394,9 @@ export class Connect4Processor extends GameProcessor {
       .fill(null)
       .map(() => ({
         playerID: null,
-        isTail: false,
-        isHead: false,
-        eaten: false,
+        wall: false,
+        bodyPosition: [0],
+        food: false,
         allowedPlayers: [], // Initially, no squares are available
       }))
 

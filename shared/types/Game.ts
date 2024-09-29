@@ -5,9 +5,9 @@ import * as admin from "firebase-admin"
 // Define the Square interface with the required fields
 export interface Square {
   playerID: string | null // The ID of the player occupying the square, null if empty
-  isTail: boolean // Indicates if the square is a tail
-  isHead: boolean // Indicates if the square is a head
-  eaten: boolean // Indicates if the square has been eaten
+  food: boolean
+  wall: boolean
+  bodyPosition: number[]
   allowedPlayers: string[] // List of player IDs who can move into this square on the next turn
 }
 
@@ -34,6 +34,7 @@ export interface Turn {
   boardWidth: number
   gameType: string
   playerIDs: string[] // This is to avoid a lookup of game for every move server-side
+  playerHealth: number[]
   hasMoved: {
     [playerID: string]: { moveTime: admin.firestore.Timestamp }
   } // Map of playerID to moveTime
@@ -43,7 +44,7 @@ export interface Turn {
   endTime: admin.firestore.Timestamp // When the turn ended
 }
 
-export type GameType = "connect4" | "longboi"
+export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
 
 // Updated GameState interface with the new 'winner' structure
 export interface GameState {

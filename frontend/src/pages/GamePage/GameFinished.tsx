@@ -1,5 +1,4 @@
-import React from "react"
-
+import React, { useRef, useState, useEffect } from "react"
 import {
   Button,
   Paper,
@@ -11,7 +10,6 @@ import {
   TableRow,
   Typography,
 } from "@mui/material"
-
 import { useGameStateContext } from "../../context/GameStateContext"
 import EmojiRain from "./EmojiRain"
 import { useNavigate } from "react-router-dom"
@@ -20,6 +18,16 @@ import { Winner } from "@shared/types/Game"
 const GameFinished: React.FC = () => {
   const { gameState, playerInfos } = useGameStateContext()
   const navigate = useNavigate()
+  const playAgainButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [emojiRainTop, setEmojiRainTop] = useState<number | null>(null)
+
+  useEffect(() => {
+    // Set the emoji rain's starting position based on the "Play Again?" button position
+    if (playAgainButtonRef.current) {
+      const buttonRect = playAgainButtonRef.current.getBoundingClientRect()
+      setEmojiRainTop(buttonRect.bottom) // Set the top position just below the button
+    }
+  }, [])
 
   // Ensure gameState and playerInfos are available
   if (!gameState || !playerInfos) return null
@@ -50,11 +58,8 @@ const GameFinished: React.FC = () => {
     sortedPlayers.length > 1 &&
     sortedPlayers[0].score === sortedPlayers[1].score
 
-  console.log(gameState)
-
   return (
     <>
-      {/* Display "Nobody made a move" if applicable */}
       {draw ? (
         <>
           <Typography
@@ -66,6 +71,7 @@ const GameFinished: React.FC = () => {
           </Typography>
           {gameState.nextGame !== "" && (
             <Button
+              ref={playAgainButtonRef}
               sx={{ my: 2, zIndex: 10000000, bgcolor: "green" }}
               variant="contained"
               fullWidth
@@ -121,6 +127,7 @@ const GameFinished: React.FC = () => {
           {/* "Play Again?" Button */}
           {gameState.nextGame !== "" && (
             <Button
+              ref={playAgainButtonRef}
               sx={{ my: 2, zIndex: 10000000, bgcolor: "green" }}
               variant="contained"
               fullWidth
@@ -131,7 +138,9 @@ const GameFinished: React.FC = () => {
           )}
 
           {/* Emoji Rain Effect for Top Player */}
-          {topPlayerEmoji && <EmojiRain emoji={topPlayerEmoji} />}
+          {topPlayerEmoji && emojiRainTop !== null && (
+            <EmojiRain emoji={topPlayerEmoji} top={emojiRainTop} />
+          )}
         </>
       )}
     </>

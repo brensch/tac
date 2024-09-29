@@ -108,12 +108,11 @@ export async function processTurn(
           `Winners added to game ${gameID} in round ${currentRound}.`,
           { winners },
         )
-        return
+      } else {
+        logger.info(
+          `No winners yet for game ${gameID} in round ${currentRound}`,
+        )
       }
-
-      logger.info(`No winners yet for game ${gameID} in round ${currentRound}`)
-
-      // No winners; create a new Turn for the next round
       await createNextTurn(transaction, gameID, currentTurn)
       logger.info(
         `New turn created for game ${gameID} in round ${currentRound + 1}`,

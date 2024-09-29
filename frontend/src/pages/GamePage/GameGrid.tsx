@@ -106,7 +106,7 @@ const GameGrid: React.FC = () => {
     >
       {board.map((cell: Square, index: number) => {
         const isSelected = selectedSquare === index
-        const isBlocked = cell.eaten
+        const isBlocked = false
         const clash = clashes[index.toString()]
         const clashPlayers = clash ? clash.players : []
         const isWinningSquare = winningSquaresSet.has(index)
