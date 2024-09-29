@@ -11,7 +11,7 @@ import { Transaction } from "firebase-admin/firestore"
  */
 export class SnekProcessor extends GameProcessor {
   // Variable to control the percentage likelihood of food generation
-  private foodSpawnChance: number = 0.2 // 20% chance to spawn food
+  private foodSpawnChance: number = 0.5 // 50% chance to spawn food
 
   constructor(
     transaction: Transaction,
@@ -424,12 +424,9 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      // Food generation based on random chance and only if no food exists
-      const foodExists = newBoard.some((square) => square.food)
-      if (!foodExists) {
-        if (Math.random() < this.foodSpawnChance) {
-          this.generateFood(newBoard, boardWidth)
-        }
+      // Food generation based on random chance
+      if (Math.random() < this.foodSpawnChance) {
+        this.generateFood(newBoard, boardWidth)
       }
 
       // Update allowedPlayers for squares adjacent to heads
