@@ -91,13 +91,22 @@ export async function processTurn(
       })
 
       if (winners.length > 0) {
-        // Create a new game if there are winners
+        // Reference to the game document
+        const gameRef = admin.firestore().collection("games").doc(gameID)
+
+        // Create a new game after updating the current game with winners
         await createNewGame(transaction, gameID)
         logger.info(
           `Winners found for game ${gameID} in round ${currentRound}. New game created.`,
           {
             winners,
           },
+        )
+        // Update the game document with the winners
+        await transaction.update(gameRef, { winners })
+        logger.info(
+          `Winners added to game ${gameID} in round ${currentRound}.`,
+          { winners },
         )
         return
       }

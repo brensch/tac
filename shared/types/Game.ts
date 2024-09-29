@@ -38,7 +38,6 @@ export interface Turn {
     [playerID: string]: { moveTime: admin.firestore.Timestamp }
   } // Map of playerID to moveTime
   clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
-  winners?: Winner[] // The list of squares involved in a winning condition
   turnTime: number
   startTime: admin.firestore.Timestamp // When the turn started
   endTime: admin.firestore.Timestamp // When the turn ended

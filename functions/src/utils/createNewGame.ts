@@ -39,11 +39,10 @@ export async function createNewGame(
     const newSessionIndex = gameData.sessionIndex + 1
 
     // Generate a new session name (optional: customize as needed)
-    const newSessionName = `${gameData.sessionName}-session-${newSessionIndex}`
 
     // Initialize a new game state
     const newGameState: GameState = {
-      sessionName: newSessionName,
+      sessionName: gameData.sessionName,
       sessionIndex: newSessionIndex,
       gameType: gameData.gameType,
       playerIDs: gameData.playerIDs, // Retain the same players; modify if needed
@@ -53,7 +52,6 @@ export async function createNewGame(
       nextGame: "", // No next game yet
       maxTurnTime: gameData.maxTurnTime,
       playersReady: [], // Reset players ready
-      // Initialize the board for the new game
     }
 
     // Reference to the new game document

@@ -44,7 +44,6 @@ export class Connect4Processor extends GameProcessor {
         gameType: gameState.gameType,
         hasMoved: {},
         clashes: {},
-        winners: [],
 
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),

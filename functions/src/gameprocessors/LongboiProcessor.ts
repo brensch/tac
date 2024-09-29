@@ -46,7 +46,6 @@ export class LongboiProcessor extends GameProcessor {
         playerIDs: gameState.playerIDs,
         hasMoved: {},
         clashes: {},
-        winners: [],
 
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
