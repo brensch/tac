@@ -52,7 +52,7 @@ export interface GameState {
   gameType: GameType
   playerIDs: string[] // List of player IDs in the game
   boardWidth: number // The width of the board, to easily work with 1D array
-  winner: Winner[] // Updated to an array of winner objects
+  winners: Winner[] // Updated to an array of winner objects
   started: boolean
   nextGame: string // New field for the ID of the next game
   maxTurnTime: number // Time limit per turn in seconds
@@ -79,7 +79,7 @@ const initializeGame = (
     playerIDs: [],
     playersReady: [],
     boardWidth: boardWidth,
-    winner: [], // Initialize as empty array
+    winners: [], // Initialize as empty array
     started: false,
     nextGame: "",
     maxTurnTime: 10, // Default time limit per turn in seconds

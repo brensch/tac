@@ -24,7 +24,7 @@ const GameFinished: React.FC = () => {
   // Ensure gameState and playerInfos are available
   if (!gameState || !playerInfos) return null
 
-  const winners: Winner[] = gameState.winner || []
+  const winners: Winner[] = gameState.winners || []
 
   // If there are no winners, display a message accordingly
   const unFinished = gameState.nextGame === ""

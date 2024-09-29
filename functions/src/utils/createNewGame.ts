@@ -27,7 +27,7 @@ export async function createNewGame(
     const gameData = gameDoc.data() as GameState
 
     // Prevent creating a new game if one is already in progress
-    if (gameData.winner.length > 0 || gameData.nextGame !== "") {
+    if (gameData.winners.length > 0 || gameData.nextGame !== "") {
       logger.warn("New game already cooked.", { gameID })
       return
     }
@@ -47,7 +47,7 @@ export async function createNewGame(
       gameType: gameData.gameType,
       playerIDs: gameData.playerIDs, // Retain the same players; modify if needed
       boardWidth: gameData.boardWidth,
-      winner: [], // Initialize as empty array
+      winners: [], // Initialize as empty array
       started: false, // Game has not started yet
       nextGame: "", // No next game yet
       maxTurnTime: gameData.maxTurnTime,

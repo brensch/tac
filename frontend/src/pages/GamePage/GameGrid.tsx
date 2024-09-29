@@ -23,7 +23,8 @@ const GameGrid: React.FC = () => {
     setSelectedSquare,
   } = useGameStateContext()
 
-  const { board, clashes, winners } = currentTurn!
+  const { board, clashes } = currentTurn!
+  const winners = gameState?.winners || []
   const gridSize = gameState?.boardWidth || 8 // Default to 8 if undefined
   const winningSquaresSet = new Set(
     (winners?.length && winners?.length > 0 && winners[0].winningSquares) || [],

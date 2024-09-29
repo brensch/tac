@@ -162,7 +162,7 @@ export const GameStateProvider: React.FC<{
   useEffect(() => {
     if (
       !latestTurn ||
-      (gameState?.winner.length && gameState?.winner.length > 0) || // Updated condition
+      (gameState?.winners.length && gameState?.winners.length > 0) || // Updated condition
       !currentTurn ||
       !gameState?.maxTurnTime ||
       !gameID
