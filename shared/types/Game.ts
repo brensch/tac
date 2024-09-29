@@ -4,12 +4,12 @@ import * as admin from "firebase-admin"
 
 // Define the Square interface with the required fields
 export interface Square {
-  playerID: string | null
+  playerID: string | null // The ID of the player occupying the square, null if empty
   food: boolean
   wall: boolean
   bodyPosition: number[]
-  allowedPlayers: string[]
-  clash: { players: string[]; reason: string } | null
+  allowedPlayers: string[] // List of player IDs who can move into this square on the next turn
+  clash: { players: string[]; reason: string } | null // Allow clash to be an object or null
 }
 // Define the Winner interface
 export interface Winner {

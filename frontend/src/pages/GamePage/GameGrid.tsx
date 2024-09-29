@@ -6,6 +6,7 @@ import React, { useLayoutEffect, useRef, useState } from "react"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
+import tinycolor from "tinycolor2"
 
 const GameGrid: React.FC = () => {
   const {
@@ -100,7 +101,6 @@ const GameGrid: React.FC = () => {
     >
       {board.map((cell: Square, index: number) => {
         const isSelected = selectedSquare === index
-        const isBlocked = false
         const isWinningSquare = winningSquaresSet.has(index)
 
         // Determine if the current user can move into this square
@@ -117,10 +117,6 @@ const GameGrid: React.FC = () => {
           backgroundColor = "#8B4513" // Brown color for walls
         } else if (isWinningSquare) {
           backgroundColor = "green"
-        } else if (isSelected) {
-          backgroundColor = "#cfe8fc"
-        } else if (canUserMoveHere) {
-          backgroundColor = "lightgreen"
         } else if (cell.playerID && playerInfo) {
           backgroundColor = playerInfo.colour
         }
@@ -138,28 +134,32 @@ const GameGrid: React.FC = () => {
           cellContent = "🍎" // Food emoji
         } else if (cell.playerID && cell.bodyPosition.length > 0) {
           // Body of the snake
-          cellContent = "" // No emoji for body parts
-        }
-
-        // Optional: Add arrow emojis indicating direction
-        if (cell.playerID && cell.bodyPosition.includes(0)) {
-          const directionEmoji = getDirectionEmoji(
+          const arrowEmoji = getDirectionEmoji(
             board,
             index,
             cell.playerID,
-            cell.bodyPosition[0],
+            Math.max(...cell.bodyPosition),
             gridSize,
           )
-          if (directionEmoji) {
-            cellContent = directionEmoji
+          if (arrowEmoji) {
+            cellContent = arrowEmoji
+          } else {
+            cellContent = "" // No emoji if direction not found
           }
         }
+
+        // Determine border style
+        let borderStyle = "1px solid black"
+
+        // If the square is selectable by the user, add green dotted border inside edges
+        const selectableBorder = canUserMoveHere
+          ? "2px dotted green"
+          : borderStyle
 
         return (
           <Box
             key={index}
             onClick={() => {
-              console.log(index)
               if (disabled) return
               handleSquareClick(index)
             }}
@@ -167,19 +167,33 @@ const GameGrid: React.FC = () => {
               width: "100%",
               paddingBottom: "100%", // Maintain aspect ratio
               position: "relative",
-              border: "1px solid black",
+              border: borderStyle,
               cursor: disabled
                 ? "default"
                 : gameState?.started &&
                   !currentTurn?.hasMoved[user.userID] &&
                   (canUserMoveHere ||
-                    (!canUserMoveHere && cell.playerID === null && !isBlocked))
+                    (!canUserMoveHere && cell.playerID === null))
                 ? "pointer"
                 : "default",
               backgroundColor: backgroundColor,
               transition: "background-color 0.3s",
             }}
           >
+            {/* Inner box for green dotted border */}
+            {canUserMoveHere && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: "5%",
+                  left: "5%",
+                  right: "5%",
+                  bottom: "5%",
+                  border: selectableBorder,
+                  pointerEvents: "none", // So the inner box doesn't capture clicks
+                }}
+              />
+            )}
             <Box
               sx={{
                 position: "absolute",
@@ -194,6 +208,7 @@ const GameGrid: React.FC = () => {
                 textAlign: "center",
                 padding: 1,
                 userSelect: "none",
+                zIndex: 1, // Ensure content is above the inner border
               }}
             >
               {cellContent}
@@ -215,7 +230,7 @@ const GameGrid: React.FC = () => {
 export default GameGrid
 
 /**
- * Helper function to get the direction emoji for a snake's head.
+ * Helper function to get the direction emoji for a snake's body.
  */
 function getDirectionEmoji(
   board: Square[],
@@ -229,6 +244,10 @@ function getDirectionEmoji(
     { dx: 0, dy: 1, emoji: "⬇️" }, // Down
     { dx: -1, dy: 0, emoji: "⬅️" }, // Left
     { dx: 1, dy: 0, emoji: "➡️" }, // Right
+    { dx: -1, dy: -1, emoji: "↖️" }, // Up-Left
+    { dx: 1, dy: -1, emoji: "↗️" }, // Up-Right
+    { dx: -1, dy: 1, emoji: "↙️" }, // Down-Left
+    { dx: 1, dy: 1, emoji: "↘️" }, // Down-Right
   ]
 
   const x = index % boardWidth

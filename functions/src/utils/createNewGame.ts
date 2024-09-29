@@ -45,7 +45,7 @@ export async function createNewGame(
       sessionName: gameData.sessionName,
       sessionIndex: newSessionIndex,
       gameType: gameData.gameType,
-      playerIDs: gameData.playerIDs, // Retain the same players; modify if needed
+      playerIDs: [],
       boardWidth: gameData.boardWidth,
       winners: [], // Initialize as empty array
       started: false, // Game has not started yet

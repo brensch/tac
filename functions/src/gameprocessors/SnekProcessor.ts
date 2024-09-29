@@ -55,9 +55,7 @@ export class SnekProcessor extends GameProcessor {
         // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ),
+        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000),
       }
 
       // Set turn and update game within transaction
@@ -111,61 +109,94 @@ export class SnekProcessor extends GameProcessor {
       }
     }
 
-    // Place all snakes on the same starting square
-    const centerX = Math.floor(boardWidth / 2)
-    const centerY = Math.floor(boardWidth / 2)
-    const startIndex = centerY * boardWidth + centerX
+    // Generate starting positions
+    const numPlayers = playerIDs.length
+    const positions: { x: number; y: number }[] = []
 
-    const startSquare = board[startIndex]
+    const numRows = Math.ceil(Math.sqrt(numPlayers))
+    const numCols = Math.ceil(numPlayers / numRows)
+    const rowSpacing = (boardWidth - 2) / (numRows + 1)
+    const colSpacing = (boardWidth - 2) / (numCols + 1)
 
-    playerIDs.forEach((playerID) => {
-      // Each snake starts with length 3 at the same position
-      for (let i = 0; i < 3; i++) {
-        // For the first turn, we need to ensure that snakes don't die by touching themselves
-        // We can set the bodyPosition to [0,1,2] for each player but occupy the same square
-        if (i === 0) {
-          // Head of the snake
-          if (!startSquare.playerID) {
-            startSquare.playerID = playerID
-            startSquare.bodyPosition = [0]
-          } else {
-            startSquare.bodyPosition.push(0)
-          }
-        } else {
-          // Body segments (overlapping in the same square)
-          startSquare.bodyPosition.push(i)
-        }
+    let playerIndex = 0
+    for (let row = 1; row <= numRows; row++) {
+      const y = Math.min(
+        Math.max(1, Math.round(row * rowSpacing)),
+        boardWidth - 2,
+      )
+      for (let col = 1; col <= numCols; col++) {
+        if (playerIndex >= numPlayers) break
+        const x = Math.min(
+          Math.max(1, Math.round(col * colSpacing)),
+          boardWidth - 2,
+        )
+        positions.push({ x, y })
+        playerIndex++
       }
-    })
+    }
 
-    // Set allowed moves for each player's head
-    playerIDs.forEach((playerID) => {
+    // Place each snake
+    playerIDs.forEach((playerID, index) => {
+      const { x, y } = positions[index]
+      const startIndex = y * boardWidth + x
+      const startSquare = board[startIndex]
+
+      // Place the head
+      startSquare.playerID = playerID
+      startSquare.bodyPosition = [0]
+
+      // For initial direction, pick one that keeps the snake within bounds
       const directions = [
         { dx: 0, dy: -1 }, // Up
         { dx: 0, dy: 1 }, // Down
         { dx: -1, dy: 0 }, // Left
         { dx: 1, dy: 0 }, // Right
       ]
-
-      directions.forEach(({ dx, dy }) => {
-        const adjX = centerX + dx
-        const adjY = centerY + dy
+      let direction = null
+      for (const dir of directions) {
+        const x1 = x + dir.dx
+        const y1 = y + dir.dy
+        const x2 = x + dir.dx * 2
+        const y2 = y + dir.dy * 2
         if (
-          adjX >= 1 &&
-          adjX <= boardWidth - 2 &&
-          adjY >= 1 &&
-          adjY <= boardWidth - 2
+          x1 >= 1 &&
+          x1 <= boardWidth - 2 &&
+          y1 >= 1 &&
+          y1 <= boardWidth - 2 &&
+          x2 >= 1 &&
+          x2 <= boardWidth - 2 &&
+          y2 >= 1 &&
+          y2 <= boardWidth - 2
         ) {
-          const adjIndex = adjY * boardWidth + adjX
-          const adjSquare = board[adjIndex]
-          if (!adjSquare.allowedPlayers.includes(playerID)) {
-            adjSquare.allowedPlayers.push(playerID)
-          }
+          direction = dir
+          break
         }
-      })
+      }
+      if (!direction) {
+        // Can't place the body segments, snake will be of length 1
+        return
+      }
+      // Place body segments behind the head
+      let currentX = x
+      let currentY = y
+      for (let i = 1; i <= 2; i++) {
+        currentX += direction.dx
+        currentY += direction.dy
+        const idx = currentY * boardWidth + currentX
+        const square = board[idx]
+        if (square.playerID !== null) {
+          // Can't place the body, another snake is there
+          break
+        }
+        square.playerID = playerID
+        square.bodyPosition = [i]
+      }
     })
 
-    logger.info("Snek: Board initialized with snakes on the same square.", {
+    // Update allowedPlayers for squares adjacent to heads
+    this.updateAllowedPlayers(board, boardWidth, playerIDs, new Set<string>())
+
+    logger.info("Snek: Board initialized with snakes spread out.", {
       board,
     })
 

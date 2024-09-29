@@ -49,9 +49,7 @@ export class LongboiProcessor extends GameProcessor {
         // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ), // e.g., 60 seconds
+        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
       }
 
       // Set turn and update game within transaction
@@ -110,7 +108,7 @@ export class LongboiProcessor extends GameProcessor {
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const newBoard = this.currentTurn.board.map((square) => ({
+      const newBoard: Square[] = this.currentTurn.board.map((square) => ({
         ...square,
         allowedPlayers: [],
         clash: null, // Reset clashes

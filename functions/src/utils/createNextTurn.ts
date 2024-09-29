@@ -31,7 +31,6 @@ export async function createNextTurn(
     playerIDs: currentTurn.playerIDs,
     playerHealth: currentTurn.playerHealth,
     hasMoved: {}, // Reset hasMoved for the new turn
-    clashes: {}, // Reset clashes for the new turn
     turnTime: currentTurn.turnTime,
     startTime: Timestamp.fromMillis(now),
     endTime: Timestamp.fromMillis(endTimeMillis),
