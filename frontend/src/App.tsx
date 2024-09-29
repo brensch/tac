@@ -34,7 +34,7 @@ const App: React.FC = () => {
 }
 
 const AppContent: React.FC = () => {
-  const { nickname, emoji } = useUser()
+  const { nickname, emoji, colour } = useUser()
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
 
   const handleProfileOpen = () => {
@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
           </Typography>
           <Button
             color="primary"
-            sx={{ height: 30 }}
+            sx={{ height: 30, backgroundColor: colour }}
             onClick={handleProfileOpen}
           >
             {nickname} {emoji}

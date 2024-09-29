@@ -110,7 +110,7 @@ export const GameStateProvider: React.FC<{
               id: playerID,
               nickname: playerData?.nickname || "Unknown",
               emoji: playerData.emoji || "🦍",
-              colour: "#222222",
+              colour: playerData.colour,
             }
           } else {
             playersMapRef.current[playerID] = {

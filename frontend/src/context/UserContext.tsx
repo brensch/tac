@@ -5,11 +5,13 @@ import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
 import { auth } from "../firebaseConfig"
 import SignupPage from "../pages/SignupPage"
 import { Container, Box, Typography } from "@mui/material"
+import { PlayerInfo } from "@shared/types/Game"
 
 interface UserContextType {
   userID: string
   nickname: string
   emoji: string
+  colour: string
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -19,6 +21,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [userID, setUserID] = useState<string>("")
   const [nickname, setNickname] = useState<string>("")
+  const [colour, setColour] = useState<string>("")
   const [emoji, setEmoji] = useState<string>("")
   const [authLoaded, setAuthLoaded] = useState<boolean>(false) // Auth flag
   const [userDocLoaded, setUserDocLoaded] = useState<boolean>(false) // User doc flag
@@ -45,12 +48,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         // Real-time listener for user document updates
         const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
           if (docSnapshot.exists()) {
-            const userInfo = docSnapshot.data() as {
-              nickname: string
-              emoji: string
-            }
+            const userInfo = docSnapshot.data() as PlayerInfo
             setNickname(userInfo.nickname || "Unknown")
             setEmoji(userInfo.emoji || "")
+            setColour(userInfo.colour)
           } else {
             console.log("No user document exists, prompting user for info.")
           }
@@ -71,14 +72,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [])
 
   // Save nickname and emoji once user submits the form
-  const handleSaveNicknameEmoji = async (nickname: string, emoji: string) => {
+  const handleSaveNicknameEmoji = async (
+    nickname: string,
+    emoji: string,
+    colour: string,
+  ) => {
     const uid = auth.currentUser?.uid
     if (uid) {
       const userDocRef = doc(db, "users", uid)
-      await setDoc(userDocRef, { nickname, emoji }, { merge: true })
+      await setDoc(userDocRef, { nickname, emoji, colour }, { merge: true })
       setNickname(nickname)
       setEmoji(emoji)
       setUserDocLoaded(true)
+      setColour(colour)
     }
   }
 
@@ -106,7 +112,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   return (
-    <UserContext.Provider value={{ userID, nickname, emoji }}>
+    <UserContext.Provider value={{ userID, nickname, emoji, colour }}>
       {children}
     </UserContext.Provider>
   )

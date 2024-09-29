@@ -10,9 +10,8 @@ import { Transaction } from "firebase-admin/firestore"
  * Processor class for the Snek game logic.
  */
 export class SnekProcessor extends GameProcessor {
-  // Variables to tune food generation
-  private foodGenerationInterval: number = 3 // Add a fruit every 3 turns
-  private turnCounter: number = 0 // To track the number of turns
+  // Variable to control the percentage likelihood of food generation
+  private foodSpawnChance: number = 0.2 // 20% chance to spawn food
 
   constructor(
     transaction: Transaction,
@@ -55,9 +54,7 @@ export class SnekProcessor extends GameProcessor {
         hasMoved: {},
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ),
+        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000),
       }
 
       // Set turn and update game within transaction
@@ -427,10 +424,12 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      // Generate new food every x turns
-      this.turnCounter++
-      if (this.turnCounter % this.foodGenerationInterval === 0) {
-        this.generateFood(newBoard, boardWidth)
+      // Food generation based on random chance and only if no food exists
+      const foodExists = newBoard.some((square) => square.food)
+      if (!foodExists) {
+        if (Math.random() < this.foodSpawnChance) {
+          this.generateFood(newBoard, boardWidth)
+        }
       }
 
       // Update allowedPlayers for squares adjacent to heads
@@ -591,7 +590,7 @@ export class SnekProcessor extends GameProcessor {
   }
 
   /**
-   * Generates food on the board every x turns.
+   * Generates food on the board based on random chance.
    */
   private generateFood(board: Square[], boardWidth: number): void {
     // Find all free squares

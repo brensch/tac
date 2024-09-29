@@ -14,24 +14,32 @@ import { db } from "../firebaseConfig"
 import { emojiList } from "@shared/types/Emojis"
 import RefreshIcon from "@mui/icons-material/Refresh"
 import SaveIcon from "@mui/icons-material/Save"
+import Wheel from "@uiw/react-color-wheel"
 
 const ProfilePage: React.FC = () => {
-  const { userID, nickname: initialNickname, emoji: initialEmoji } = useUser()
+  const {
+    userID,
+    nickname: initialNickname,
+    emoji: initialEmoji,
+    colour: initialColour,
+  } = useUser()
   const [nickname, setNickname] = useState<string>(initialNickname)
   const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
+  const [selectedColour, setSelectedColour] = useState<string>(
+    initialColour || "#000000",
+  )
   const [message, setMessage] = useState<string>("")
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
-    // Ensure the selectedEmoji is at the start
     const filteredEmojis = shuffledEmojis.filter(
       (emoji) => emoji !== selectedEmoji,
     )
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 11)])
   }
+
   useEffect(() => {
-    // Initialize the displayedEmojis array
     randomizeEmojis()
   }, [])
 
@@ -42,24 +50,33 @@ const ProfilePage: React.FC = () => {
     }
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, { nickname })
+    setMessage("Nickname updated.")
   }
 
   const handleEmojiClick = async (emoji: string) => {
-    console.log(userID)
     setSelectedEmoji(emoji)
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, { emoji })
+    setMessage("Emoji updated.")
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleColourChange = async (color: any) => {
+    setSelectedColour(color.hex)
+    const userDocRef = doc(db, "users", userID)
+    await updateDoc(userDocRef, { colour: color.hex })
+    setMessage("Colour updated.")
   }
 
   return (
     <Container sx={{ m: 1, maxWidth: "100%" }}>
       <Box
         width="100%"
-        maxWidth="600px" // Restrict the maximum width
+        maxWidth="600px"
         display="flex"
         flexDirection="column"
         alignItems="center"
-        mx="auto" // Center horizontally
+        mx="auto"
       >
         <TextField
           label="Nickname"
@@ -82,7 +99,7 @@ const ProfilePage: React.FC = () => {
           sx={{
             display: "flex",
             flexWrap: "wrap",
-            gap: 2, // Add some spacing between buttons
+            gap: 2,
             justifyContent: "center",
             mt: 1,
           }}
@@ -106,6 +123,11 @@ const ProfilePage: React.FC = () => {
         >
           New emojis please.
         </Button>
+
+        {/* Colour Picker using SliderPicker */}
+        <Box sx={{ mt: 4 }}>
+          <Wheel color={selectedColour} onChange={handleColourChange} />
+        </Box>
 
         {message && (
           <Typography color="success" sx={{ mt: 2 }}>

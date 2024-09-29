@@ -84,6 +84,8 @@ const GameGrid: React.FC = () => {
 
   const disabled = hasSubmittedMove
 
+  console.log(playerInfos)
+
   return (
     <Box
       ref={gridRef}
