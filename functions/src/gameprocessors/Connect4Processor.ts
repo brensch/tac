@@ -81,15 +81,22 @@ export class Connect4Processor extends GameProcessor {
       const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
       const clashes: Record<string, any> = { ...this.currentTurn.clashes }
 
-      // Build a map of moves per column
+      // Build a map of moves per column based on move positions
       const moveMap: { [column: number]: string[] } = {}
 
       this.latestMoves.forEach((move) => {
-        if (moveMap[move.move]) {
-          moveMap[move.move].push(move.playerID)
+        const position = move.move
+        if (!this.currentTurn) return
+
+        const column = position % this.currentTurn.boardWidth // Convert position to column
+        if (moveMap[column]) {
+          moveMap[column].push(move.playerID)
         } else {
-          moveMap[move.move] = [move.playerID]
+          moveMap[column] = [move.playerID]
         }
+        logger.debug(
+          `Connect4: Move position ${position} mapped to column ${column} by player ${move.playerID}.`,
+        )
       })
 
       // Apply moves to the board
@@ -128,6 +135,11 @@ export class Connect4Processor extends GameProcessor {
           }
         } else if (players.length > 1) {
           // Conflict: multiple players attempted to place in the same column
+          logger.warn(
+            `Connect4: Multiple players (${players.join(
+              ", ",
+            )}) attempted to place in column ${column}. Resolving conflict.`,
+          )
           // Block the column by marking the lowest available square as eaten
           for (
             let row: number = this.currentTurn.boardWidth - 1;
