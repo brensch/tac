@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
-import { GameState, PlayerInfo, Turn, Winner, Square } from "@shared/types/Game"
+import { GameState, PlayerInfo, Turn, Square } from "@shared/types/Game"
 
 interface GameStateContextType {
   gameState: GameState | null

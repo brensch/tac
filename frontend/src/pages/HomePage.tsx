@@ -50,11 +50,9 @@ const HomePage: React.FC = () => {
   return (
     <Stack spacing={2} alignItems="left">
       <Typography pt={2} variant="body1" align="left" gutterBottom>
-        Get four emojis in a row and you win.
+        Welcome to Toe central.
       </Typography>
-      <Typography variant="body1" align="left" gutterBottom>
-        Pick the same square as your opponent and no one gets it.
-      </Typography>
+
       <TextField
         fullWidth
         value={sessionName}

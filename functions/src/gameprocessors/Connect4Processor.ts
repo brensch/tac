@@ -48,9 +48,7 @@ export class Connect4Processor extends GameProcessor {
 
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ), // e.g., 60 seconds
+        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
         playerIDs: gameState.playerIDs,
       }
 

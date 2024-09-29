@@ -47,6 +47,7 @@ export class LongboiProcessor extends GameProcessor {
         hasMoved: {},
         clashes: {},
         winners: [],
+
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
         endTime: admin.firestore.Timestamp.fromMillis(
@@ -88,19 +89,19 @@ export class LongboiProcessor extends GameProcessor {
           const square = newBoard[squareIndex]
           if (square.playerID === null) {
             square.playerID = move.playerID
-            square.allowedPlayers = [] // Mark as occupied
+            // No need to update 'allowedPlayers' unless used elsewhere
             logger.info(
               `Longboi: Square ${squareIndex} captured by player ${move.playerID}`,
               { squareIndex, playerID: move.playerID },
             )
-
-            // Make adjacent squares available based on Longboi's rules
-            if (!this.currentTurn) return
-            this.updateAdjacentSquares(
-              newBoard,
-              squareIndex,
-              this.currentTurn.boardWidth,
-            )
+            if (this.currentTurn) {
+              // Optionally, update adjacent squares if game rules require it
+              this.updateAdjacentSquares(
+                newBoard,
+                squareIndex,
+                this.currentTurn.boardWidth,
+              )
+            }
           } else {
             // Conflict: Square already occupied
             clashes[squareIndex] = {
@@ -345,7 +346,7 @@ export class LongboiProcessor extends GameProcessor {
     const x = squareIndex % size
     const y = Math.floor(squareIndex / size)
 
-    // Define adjacent directions (up, down, left, right, diagonals)
+    // Define adjacent directions (up, down, left, right, and diagonals)
     const directions = [
       { dx: 1, dy: 0 }, // Right
       { dx: -1, dy: 0 }, // Left
