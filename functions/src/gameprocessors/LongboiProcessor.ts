@@ -44,10 +44,9 @@ export class LongboiProcessor extends GameProcessor {
         boardWidth: gameState.boardWidth,
         gameType: gameState.gameType,
         playerIDs: gameState.playerIDs,
-        playerHealth: [], //not used
+        playerHealth: [], // Not used in Longboi
         hasMoved: {},
-        clashes: {},
-
+        // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
         endTime: admin.firestore.Timestamp.fromMillis(
@@ -92,6 +91,7 @@ export class LongboiProcessor extends GameProcessor {
         bodyPosition: [0],
         food: false,
         allowedPlayers: [...playerIDs], // All players can move to any unoccupied square
+        clash: null, // Initialize clash as null
       }))
 
     logger.info(
@@ -110,40 +110,25 @@ export class LongboiProcessor extends GameProcessor {
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
-      const clashes: Record<string, any> = { ...this.currentTurn.clashes }
+      const newBoard = this.currentTurn.board.map((square) => ({
+        ...square,
+        allowedPlayers: [],
+        clash: null, // Reset clashes
+      })) // Deep copy
+
       const playerIDs = this.currentTurn.playerIDs
+
+      // Map to keep track of moves to squares
+      const moveMap: { [squareIndex: number]: string[] } = {}
 
       // Apply moves to the board
       this.latestMoves.forEach((move) => {
         const squareIndex = move.move
         if (squareIndex >= 0 && squareIndex < newBoard.length) {
-          const square = newBoard[squareIndex]
-          if (square.playerID === null) {
-            // Valid move
-            square.playerID = move.playerID
-            square.allowedPlayers = [] // Square is now occupied
-
-            logger.info(
-              `Longboi: Square ${squareIndex} captured by player ${move.playerID}`,
-              { squareIndex, playerID: move.playerID },
-            )
-          } else {
-            // Conflict: Square already occupied
-            // Record clash
-            if (!clashes[squareIndex]) {
-              clashes[squareIndex] = {
-                players: [],
-                reason: "Square already occupied.",
-              }
-            }
-            clashes[squareIndex].players.push(move.playerID)
-
-            logger.warn(
-              `Longboi: Square ${squareIndex} already occupied. Move by player ${move.playerID} recorded as clash.`,
-              { squareIndex, playerID: move.playerID },
-            )
+          if (!moveMap[squareIndex]) {
+            moveMap[squareIndex] = []
           }
+          moveMap[squareIndex].push(move.playerID)
         } else {
           logger.warn(
             `Longboi: Invalid move index ${squareIndex} by player ${move.playerID}.`,
@@ -152,20 +137,59 @@ export class LongboiProcessor extends GameProcessor {
         }
       })
 
+      // Process moves and handle clashes
+      for (const squareIndexStr in moveMap) {
+        const squareIndex = parseInt(squareIndexStr)
+        const players = moveMap[squareIndex]
+        const square = newBoard[squareIndex]
+
+        if (players.length === 1) {
+          if (square.playerID === null) {
+            // Valid move
+            square.playerID = players[0]
+            logger.info(
+              `Longboi: Square ${squareIndex} captured by player ${players[0]}`,
+              { squareIndex, playerID: players[0] },
+            )
+          } else {
+            // Square already occupied
+            square.clash = {
+              players: players,
+              reason: "Square already occupied.",
+            }
+            logger.warn(
+              `Longboi: Square ${squareIndex} already occupied. Move by player ${players[0]} recorded as clash.`,
+              { squareIndex, playerID: players[0] },
+            )
+          }
+        } else {
+          // Clash due to multiple players attempting to occupy the same square
+          square.clash = {
+            players: players,
+            reason: "Multiple players attempted to occupy the same square.",
+          }
+          logger.warn(
+            `Longboi: Clash at square ${squareIndex} by players ${players.join(
+              ", ",
+            )}.`,
+            { squareIndex, players },
+          )
+        }
+      }
+
       // Update allowedPlayers for all squares after moves
       newBoard.forEach((square) => {
-        if (square.playerID === null) {
+        if (square.playerID === null && !square.clash) {
           // Unoccupied and valid square
           square.allowedPlayers = [...playerIDs]
         } else {
-          // Occupied or eaten square
+          // Occupied or invalid square
           square.allowedPlayers = []
         }
       })
 
-      // Update the board and clashes in the current turn
+      // Update the board in the current turn
       this.currentTurn.board = newBoard
-      this.currentTurn.clashes = clashes
     } catch (error) {
       logger.error(
         `Longboi: Error applying moves for game ${this.gameID}:`,
@@ -185,7 +209,9 @@ export class LongboiProcessor extends GameProcessor {
       const newBoard = this.currentTurn.board
       const playerIDs = this.currentTurn.playerIDs
 
-      const isBoardFull = newBoard.every((square) => square.playerID !== null)
+      const isBoardFull = newBoard.every(
+        (square) => square.playerID !== null || square.clash !== null,
+      )
 
       if (!isBoardFull) {
         // The game continues; no winners yet

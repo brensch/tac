@@ -43,7 +43,6 @@ export class Connect4Processor extends GameProcessor {
         boardWidth: gameState.boardWidth,
         gameType: gameState.gameType,
         hasMoved: {},
-        clashes: {},
         playerHealth: [], //not used
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
@@ -76,7 +75,7 @@ export class Connect4Processor extends GameProcessor {
     if (!this.currentTurn) return
     try {
       const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
-      const clashes: Record<string, any> = { ...this.currentTurn.clashes }
+      // const clashes: Record<string, any> = { ...this.currentTurn.clashes }
 
       // Build a map of moves per column based on move positions
       const moveMap: { [column: number]: string[] } = {}
@@ -148,7 +147,7 @@ export class Connect4Processor extends GameProcessor {
               newBoard[index].playerID = null
               newBoard[index].food = false
               newBoard[index].allowedPlayers = [] // Ensure it's blocked
-              clashes[index] = {
+              newBoard[index].clash = {
                 players,
                 reason:
                   "Multiple players attempted to place in the same column.",
@@ -166,7 +165,7 @@ export class Connect4Processor extends GameProcessor {
 
       // Update the board and clashes in the current turn
       this.currentTurn.board = newBoard
-      this.currentTurn.clashes = clashes
+      // this.currentTurn.clashes = clashes
     } catch (error) {
       logger.error(
         `Connect4: Error applying moves for game ${this.gameID}:`,
@@ -398,6 +397,7 @@ export class Connect4Processor extends GameProcessor {
         bodyPosition: [0],
         food: false,
         allowedPlayers: [], // Initially, no squares are available
+        clash: null,
       }))
 
     // Mark only the bottom row as available

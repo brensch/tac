@@ -1,4 +1,4 @@
-// functions/src/gameprocessors/FreePlaceConnect4Processor.ts
+// functions/src/gameprocessors/TacticToeProcessor.ts
 
 import { GameProcessor } from "./GameProcessor"
 import { Winner, Square, Turn, Move, GameState } from "@shared/types/Game"
@@ -7,7 +7,7 @@ import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 
 /**
- * Processor class for the Free Place Connect4 game logic.
+ * Processor class for the Tactic Toe game logic.
  */
 export class TacticToeProcessor extends GameProcessor {
   constructor(
@@ -20,7 +20,7 @@ export class TacticToeProcessor extends GameProcessor {
   }
 
   /**
-   * Initializes the Free Place Connect4 game by setting up the board and creating the first turn.
+   * Initializes the Tactic Toe game by setting up the board and creating the first turn.
    * @param gameState The current state of the game.
    */
   async initializeGame(gameState: GameState): Promise<void> {
@@ -44,10 +44,9 @@ export class TacticToeProcessor extends GameProcessor {
         boardWidth: gameState.boardWidth,
         gameType: gameState.gameType,
         playerIDs: gameState.playerIDs,
-        playerHealth: [],
+        playerHealth: [], // Not used in Tactic Toe
         hasMoved: {},
-        clashes: {},
-
+        // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
         endTime: admin.firestore.Timestamp.fromMillis(
@@ -65,21 +64,17 @@ export class TacticToeProcessor extends GameProcessor {
       this.transaction.update(gameRef, { started: true })
 
       logger.info(
-        `FreePlaceConnect4: Turn 1 created and game ${this.gameID} has started.`,
+        `TacticToe: Turn 1 created and game ${this.gameID} has started.`,
       )
     } catch (error) {
-      logger.error(
-        `FreePlaceConnect4: Error initializing game ${this.gameID}:`,
-        error,
-      )
+      logger.error(`TacticToe: Error initializing game ${this.gameID}:`, error)
       throw error
     }
   }
 
   /**
-   * Initializes the board for Free Place Connect4.
+   * Initializes the board for Tactic Toe.
    * @param boardWidth The width of the board.
-   * @param boardHeight The height of the board.
    * @param playerIDs Array of player IDs.
    * @returns An array representing the initialized board.
    */
@@ -93,10 +88,11 @@ export class TacticToeProcessor extends GameProcessor {
         bodyPosition: [0],
         food: false,
         allowedPlayers: [...playerIDs], // All players can move to any unoccupied square
+        clash: null, // Initialize clash as null
       }))
 
     logger.info(
-      "FreePlaceConnect4: Board initialized with all squares available for all players.",
+      "TacticToe: Board initialized with all squares available for all players.",
       {
         board,
       },
@@ -106,56 +102,81 @@ export class TacticToeProcessor extends GameProcessor {
   }
 
   /**
-   * Applies the latest moves to the Free Place Connect4 board.
+   * Applies the latest moves to the Tactic Toe board.
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
-      const clashes: Record<string, any> = { ...this.currentTurn.clashes }
+      const newBoard = this.currentTurn.board.map((square) => ({
+        ...square,
+        allowedPlayers: [],
+        clash: null, // Reset clashes
+      })) // Deep copy
+
       const playerIDs = this.currentTurn.playerIDs
+
+      // Map to keep track of moves to squares
+      const moveMap: { [squareIndex: number]: string[] } = {}
 
       // Apply moves to the board
       this.latestMoves.forEach((move) => {
         const squareIndex = move.move
         if (squareIndex >= 0 && squareIndex < newBoard.length) {
-          const square = newBoard[squareIndex]
-          if (square.playerID === null) {
-            // Valid move
-            square.playerID = move.playerID
-            square.allowedPlayers = [] // Square is now occupied
-
-            logger.info(
-              `FreePlaceConnect4: Square ${squareIndex} occupied by player ${move.playerID}`,
-              { squareIndex, playerID: move.playerID },
-            )
-          } else {
-            // Conflict: Square already occupied
-            // Record clash
-            if (!clashes[squareIndex]) {
-              clashes[squareIndex] = {
-                players: [],
-                reason: "Square already occupied.",
-              }
-            }
-            clashes[squareIndex].players.push(move.playerID)
-
-            logger.warn(
-              `FreePlaceConnect4: Square ${squareIndex} already occupied. Move by player ${move.playerID} recorded as clash.`,
-              { squareIndex, playerID: move.playerID },
-            )
+          if (!moveMap[squareIndex]) {
+            moveMap[squareIndex] = []
           }
+          moveMap[squareIndex].push(move.playerID)
         } else {
           logger.warn(
-            `FreePlaceConnect4: Invalid move index ${squareIndex} by player ${move.playerID}.`,
+            `TacticToe: Invalid move index ${squareIndex} by player ${move.playerID}.`,
             { squareIndex, playerID: move.playerID },
           )
         }
       })
 
+      // Process moves and handle clashes
+      for (const squareIndexStr in moveMap) {
+        const squareIndex = parseInt(squareIndexStr)
+        const players = moveMap[squareIndex]
+        const square = newBoard[squareIndex]
+
+        if (players.length === 1) {
+          if (square.playerID === null) {
+            // Valid move
+            square.playerID = players[0]
+            logger.info(
+              `TacticToe: Square ${squareIndex} occupied by player ${players[0]}`,
+              { squareIndex, playerID: players[0] },
+            )
+          } else {
+            // Square already occupied
+            square.clash = {
+              players: players,
+              reason: "Square already occupied.",
+            }
+            logger.warn(
+              `TacticToe: Square ${squareIndex} already occupied. Move by player ${players[0]} recorded as clash.`,
+              { squareIndex, playerID: players[0] },
+            )
+          }
+        } else {
+          // Clash due to multiple players attempting to occupy the same square
+          square.clash = {
+            players: players,
+            reason: "Multiple players attempted to occupy the same square.",
+          }
+          logger.warn(
+            `TacticToe: Clash at square ${squareIndex} by players ${players.join(
+              ", ",
+            )}.`,
+            { squareIndex, players },
+          )
+        }
+      }
+
       // Update allowedPlayers for all squares after moves
       newBoard.forEach((square) => {
-        if (square.playerID === null) {
+        if (square.playerID === null && !square.clash) {
           // Unoccupied and valid square
           square.allowedPlayers = [...playerIDs]
         } else {
@@ -164,12 +185,11 @@ export class TacticToeProcessor extends GameProcessor {
         }
       })
 
-      // Update the board and clashes in the current turn
+      // Update the board in the current turn
       this.currentTurn.board = newBoard
-      this.currentTurn.clashes = clashes
     } catch (error) {
       logger.error(
-        `FreePlaceConnect4: Error applying moves for game ${this.gameID}:`,
+        `TacticToe: Error applying moves for game ${this.gameID}:`,
         error,
       )
       throw error
@@ -177,7 +197,7 @@ export class TacticToeProcessor extends GameProcessor {
   }
 
   /**
-   * Finds winners based on the updated Free Place Connect4 board.
+   * Finds winners based on the updated Tactic Toe board.
    * @returns An array of Winner objects.
    */
   async findWinners(): Promise<Winner[]> {
@@ -205,19 +225,16 @@ export class TacticToeProcessor extends GameProcessor {
             winningSquares,
           })
 
-          logger.info(
-            `FreePlaceConnect4: Player ${playerID} has won the game.`,
-            {
-              gameID: this.gameID,
-            },
-          )
+          logger.info(`TacticToe: Player ${playerID} has won the game.`, {
+            gameID: this.gameID,
+          })
         }
       })
 
       return winners
     } catch (error) {
       logger.error(
-        `FreePlaceConnect4: Error finding winners for game ${this.gameID}:`,
+        `TacticToe: Error finding winners for game ${this.gameID}:`,
         error,
       )
       throw error
@@ -228,7 +245,6 @@ export class TacticToeProcessor extends GameProcessor {
    * Checks if a player meets the win condition.
    * @param board The game board.
    * @param boardWidth The width of the board.
-   * @param boardHeight The height of the board.
    * @param playerID The player ID to check for.
    * @param winCondition The number of connected pieces required to win.
    * @returns True if the player meets the win condition, false otherwise.

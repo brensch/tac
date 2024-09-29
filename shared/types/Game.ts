@@ -4,13 +4,13 @@ import * as admin from "firebase-admin"
 
 // Define the Square interface with the required fields
 export interface Square {
-  playerID: string | null // The ID of the player occupying the square, null if empty
+  playerID: string | null
   food: boolean
   wall: boolean
   bodyPosition: number[]
-  allowedPlayers: string[] // List of player IDs who can move into this square on the next turn
+  allowedPlayers: string[]
+  clash: { players: string[]; reason: string } | null
 }
-
 // Define the Winner interface
 export interface Winner {
   playerID: string
@@ -38,7 +38,7 @@ export interface Turn {
   hasMoved: {
     [playerID: string]: { moveTime: admin.firestore.Timestamp }
   } // Map of playerID to moveTime
-  clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
+  // clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
   turnTime: number
   startTime: admin.firestore.Timestamp // When the turn started
   endTime: admin.firestore.Timestamp // When the turn ended
@@ -66,6 +66,7 @@ export interface PlayerInfo {
   id: string
   nickname: string
   emoji: string
+  colour: string
 }
 
 // Function to initialize a new game
