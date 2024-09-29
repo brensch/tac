@@ -11,7 +11,8 @@ import { Transaction } from "firebase-admin/firestore"
  */
 export class SnekProcessor extends GameProcessor {
   // Variables to tune food generation
-  private foodGenerationRate: number = 0.1 // Probability of generating food per empty square per turn
+  private foodGenerationInterval: number = 3 // Add a fruit every 3 turns
+  private turnCounter: number = 0 // To track the number of turns
 
   constructor(
     transaction: Transaction,
@@ -274,7 +275,7 @@ export class SnekProcessor extends GameProcessor {
           // Collision
           let maxLength = -Infinity
           let survivors: string[] = []
-          let lengths: { [playerID: string]: number } = {}
+          const lengths: { [playerID: string]: number } = {}
 
           players.forEach((playerID) => {
             const snakeLength = this.getSnakeLength(newBoard, playerID)
@@ -426,8 +427,11 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      // Generate new food
-      this.generateFood(newBoard, boardWidth)
+      // Generate new food every x turns
+      this.turnCounter++
+      if (this.turnCounter % this.foodGenerationInterval === 0) {
+        this.generateFood(newBoard, boardWidth)
+      }
 
       // Update allowedPlayers for squares adjacent to heads
       this.updateAllowedPlayers(newBoard, boardWidth, playerIDs, deadPlayers)
@@ -487,8 +491,17 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      if (alivePlayers.size <= 1) {
-        // Game over
+      if (alivePlayers.size === 0) {
+        // All players are dead; it's a draw
+        const winners: Winner[] = playerIDs.map((playerID) => ({
+          playerID,
+          score: 0,
+          winningSquares: [],
+        }))
+        logger.info(`Snek: Game ended in a draw.`)
+        return winners
+      } else if (alivePlayers.size === 1) {
+        // Single winner
         const winners: Winner[] = []
         alivePlayers.forEach((playerID) => {
           const score = this.getSnakeLength(board, playerID)
@@ -578,9 +591,11 @@ export class SnekProcessor extends GameProcessor {
   }
 
   /**
-   * Generates food on the board based on the food generation rate.
+   * Generates food on the board every x turns.
    */
   private generateFood(board: Square[], boardWidth: number): void {
+    // Find all free squares
+    const freeIndices: number[] = []
     for (let i = 0; i < board.length; i++) {
       const square = board[i]
       if (
@@ -589,11 +604,20 @@ export class SnekProcessor extends GameProcessor {
         !square.food &&
         !square.clash
       ) {
-        if (Math.random() < this.foodGenerationRate) {
-          square.food = true
-        }
+        freeIndices.push(i)
       }
     }
+
+    if (freeIndices.length === 0) {
+      logger.warn("Snek: No free squares to place food.")
+      return
+    }
+
+    // Randomly select one free square to place food
+    const randomIndex =
+      freeIndices[Math.floor(Math.random() * freeIndices.length)]
+    board[randomIndex].food = true
+    logger.info(`Snek: Placed food at index ${randomIndex}.`)
   }
 
   /**

@@ -20,6 +20,14 @@ const GameFinished: React.FC = () => {
   const navigate = useNavigate()
   const playAgainButtonRef = useRef<HTMLButtonElement | null>(null)
   const [emojiRainTop, setEmojiRainTop] = useState<number | null>(null)
+  const [sortedPlayers, setSortedPlayers] = useState<
+    {
+      playerID: string
+      nickname: string
+      emoji: string
+      score: number
+    }[]
+  >([])
 
   useEffect(() => {
     // Set the emoji rain's starting position based on the "Play Again?" button position
@@ -27,7 +35,27 @@ const GameFinished: React.FC = () => {
       const buttonRect = playAgainButtonRef.current.getBoundingClientRect()
       setEmojiRainTop(buttonRect.bottom) // Set the top position just below the button
     }
-  }, [])
+  }, [playAgainButtonRef, sortedPlayers])
+
+  console.log(emojiRainTop)
+  useEffect(() => {
+    // Build a list of all players with their scores
+    const playersWithScores = playerInfos.map((player) => {
+      const winner = winners.find((w) => w.playerID === player.id)
+      return {
+        playerID: player.id,
+        nickname: player.nickname,
+        emoji: player.emoji,
+        score: winner ? winner.score : 0,
+      }
+    })
+
+    // Sort the players by score in descending order
+    const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
+    console.log(sortedPlayers)
+
+    setSortedPlayers(sortedPlayers)
+  }, [playerInfos])
 
   // Ensure gameState and playerInfos are available
   if (!gameState || !playerInfos) return null
@@ -38,25 +66,12 @@ const GameFinished: React.FC = () => {
   const unFinished = gameState.nextGame === ""
   if (unFinished) return null
 
-  // Build a list of all players with their scores
-  const playersWithScores = playerInfos.map((player) => {
-    const winner = winners.find((w) => w.playerID === player.id)
-    return {
-      playerID: player.id,
-      nickname: player.nickname,
-      emoji: player.emoji,
-      score: winner ? winner.score : 0,
-    }
-  })
-
-  // Sort the players by score in descending order
-  const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
-
   // Get the top player's emoji for the EmojiRain effect
   const topPlayerEmoji = sortedPlayers.length > 0 ? sortedPlayers[0].emoji : ""
   const draw =
     sortedPlayers.length > 1 &&
     sortedPlayers[0].score === sortedPlayers[1].score
+  console.log(topPlayerEmoji)
 
   return (
     <>
