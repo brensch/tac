@@ -73,8 +73,9 @@ const GameActive: React.FC = () => {
     setIsRulesDialogOpen(false)
   }
 
-  console.log(currentTurn?.board)
+  console.log(currentTurn)
   console.log(selectedSquare)
+  console.log(gameState)
 
   if (!gameState) return
 

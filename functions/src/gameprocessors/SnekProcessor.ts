@@ -2,7 +2,7 @@
 
 import { GameProcessor } from "./GameProcessor"
 import { Winner, Square, Turn, Move, GameState } from "@shared/types/Game"
-import { logger } from "../logger" // Adjust the path as necessary
+import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 
@@ -52,10 +52,11 @@ export class SnekProcessor extends GameProcessor {
         playerIDs: gameState.playerIDs,
         playerHealth: initialHealth,
         hasMoved: {},
-        // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000),
+        endTime: admin.firestore.Timestamp.fromMillis(
+          now + gameState.maxTurnTime * 1000,
+        ),
       }
 
       // Set turn and update game within transaction
@@ -135,62 +136,15 @@ export class SnekProcessor extends GameProcessor {
       }
     }
 
-    // Place each snake
+    // Place each snake with all body segments on the same square
     playerIDs.forEach((playerID, index) => {
       const { x, y } = positions[index]
       const startIndex = y * boardWidth + x
       const startSquare = board[startIndex]
 
-      // Place the head
+      // Place the snake with bodyPosition [0,1,2]
       startSquare.playerID = playerID
-      startSquare.bodyPosition = [0]
-
-      // For initial direction, pick one that keeps the snake within bounds
-      const directions = [
-        { dx: 0, dy: -1 }, // Up
-        { dx: 0, dy: 1 }, // Down
-        { dx: -1, dy: 0 }, // Left
-        { dx: 1, dy: 0 }, // Right
-      ]
-      let direction = null
-      for (const dir of directions) {
-        const x1 = x + dir.dx
-        const y1 = y + dir.dy
-        const x2 = x + dir.dx * 2
-        const y2 = y + dir.dy * 2
-        if (
-          x1 >= 1 &&
-          x1 <= boardWidth - 2 &&
-          y1 >= 1 &&
-          y1 <= boardWidth - 2 &&
-          x2 >= 1 &&
-          x2 <= boardWidth - 2 &&
-          y2 >= 1 &&
-          y2 <= boardWidth - 2
-        ) {
-          direction = dir
-          break
-        }
-      }
-      if (!direction) {
-        // Can't place the body segments, snake will be of length 1
-        return
-      }
-      // Place body segments behind the head
-      let currentX = x
-      let currentY = y
-      for (let i = 1; i <= 2; i++) {
-        currentX += direction.dx
-        currentY += direction.dy
-        const idx = currentY * boardWidth + currentX
-        const square = board[idx]
-        if (square.playerID !== null) {
-          // Can't place the body, another snake is there
-          break
-        }
-        square.playerID = playerID
-        square.bodyPosition = [i]
-      }
+      startSquare.bodyPosition = [0, 1, 2]
     })
 
     // Update allowedPlayers for squares adjacent to heads
@@ -318,17 +272,17 @@ export class SnekProcessor extends GameProcessor {
 
         if (players.length > 1) {
           // Collision
-          let minLength = Infinity
+          let maxLength = -Infinity
           let survivors: string[] = []
           let lengths: { [playerID: string]: number } = {}
 
           players.forEach((playerID) => {
             const snakeLength = this.getSnakeLength(newBoard, playerID)
             lengths[playerID] = snakeLength
-            if (snakeLength < minLength) {
-              minLength = snakeLength
+            if (snakeLength > maxLength) {
+              maxLength = snakeLength
               survivors = [playerID]
-            } else if (snakeLength === minLength) {
+            } else if (snakeLength === maxLength) {
               survivors.push(playerID)
             }
           })
@@ -417,17 +371,19 @@ export class SnekProcessor extends GameProcessor {
           continue
         }
 
-        targetSquare.playerID = playerID
-        targetSquare.bodyPosition = [0]
-        targetSquare.allowedPlayers = []
-        targetSquare.food = false
-
+        // Update body positions
         // Increase bodyPosition of existing body parts
         for (const square of newBoard) {
-          if (square.playerID === playerID && square !== targetSquare) {
+          if (square.playerID === playerID) {
             square.bodyPosition = square.bodyPosition.map((pos) => pos + 1)
           }
         }
+
+        // Move head to the new square
+        targetSquare.playerID = playerID
+        targetSquare.bodyPosition.push(0)
+        targetSquare.allowedPlayers = []
+        targetSquare.food = false
 
         // Remove the tail unless ate food
         if (!ateFood) {
