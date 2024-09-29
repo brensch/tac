@@ -2,10 +2,8 @@ import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { Turn, Move } from "./types/Game" // Adjust the import path as necessary
-import { Timestamp } from "firebase/firestore"
 import { processTurn } from "./gameprocessors/processTurn"
 
-// Main function to process a move
 export const onMoveCreated = functions.firestore
   .document("games/{gameID}/privateMoves/{moveID}")
   .onCreate(async (snap, context) => {
@@ -31,7 +29,7 @@ export const onMoveCreated = functions.firestore
       }
 
       const currentTurn = currentTurnDoc.data() as Turn
-      const now = Timestamp.now()
+      const now = admin.firestore.Timestamp.now()
       const timesUp = now.toMillis() > currentTurn.endTime.toMillis()
 
       // Check if the move was submitted within the allowed time for this turn and that it's the current turn
@@ -44,17 +42,25 @@ export const onMoveCreated = functions.firestore
         return
       }
 
+      // Ensure the player is still alive
+      if (!currentTurn.alivePlayers.includes(moveData.playerID)) {
+        logger.warn(
+          `Player ${moveData.playerID} is not alive in turn ${currentTurn.turnNumber}.`,
+        )
+        return
+      }
+
       // Add the player to the hasMoved field without overwriting the entire object
       const hasMoved = { ...currentTurn.hasMoved }
       hasMoved[moveData.playerID] = { moveTime: moveData.timestamp }
 
-      // Check if all players have moved by comparing the updated hasMoved object with playerIDs
+      // Check if all alive players have moved
       const playersMoved = Object.keys(hasMoved)
-      const allPlayersMoved = currentTurn.playerIDs.every((playerID) =>
+      const allPlayersMoved = currentTurn.alivePlayers.every((playerID) =>
         playersMoved.includes(playerID),
       )
 
-      // If all players have moved or the time limit is reached, process the turn
+      // If all alive players have moved or the time limit is reached, process the turn
       if (allPlayersMoved || timesUp) {
         logger.info(
           `Processing turn ${currentTurn.turnNumber} for gameID: ${gameID}`,
@@ -64,9 +70,10 @@ export const onMoveCreated = functions.firestore
         await processTurn(transaction, gameID, currentTurn)
       } else {
         logger.info(
-          "Not all players have moved, and time limit has not been reached yet.",
+          "Not all alive players have moved, and time limit has not been reached yet.",
         )
       }
+
       transaction.update(currentTurnRef, {
         [`hasMoved.${moveData.playerID}`]: { moveTime: moveData.timestamp },
       })

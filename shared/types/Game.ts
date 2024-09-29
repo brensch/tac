@@ -38,10 +38,11 @@ export interface Turn {
   hasMoved: {
     [playerID: string]: { moveTime: admin.firestore.Timestamp }
   } // Map of playerID to moveTime
-  // clashes: { [square: string]: { players: string[]; reason: string } } // Map of square indices to clash details
   turnTime: number
   startTime: admin.firestore.Timestamp // When the turn started
   endTime: admin.firestore.Timestamp // When the turn ended
+  scores: number[] // New field: array of scores corresponding to playerIDs
+  alivePlayers: string[] // New field: list of player IDs who are still alive
 }
 
 export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"

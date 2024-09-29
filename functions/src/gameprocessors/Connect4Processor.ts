@@ -43,11 +43,15 @@ export class Connect4Processor extends GameProcessor {
         boardWidth: gameState.boardWidth,
         gameType: gameState.gameType,
         hasMoved: {},
-        playerHealth: [], //not used
+        playerHealth: [], // Not used
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
+        endTime: admin.firestore.Timestamp.fromMillis(
+          now + gameState.maxTurnTime * 1000,
+        ),
         playerIDs: gameState.playerIDs,
+        scores: gameState.playerIDs.map(() => 0), // Initialize scores to zero
+        alivePlayers: [...gameState.playerIDs], // All players are alive at the start
       }
 
       // Set turn and update game within transaction
@@ -69,13 +73,12 @@ export class Connect4Processor extends GameProcessor {
   }
 
   /**
-   * Applies the latest moves to the Connect Four board.
+   * Applies the latest moves to the Connect Four board and updates scores.
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
       const newBoard = this.currentTurn.board.map((square) => ({ ...square })) // Deep copy
-      // const clashes: Record<string, any> = { ...this.currentTurn.clashes }
 
       // Build a map of moves per column based on move positions
       const moveMap: { [column: number]: string[] } = {}
@@ -136,7 +139,7 @@ export class Connect4Processor extends GameProcessor {
               ", ",
             )}) attempted to place in column ${column}. Resolving conflict.`,
           )
-          // Block the column by marking the lowest available square as eaten
+          // Block the column by marking the lowest available square as a clash
           for (
             let row: number = this.currentTurn.boardWidth - 1;
             row >= 0;
@@ -163,9 +166,20 @@ export class Connect4Processor extends GameProcessor {
         }
       }
 
-      // Update the board and clashes in the current turn
+      // Update the board in the current turn
       this.currentTurn.board = newBoard
-      // this.currentTurn.clashes = clashes
+
+      // Update scores based on the longest line
+      const scores = this.currentTurn.playerIDs.map((playerID) =>
+        this.calculateLongestLine(
+          newBoard,
+          this.currentTurn!.boardWidth,
+          playerID,
+        ),
+      )
+
+      this.currentTurn.scores = scores
+      this.currentTurn.alivePlayers = [...this.currentTurn.playerIDs] // All players are alive
     } catch (error) {
       logger.error(
         `Connect4: Error applying moves for game ${this.gameID}:`,
@@ -198,7 +212,7 @@ export class Connect4Processor extends GameProcessor {
       if (winningPlayers.length === 1) {
         const winnerID = winningPlayers[0].playerID
         const winningSquares = winningPlayers[0].winningSquares
-        const score = this.calculateScore(winningSquares.length)
+        const score = winningPlayers[0].longestLine
         winners.push({ playerID: winnerID, score, winningSquares })
         logger.info(`Connect4: Player ${winnerID} has won the game!`)
       } else if (winningPlayers.length > 1) {
@@ -206,7 +220,7 @@ export class Connect4Processor extends GameProcessor {
         winners.push(
           ...winningPlayers.map((wp) => ({
             playerID: wp.playerID,
-            score: this.calculateScore(wp.winningSquares.length),
+            score: wp.longestLine,
             winningSquares: wp.winningSquares,
           })),
         )
@@ -226,13 +240,64 @@ export class Connect4Processor extends GameProcessor {
   }
 
   /**
-   * Calculates the score based on the number of winning squares.
-   * @param winningSquaresCount Number of squares in the winning sequence.
-   * @returns Calculated score.
+   * Calculates the longest continuous line for a player.
+   * @param board The current game board.
+   * @param boardWidth The width of the board.
+   * @param playerID The ID of the player.
+   * @returns The length of the longest line.
    */
-  private calculateScore(winningSquaresCount: number): number {
-    // Example scoring logic: 10 points per winning square
-    return winningSquaresCount * 10
+  private calculateLongestLine(
+    board: Square[],
+    boardWidth: number,
+    playerID: string,
+  ): number {
+    const boardHeight = board.length / boardWidth
+    let maxLength = 0
+
+    // Convert board to 2D array
+    const grid: Square[][] = []
+    for (let y = 0; y < boardHeight; y++) {
+      const row: Square[] = []
+      for (let x = 0; x < boardWidth; x++) {
+        const index = y * boardWidth + x
+        row.push(board[index])
+      }
+      grid.push(row)
+    }
+
+    const directions = [
+      { dx: 1, dy: 0 }, // horizontal
+      { dx: 0, dy: 1 }, // vertical
+      { dx: 1, dy: 1 }, // diagonal down-right
+      { dx: 1, dy: -1 }, // diagonal up-right
+    ]
+
+    for (let y = 0; y < boardHeight; y++) {
+      for (let x = 0; x < boardWidth; x++) {
+        if (grid[y][x].playerID === playerID) {
+          for (const dir of directions) {
+            let length = 1
+            let nx = x + dir.dx
+            let ny = y + dir.dy
+            while (
+              nx >= 0 &&
+              nx < boardWidth &&
+              ny >= 0 &&
+              ny < boardHeight &&
+              grid[ny][nx].playerID === playerID
+            ) {
+              length++
+              nx += dir.dx
+              ny += dir.dy
+            }
+            if (length > maxLength) {
+              maxLength = length
+            }
+          }
+        }
+      }
+    }
+    return maxLength
   }
 
   /**
@@ -241,15 +306,19 @@ export class Connect4Processor extends GameProcessor {
    * @param boardWidth The width of the board.
    * @param winLength The number of consecutive pieces needed to win.
    * @param playerIDs Array of player IDs.
-   * @returns An array of winning players with their winning squares.
+   * @returns An array of winning players with their winning squares and longest line.
    */
   private checkWinConditionConnect4(
     board: Square[],
     boardWidth: number,
     winLength: number,
     playerIDs: string[],
-  ): { playerID: string; winningSquares: number[] }[] {
-    const winningPlayers: { playerID: string; winningSquares: number[] }[] = []
+  ): { playerID: string; winningSquares: number[]; longestLine: number }[] {
+    const winningPlayers: {
+      playerID: string
+      winningSquares: number[]
+      longestLine: number
+    }[] = []
 
     playerIDs.forEach((playerID) => {
       const result = this.hasPlayerWonConnect4(
@@ -259,7 +328,11 @@ export class Connect4Processor extends GameProcessor {
         playerID,
       )
       if (result.hasWon) {
-        winningPlayers.push({ playerID, winningSquares: result.winningSquares })
+        winningPlayers.push({
+          playerID,
+          winningSquares: result.winningSquares,
+          longestLine: result.longestLine,
+        })
       }
     })
 
@@ -272,15 +345,17 @@ export class Connect4Processor extends GameProcessor {
    * @param boardWidth The width of the board.
    * @param winLength The number of consecutive pieces needed to win.
    * @param playerID The ID of the player to check.
-   * @returns An object indicating if the player has won and their winning squares.
+   * @returns An object indicating if the player has won, their winning squares, and longest line.
    */
   private hasPlayerWonConnect4(
     board: Square[],
     boardWidth: number,
     winLength: number,
     playerID: string,
-  ): { hasWon: boolean; winningSquares: number[] } {
+  ): { hasWon: boolean; winningSquares: number[]; longestLine: number } {
     const size = boardWidth
+    let maxLength = 0
+    let winningSquares: number[] = []
 
     // Direction vectors: right, down, down-right, down-left
     const directions = [
@@ -294,7 +369,7 @@ export class Connect4Processor extends GameProcessor {
       for (let x = 0; x < size; x++) {
         for (const dir of directions) {
           let count = 0
-          let winningSquares: number[] = []
+          let tempWinningSquares: number[] = []
           let dx = x
           let dy = y
 
@@ -305,10 +380,14 @@ export class Connect4Processor extends GameProcessor {
             dy < size &&
             board[dy * size + dx].playerID === playerID
           ) {
-            winningSquares.push(dy * size + dx)
+            tempWinningSquares.push(dy * size + dx)
             count++
+            if (count > maxLength) {
+              maxLength = count
+              winningSquares = [...tempWinningSquares]
+            }
             if (count === winLength) {
-              return { hasWon: true, winningSquares }
+              return { hasWon: true, winningSquares, longestLine: maxLength }
             }
             dx += dir.x
             dy += dir.y
@@ -317,7 +396,7 @@ export class Connect4Processor extends GameProcessor {
       }
     }
 
-    return { hasWon: false, winningSquares: [] }
+    return { hasWon: false, winningSquares: [], longestLine: maxLength }
   }
 
   /**

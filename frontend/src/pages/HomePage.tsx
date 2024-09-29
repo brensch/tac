@@ -50,7 +50,7 @@ const HomePage: React.FC = () => {
   return (
     <Stack spacing={2} alignItems="left">
       <Typography pt={2} variant="body1" align="left" gutterBottom>
-        Welcome to Toe central.
+        Games entirely unrelated to toes*
       </Typography>
 
       <TextField
@@ -77,6 +77,10 @@ const HomePage: React.FC = () => {
       <Button fullWidth onClick={handleJoin} disabled={sessionName === ""}>
         Join session
       </Button>
+
+      <Typography pt={2} variant="subtitle2" align="left" gutterBottom>
+        * Toes may be involved.
+      </Typography>
     </Stack>
   )
 }

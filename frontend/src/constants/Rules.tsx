@@ -34,9 +34,7 @@ export const SnekRules: React.FC = () => {
   return (
     <>
       <Typography>Nokia snake but competitive.</Typography>
-      <Typography>
-        If you hit an opponents body or go out of bounds you die.
-      </Typography>
+      <Typography>If you hit an opponent's body or a wall you die.</Typography>
       <Typography>
         If you run into someone head to head the shorter snake dies.
       </Typography>

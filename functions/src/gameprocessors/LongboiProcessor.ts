@@ -46,10 +46,13 @@ export class LongboiProcessor extends GameProcessor {
         playerIDs: gameState.playerIDs,
         playerHealth: [], // Not used in Longboi
         hasMoved: {},
-        // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
+        endTime: admin.firestore.Timestamp.fromMillis(
+          now + gameState.maxTurnTime * 1000,
+        ),
+        scores: gameState.playerIDs.map(() => 0), // Initialize scores to zero
+        alivePlayers: [...gameState.playerIDs], // All players are alive at the start
       }
 
       // Set turn and update game within transaction
@@ -103,7 +106,7 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
-   * Applies the latest moves to the Longboi board.
+   * Applies the latest moves to the Longboi board and updates scores.
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
@@ -186,6 +189,19 @@ export class LongboiProcessor extends GameProcessor {
         }
       })
 
+      // Calculate scores for each player
+      const scores = playerIDs.map((playerID) =>
+        this.calculateLongestLine(
+          newBoard,
+          this.currentTurn!.boardWidth,
+          playerID,
+        ),
+      )
+
+      // Update scores and alivePlayers in the current turn
+      this.currentTurn.scores = scores
+      this.currentTurn.alivePlayers = [...playerIDs] // In Longboi, players are not eliminated
+
       // Update the board in the current turn
       this.currentTurn.board = newBoard
     } catch (error) {
@@ -195,6 +211,67 @@ export class LongboiProcessor extends GameProcessor {
       )
       throw error
     }
+  }
+
+  /**
+   * Calculates the longest continuous line for a player.
+   * @param board The current game board.
+   * @param boardWidth The width of the board.
+   * @param playerID The ID of the player.
+   * @returns The length of the longest line.
+   */
+  private calculateLongestLine(
+    board: Square[],
+    boardWidth: number,
+    playerID: string,
+  ): number {
+    const boardHeight = board.length / boardWidth
+    let maxLength = 0
+
+    // Convert board to 2D array
+    const grid: Square[][] = []
+    for (let y = 0; y < boardHeight; y++) {
+      const row: Square[] = []
+      for (let x = 0; x < boardWidth; x++) {
+        const index = y * boardWidth + x
+        row.push(board[index])
+      }
+      grid.push(row)
+    }
+
+    const directions = [
+      { dx: 1, dy: 0 }, // horizontal
+      { dx: 0, dy: 1 }, // vertical
+      { dx: 1, dy: 1 }, // diagonal down-right
+      { dx: 1, dy: -1 }, // diagonal up-right
+    ]
+
+    for (let y = 0; y < boardHeight; y++) {
+      for (let x = 0; x < boardWidth; x++) {
+        if (grid[y][x].playerID === playerID) {
+          for (const dir of directions) {
+            let length = 1
+            let nx = x + dir.dx
+            let ny = y + dir.dy
+            while (
+              nx >= 0 &&
+              nx < boardWidth &&
+              ny >= 0 &&
+              ny < boardHeight &&
+              grid[ny][nx].playerID === playerID
+            ) {
+              length++
+              nx += dir.dx
+              ny += dir.dy
+            }
+            if (length > maxLength) {
+              maxLength = length
+            }
+          }
+        }
+      }
+    }
+    return maxLength
   }
 
   /**
@@ -216,25 +293,26 @@ export class LongboiProcessor extends GameProcessor {
         return []
       }
 
-      // Calculate scores for each player
+      // Use the scores calculated in applyMoves
       const winners: Winner[] = []
 
-      playerIDs.forEach((playerID) => {
+      playerIDs.forEach((playerID, index) => {
+        const longestLine = this.currentTurn!.scores[index]
+
         const playerSquares = newBoard
-          .map((square, index) => ({ ...square, index }))
+          .map((square, idx) => ({ ...square, index: idx }))
           .filter((square) => square.playerID === playerID)
 
-        const score = playerSquares.length // Number of squares occupied
         const winningSquares = playerSquares.map((square) => square.index)
 
         winners.push({
           playerID,
-          score,
+          score: longestLine,
           winningSquares,
         })
 
         logger.info(
-          `Longboi: Player ${playerID} has occupied ${score} squares.`,
+          `Longboi: Player ${playerID} has a longest line of ${longestLine}.`,
           {
             gameID: this.gameID,
           },

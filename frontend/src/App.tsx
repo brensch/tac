@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Link as RouterLink,
+  useNavigate,
 } from "react-router-dom"
 import {
   Container,
@@ -36,6 +37,7 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   const { nickname, emoji, colour } = useUser()
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
+  const navigate = useNavigate()
 
   const handleProfileOpen = () => {
     setIsProfileOpen(true)
@@ -58,6 +60,19 @@ const AppContent: React.FC = () => {
           >
             🦶 tactic toes
           </Typography>
+          <Button
+            color="primary"
+            sx={{
+              height: 30,
+              minWidth: "auto", // Set minWidth to auto to adjust to the content size
+              padding: 0, // Remove padding to make the button fit the emoji size
+              px: 1,
+              mr: 2, // Margin right to give space between buttons
+            }}
+            onClick={() => navigate("/")}
+          >
+            🏠
+          </Button>
           <Button
             color="primary"
             sx={{ height: 30, backgroundColor: colour }}

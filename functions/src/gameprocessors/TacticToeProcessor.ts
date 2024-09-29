@@ -46,10 +46,13 @@ export class TacticToeProcessor extends GameProcessor {
         playerIDs: gameState.playerIDs,
         playerHealth: [], // Not used in Tactic Toe
         hasMoved: {},
-        // Removed clashes from Turn
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // e.g., 60 seconds
+        endTime: admin.firestore.Timestamp.fromMillis(
+          now + gameState.maxTurnTime * 1000,
+        ),
+        scores: gameState.playerIDs.map(() => 0), // Initialize scores to zero
+        alivePlayers: [...gameState.playerIDs], // All players are alive at the start
       }
 
       // Set turn and update game within transaction
@@ -100,7 +103,7 @@ export class TacticToeProcessor extends GameProcessor {
   }
 
   /**
-   * Applies the latest moves to the Tactic Toe board.
+   * Applies the latest moves to the Tactic Toe board and updates scores.
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
@@ -185,6 +188,15 @@ export class TacticToeProcessor extends GameProcessor {
 
       // Update the board in the current turn
       this.currentTurn.board = newBoard
+
+      // Update scores based on the number of occupied squares
+      const scores = playerIDs.map(
+        (playerID) =>
+          newBoard.filter((square) => square.playerID === playerID).length,
+      )
+
+      this.currentTurn.scores = scores
+      this.currentTurn.alivePlayers = [...playerIDs] // All players are alive in Tactic Toe
     } catch (error) {
       logger.error(
         `TacticToe: Error applying moves for game ${this.gameID}:`,
@@ -208,14 +220,19 @@ export class TacticToeProcessor extends GameProcessor {
 
       const winners: Winner[] = []
 
-      playerIDs.forEach((playerID) => {
-        if (this.checkWinCondition(board, boardWidth, playerID, winCondition)) {
+      playerIDs.forEach((playerID, index) => {
+        const hasWon = this.checkWinCondition(
+          board,
+          boardWidth,
+          playerID,
+          winCondition,
+        )
+        const score = this.currentTurn!.scores[index]
+        if (hasWon) {
           // Collect all indices of the player's pieces for winningSquares
           const winningSquares = board
-            .map((square, index) => (square.playerID === playerID ? index : -1))
-            .filter((index) => index !== -1)
-
-          const score = winningSquares.length // You can define scoring logic
+            .map((square, idx) => (square.playerID === playerID ? idx : -1))
+            .filter((idx) => idx !== -1)
 
           winners.push({
             playerID,

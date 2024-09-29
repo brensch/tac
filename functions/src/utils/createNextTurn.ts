@@ -30,6 +30,8 @@ export async function createNextTurn(
     gameType: currentTurn.gameType,
     playerIDs: currentTurn.playerIDs,
     playerHealth: currentTurn.playerHealth,
+    scores: currentTurn.scores,
+    alivePlayers: currentTurn.alivePlayers,
     hasMoved: {}, // Reset hasMoved for the new turn
     turnTime: currentTurn.turnTime,
     startTime: Timestamp.fromMillis(now),
