@@ -2,7 +2,7 @@
 
 import { Transaction } from "firebase-admin/firestore"
 import { GameState } from "@shared/types/Game"
-import { logger } from "../logger" // Adjust the path as necessary
+import { logger } from "../logger"
 import * as admin from "firebase-admin"
 
 /**
@@ -28,7 +28,7 @@ export async function createNewGame(
 
     // Prevent creating a new game if one is already in progress
     if (gameData.winners.length > 0 || gameData.nextGame !== "") {
-      logger.warn("New game already cooked.", { gameID })
+      logger.warn("New game already created.", { gameID })
       return
     }
 
@@ -38,23 +38,21 @@ export async function createNewGame(
     // Increment the session index for the new game
     const newSessionIndex = gameData.sessionIndex + 1
 
-    // Generate a new session name (optional: customize as needed)
-
     // Initialize a new game state
     const newGameState: GameState = {
       sessionName: gameData.sessionName,
       sessionIndex: newSessionIndex,
       gameType: gameData.gameType,
-      playerIDs: [],
+      playerIDs: [], // New game starts with no players
       boardWidth: gameData.boardWidth,
+      boardHeight: gameData.boardHeight,
       winners: [], // Initialize as empty array
       started: false, // Game has not started yet
       nextGame: "", // No next game yet
       maxTurnTime: gameData.maxTurnTime,
       playersReady: [], // Reset players ready
+      firstPlayerReadyTime: undefined, // Reset first player ready time
     }
-
-    // Reference to the new game document
 
     // Set the new game document within the transaction
     transaction.set(newGameRef, newGameState)

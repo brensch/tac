@@ -1,8 +1,8 @@
 // functions/src/gameprocessors/LongboiProcessor.ts
 
 import { GameProcessor } from "./GameProcessor"
-import { Winner, Square, Turn, Move, GameState } from "@shared/types/Game"
-import { logger } from "../logger" // Adjust the path as necessary
+import { Winner, Turn, Move, GameState } from "@shared/types/Game"
+import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 
@@ -20,15 +20,12 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
-   * Initializes the Longboi game by setting up the board and creating the first turn.
+   * Initializes the Longboi game by setting up the initial turn.
    * @param gameState The current state of the game.
    */
   async initializeGame(gameState: GameState): Promise<void> {
     try {
-      const initialBoard = this.initializeLongboiBoard(
-        gameState.boardWidth,
-        gameState.playerIDs,
-      )
+      const initialTurn = this.initializeTurn(gameState)
 
       // Construct DocumentReference for the first turn
       const turnRef = admin
@@ -36,27 +33,8 @@ export class LongboiProcessor extends GameProcessor {
         .collection(`games/${this.gameID}/turns`)
         .doc("1")
 
-      const now = Date.now()
-
-      const firstTurn: Turn = {
-        turnNumber: 1,
-        board: initialBoard,
-        boardWidth: gameState.boardWidth,
-        gameType: gameState.gameType,
-        playerIDs: gameState.playerIDs,
-        playerHealth: [], // Not used in Longboi
-        hasMoved: {},
-        turnTime: gameState.maxTurnTime,
-        startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ),
-        scores: gameState.playerIDs.map(() => 0), // Initialize scores to zero
-        alivePlayers: [...gameState.playerIDs], // All players are alive at the start
-      }
-
       // Set turn and update game within transaction
-      this.transaction.set(turnRef, firstTurn)
+      this.transaction.set(turnRef, initialTurn)
 
       // Reference to the game document
       const gameRef = admin.firestore().collection("games").doc(this.gameID)
@@ -74,136 +52,152 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
-   * Initializes the board for Longboi.
-   * @param boardWidth The width of the board.
-   * @param playerIDs Array of player IDs.
-   * @returns An array representing the initialized board.
+   * Initializes the first turn for Longboi.
+   * @param gameState The current state of the game.
+   * @returns The initial Turn object.
    */
-  private initializeLongboiBoard(
-    boardWidth: number,
-    playerIDs: string[],
-  ): Square[] {
-    const boardSize = boardWidth * boardWidth
-    const board: Square[] = Array(boardSize)
-      .fill(null)
-      .map(() => ({
-        playerID: null,
-        wall: false,
-        bodyPosition: [0],
-        food: false,
-        allowedPlayers: [...playerIDs], // All players can move to any unoccupied square
-        clash: null, // Initialize clash as null
-      }))
+  private initializeTurn(gameState: GameState): Turn {
+    const { boardWidth, boardHeight, playerIDs } = gameState
+    const now = Date.now()
 
-    logger.info(
-      "Longboi: Board initialized with all squares available for all players.",
-      {
-        board,
-      },
-    )
+    // Initialize snakes as occupied positions for each player
+    const snakes: { [playerID: string]: number[] } = {}
+    playerIDs.forEach((playerID) => {
+      snakes[playerID] = []
+    })
 
-    return board
+    // Initialize allowed moves (all positions on the board)
+    const totalCells = boardWidth * boardHeight
+    const allPositions = Array.from({ length: totalCells }, (_, index) => index)
+    const allowedMoves: { [playerID: string]: number[] } = {}
+    playerIDs.forEach((playerID) => {
+      allowedMoves[playerID] = [...allPositions]
+    })
+
+    const firstTurn: Turn = {
+      turnNumber: 1,
+      boardWidth: boardWidth,
+      boardHeight: boardHeight,
+      gameType: gameState.gameType,
+      playerIDs: playerIDs,
+      playerHealth: {}, // Not used in Longboi
+      hasMoved: {},
+      turnTime: gameState.maxTurnTime,
+      startTime: admin.firestore.Timestamp.fromMillis(now),
+      endTime: admin.firestore.Timestamp.fromMillis(
+        now + gameState.maxTurnTime * 1000,
+      ),
+      scores: {}, // Initialize scores as empty map
+      alivePlayers: [...playerIDs], // All players are alive at the start
+
+      // New fields
+      food: [], // Not used in Longboi
+      hazards: [], // Not used in Longboi
+      snakes: snakes, // Players' occupied positions
+      allowedMoves: allowedMoves,
+      walls: [], // No walls in Longboi
+    }
+
+    return firstTurn
   }
 
   /**
-   * Applies the latest moves to the Longboi board and updates scores.
+   * Applies the latest moves to the Longboi game and updates scores.
    */
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const newBoard: Square[] = this.currentTurn.board.map((square) => ({
-        ...square,
-        allowedPlayers: [],
-        clash: null, // Reset clashes
-      })) // Deep copy
+      const { playerIDs, boardWidth, boardHeight, snakes } = this.currentTurn
 
-      const playerIDs = this.currentTurn.playerIDs
+      // Deep copy snakes
+      const newSnakes: { [playerID: string]: number[] } = {}
+      Object.keys(snakes).forEach((playerID) => {
+        newSnakes[playerID] = [...snakes[playerID]]
+      })
 
-      // Map to keep track of moves to squares
-      const moveMap: { [squareIndex: number]: string[] } = {}
+      // Map to keep track of moves to positions
+      const moveMap: { [position: number]: string[] } = {}
 
-      // Apply moves to the board
+      // Apply moves
       this.latestMoves.forEach((move) => {
-        const squareIndex = move.move
-        if (squareIndex >= 0 && squareIndex < newBoard.length) {
-          if (!moveMap[squareIndex]) {
-            moveMap[squareIndex] = []
-          }
-          moveMap[squareIndex].push(move.playerID)
-        } else {
+        const position = move.move
+        const playerID = move.playerID
+
+        // Check if position is already claimed by any player
+        const isPositionClaimed = Object.values(newSnakes).some((positions) =>
+          positions.includes(position),
+        )
+
+        if (isPositionClaimed) {
+          // Position already claimed
           logger.warn(
-            `Longboi: Invalid move index ${squareIndex} by player ${move.playerID}.`,
-            { squareIndex, playerID: move.playerID },
+            `Longboi: Position ${position} already claimed. Move by player ${playerID} ignored.`,
           )
+          return
         }
+
+        if (!moveMap[position]) {
+          moveMap[position] = []
+        }
+        moveMap[position].push(playerID)
       })
 
       // Process moves and handle clashes
-      for (const squareIndexStr in moveMap) {
-        const squareIndex = parseInt(squareIndexStr)
-        const players = moveMap[squareIndex]
-        const square = newBoard[squareIndex]
+      for (const positionStr in moveMap) {
+        const position = parseInt(positionStr)
+        const players = moveMap[position]
 
         if (players.length === 1) {
-          if (square.playerID === null) {
-            // Valid move
-            square.playerID = players[0]
-            logger.info(
-              `Longboi: Square ${squareIndex} captured by player ${players[0]}`,
-              { squareIndex, playerID: players[0] },
-            )
-          } else {
-            // Square already occupied
-            square.clash = {
-              players: players,
-              reason: "Square already occupied.",
-            }
-            logger.warn(
-              `Longboi: Square ${squareIndex} already occupied. Move by player ${players[0]} recorded as clash.`,
-              { squareIndex, playerID: players[0] },
-            )
-          }
+          // Valid move
+          const playerID = players[0]
+          newSnakes[playerID].push(position)
+          logger.info(
+            `Longboi: Position ${position} claimed by player ${playerID}.`,
+          )
         } else {
-          // Clash due to multiple players attempting to occupy the same square
-          square.clash = {
-            players: players,
-            reason: "Multiple players attempted to occupy the same square.",
-          }
+          // Clash: Multiple players attempted to claim the same position
           logger.warn(
-            `Longboi: Clash at square ${squareIndex} by players ${players.join(
+            `Longboi: Clash at position ${position} by players ${players.join(
               ", ",
             )}.`,
-            { squareIndex, players },
           )
+          // Optionally, you could implement a clash mechanic here
         }
       }
 
-      // Update allowedPlayers for all squares after moves
-      newBoard.forEach((square) => {
-        if (square.playerID === null && !square.clash) {
-          // Unoccupied and valid square
-          square.allowedPlayers = [...playerIDs]
-        } else {
-          // Occupied or invalid square
-          square.allowedPlayers = []
-        }
+      // Update allowed moves (exclude claimed positions)
+      const totalCells = boardWidth * boardHeight
+      const allPositions = Array.from(
+        { length: totalCells },
+        (_, index) => index,
+      )
+      const claimedPositions = new Set<number>()
+      Object.values(newSnakes).forEach((positions) => {
+        positions.forEach((pos) => claimedPositions.add(pos))
       })
 
-      // Calculate scores for each player
-      const scores = playerIDs.map((playerID) =>
-        this.calculateLongestLine(
-          newBoard,
-          this.currentTurn!.boardWidth,
-          playerID,
-        ),
-      )
+      const newAllowedMoves: { [playerID: string]: number[] } = {}
+      playerIDs.forEach((playerID) => {
+        newAllowedMoves[playerID] = allPositions.filter(
+          (pos) => !claimedPositions.has(pos),
+        )
+      })
 
-      // Update scores and alivePlayers in the current turn
+      // Calculate scores based on the longest line
+      const scores: { [playerID: string]: number } = {}
+      playerIDs.forEach((playerID) => {
+        scores[playerID] = this.calculateLongestLine(
+          newSnakes[playerID],
+          boardWidth,
+          boardHeight,
+        )
+      })
+
+      // Update the current turn
+      this.currentTurn.snakes = newSnakes
       this.currentTurn.scores = scores
-      this.currentTurn.alivePlayers = [...playerIDs] // In Longboi, players are not eliminated
-
-      // Update the board in the current turn
-      this.currentTurn.board = newBoard
+      this.currentTurn.allowedMoves = newAllowedMoves
+      this.currentTurn.alivePlayers = [...playerIDs] // All players are alive
     } catch (error) {
       logger.error(
         `Longboi: Error applying moves for game ${this.gameID}:`,
@@ -214,30 +208,102 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
+   * Finds winners based on the updated Longboi game.
+   * @returns An array of Winner objects.
+   */
+  async findWinners(): Promise<Winner[]> {
+    if (!this.currentTurn) return []
+    try {
+      const { boardWidth, boardHeight, playerIDs, snakes, scores } =
+        this.currentTurn
+      const totalPositions = boardWidth * boardHeight
+
+      // Check if all positions are claimed
+      const claimedPositionsCount = Object.values(snakes).reduce(
+        (sum, positions) => sum + positions.length,
+        0,
+      )
+
+      const isBoardFull = claimedPositionsCount >= totalPositions
+
+      if (!isBoardFull) {
+        // Game continues
+        return []
+      }
+
+      // Determine the player(s) with the longest line
+      let maxLineLength = 0
+      const potentialWinners: string[] = []
+
+      playerIDs.forEach((playerID) => {
+        const lineLength = scores[playerID]
+        if (lineLength > maxLineLength) {
+          maxLineLength = lineLength
+          potentialWinners.length = 0 // Reset potential winners
+          potentialWinners.push(playerID)
+        } else if (lineLength === maxLineLength) {
+          potentialWinners.push(playerID)
+        }
+      })
+
+      if (potentialWinners.length === 1) {
+        const winnerID = potentialWinners[0]
+        const winningSquares = snakes[winnerID]
+        const winner: Winner = {
+          playerID: winnerID,
+          score: maxLineLength,
+          winningSquares: winningSquares,
+        }
+        logger.info(
+          `Longboi: Player ${winnerID} has won the game with a longest line of ${maxLineLength}.`,
+        )
+        return [winner]
+      } else {
+        // Tie or draw
+        logger.info(
+          `Longboi: Game ended in a draw among players: ${potentialWinners.join(
+            ", ",
+          )}.`,
+        )
+        return potentialWinners.map((playerID) => ({
+          playerID,
+          score: scores[playerID],
+          winningSquares: snakes[playerID],
+        }))
+      }
+    } catch (error) {
+      logger.error(
+        `Longboi: Error finding winners for game ${this.gameID}:`,
+        error,
+      )
+      throw error
+    }
+  }
+
+  /**
    * Calculates the longest continuous line for a player.
-   * @param board The current game board.
+   * @param positions The positions claimed by the player.
    * @param boardWidth The width of the board.
-   * @param playerID The ID of the player.
+   * @param boardHeight The height of the board.
    * @returns The length of the longest line.
    */
   private calculateLongestLine(
-    board: Square[],
+    positions: number[],
     boardWidth: number,
-    playerID: string,
+    boardHeight: number,
   ): number {
-    const boardHeight = board.length / boardWidth
-    let maxLength = 0
+    if (positions.length === 0) return 0
 
-    // Convert board to 2D array
-    const grid: Square[][] = []
-    for (let y = 0; y < boardHeight; y++) {
-      const row: Square[] = []
-      for (let x = 0; x < boardWidth; x++) {
-        const index = y * boardWidth + x
-        row.push(board[index])
-      }
-      grid.push(row)
-    }
+    // Convert positions to a grid for easier traversal
+    const grid = Array(boardHeight)
+      .fill(null)
+      .map(() => Array(boardWidth).fill(false))
+
+    positions.forEach((pos) => {
+      const x = pos % boardWidth
+      const y = Math.floor(pos / boardWidth)
+      grid[y][x] = true
+    })
 
     const directions = [
       { dx: 1, dy: 0 }, // horizontal
@@ -246,19 +312,21 @@ export class LongboiProcessor extends GameProcessor {
       { dx: 1, dy: -1 }, // diagonal up-right
     ]
 
+    let maxLength = 0
+
     for (let y = 0; y < boardHeight; y++) {
       for (let x = 0; x < boardWidth; x++) {
-        if (grid[y][x].playerID === playerID) {
+        if (grid[y][x]) {
           for (const dir of directions) {
             let length = 1
             let nx = x + dir.dx
             let ny = y + dir.dy
             while (
-              nx >= 0 &&
-              nx < boardWidth &&
               ny >= 0 &&
               ny < boardHeight &&
-              grid[ny][nx].playerID === playerID
+              nx >= 0 &&
+              nx < boardWidth &&
+              grid[ny][nx]
             ) {
               length++
               nx += dir.dx
@@ -271,61 +339,7 @@ export class LongboiProcessor extends GameProcessor {
         }
       }
     }
+
     return maxLength
-  }
-
-  /**
-   * Finds winners based on the updated Longboi board.
-   * @returns An array of Winner objects.
-   */
-  async findWinners(): Promise<Winner[]> {
-    if (!this.currentTurn) return []
-    try {
-      const newBoard = this.currentTurn.board
-      const playerIDs = this.currentTurn.playerIDs
-
-      const isBoardFull = newBoard.every(
-        (square) => square.playerID !== null || square.clash !== null,
-      )
-
-      if (!isBoardFull) {
-        // The game continues; no winners yet
-        return []
-      }
-
-      // Use the scores calculated in applyMoves
-      const winners: Winner[] = []
-
-      playerIDs.forEach((playerID, index) => {
-        const longestLine = this.currentTurn!.scores[index]
-
-        const playerSquares = newBoard
-          .map((square, idx) => ({ ...square, index: idx }))
-          .filter((square) => square.playerID === playerID)
-
-        const winningSquares = playerSquares.map((square) => square.index)
-
-        winners.push({
-          playerID,
-          score: longestLine,
-          winningSquares,
-        })
-
-        logger.info(
-          `Longboi: Player ${playerID} has a longest line of ${longestLine}.`,
-          {
-            gameID: this.gameID,
-          },
-        )
-      })
-
-      return winners
-    } catch (error) {
-      logger.error(
-        `Longboi: Error finding winners for game ${this.gameID}:`,
-        error,
-      )
-      throw error
-    }
   }
 }

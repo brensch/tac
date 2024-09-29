@@ -1,3 +1,5 @@
+// src/components/GameActive.tsx
+
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import React, { useEffect, useState } from "react"
 import { useUser } from "../../context/UserContext"
@@ -73,13 +75,47 @@ const GameActive: React.FC = () => {
     setIsRulesDialogOpen(false)
   }
 
-  console.log(currentTurn?.scores)
-
-  if (!gameState) return
+  if (!gameState) return null
 
   const playerInCurrentGame = gameState.playerIDs.includes(userID)
 
-  if (!gameState.started || !currentTurn) return
+  if (!gameState.started || !currentTurn) return null
+
+  // For checking if the player can move to the selected square
+  const canPlayerMoveToSelectedSquare = () => {
+    if (!currentTurn || selectedSquare === null) return false
+
+    // For games like Snek, check if the selected square is adjacent to the snake's head
+    if (gameState.gameType === "snek") {
+      const playerIndex = currentTurn.playerIDs.indexOf(userID)
+      if (playerIndex === -1) return false
+
+      const userSnake = currentTurn.snakes[playerIndex]
+      const headPosition = userSnake[0]
+      const validMoves = getAdjacentIndices(
+        headPosition,
+        currentTurn.boardWidth,
+        currentTurn.boardHeight,
+      )
+      return validMoves.includes(selectedSquare)
+    }
+
+    // For games like TacticToe and Longboi, check if the position is unclaimed
+    if (
+      ["tactictoes", "longboi"].includes(gameState.gameType) &&
+      !(currentTurn as any).claimedPositions[selectedSquare]
+    ) {
+      return true
+    }
+
+    // For Connect4, check if the column is valid
+    if (gameState.gameType === "connect4") {
+      const column = selectedSquare
+      return column >= 0 && column < currentTurn.boardWidth
+    }
+
+    return false
+  }
 
   return (
     <Stack spacing={2} pt={2}>
@@ -110,9 +146,7 @@ const GameActive: React.FC = () => {
             !!currentTurn?.hasMoved[userID] ||
             !playerInCurrentGame ||
             selectedSquare === null ||
-            !currentTurn?.board[selectedSquare].allowedPlayers.includes(
-              userID,
-            ) ||
+            !canPlayerMoveToSelectedSquare() ||
             turns.length !== currentTurn?.turnNumber
           }
           variant="contained"
@@ -231,3 +265,33 @@ const GameActive: React.FC = () => {
 }
 
 export default GameActive
+
+/**
+ * Helper function to get adjacent indices (up, down, left, right) from a given index.
+ */
+function getAdjacentIndices(
+  index: number,
+  boardWidth: number,
+  boardHeight: number,
+): number[] {
+  const x = index % boardWidth
+  const y = Math.floor(index / boardWidth)
+  const indices: number[] = []
+
+  const directions = [
+    { dx: 0, dy: -1 }, // Up
+    { dx: 0, dy: 1 }, // Down
+    { dx: -1, dy: 0 }, // Left
+    { dx: 1, dy: 0 }, // Right
+  ]
+
+  directions.forEach(({ dx, dy }) => {
+    const newX = x + dx
+    const newY = y + dy
+    if (newX >= 0 && newX < boardWidth && newY >= 0 && newY < boardHeight) {
+      indices.push(newY * boardWidth + newX)
+    }
+  })
+
+  return indices
+}

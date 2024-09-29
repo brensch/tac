@@ -230,9 +230,9 @@ const GameSetup: React.FC = () => {
           disabled={started}
           label="Game Type" // Make sure this matches the InputLabel text
         >
+          <MenuItem value="snek">Snek</MenuItem>
           <MenuItem value="connect4">Connect 4</MenuItem>
           <MenuItem value="tactictoes">Tactic Toes</MenuItem>
-          <MenuItem value="snek">Snek</MenuItem>
           <MenuItem value="longboi">Long Boi</MenuItem>
         </Select>
       </FormControl>

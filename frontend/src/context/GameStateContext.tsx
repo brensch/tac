@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
-import { GameState, PlayerInfo, Turn, Square } from "@shared/types/Game"
+import { GameState, Move, PlayerInfo, Turn } from "@shared/types/Game"
 
 interface GameStateContextType {
   gameState: GameState | null
@@ -251,15 +251,6 @@ export const GameStateProvider: React.FC<{
 
     const moveRef = collection(db, `games/${gameID}/privateMoves`)
     const moveNumber = latestTurn.turnNumber
-
-    // Fetch the latest turn's board to verify allowedPlayers
-    const selectedCell: Square = latestTurn.board[selectedSquare]
-
-    // Check if the user is allowed to move into the selected square
-    if (!selectedCell.allowedPlayers.includes(userID)) {
-      setError("You are not allowed to move into this square.")
-      return
-    }
 
     try {
       await addDoc(moveRef, {

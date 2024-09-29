@@ -1,3 +1,5 @@
+// functions/src/utils/createNextTurn.ts
+
 import { Turn } from "@shared/types/Game"
 import { Timestamp, Transaction } from "firebase-admin/firestore"
 import * as admin from "firebase-admin"
@@ -25,8 +27,8 @@ export async function createNextTurn(
   // Initialize the new Turn object
   const newTurn: Turn = {
     turnNumber: nextTurnNumber,
-    board: currentTurn.board, // Updated board from applyMoves()
     boardWidth: currentTurn.boardWidth,
+    boardHeight: currentTurn.boardHeight,
     gameType: currentTurn.gameType,
     playerIDs: currentTurn.playerIDs,
     playerHealth: currentTurn.playerHealth,
@@ -36,6 +38,20 @@ export async function createNextTurn(
     turnTime: currentTurn.turnTime,
     startTime: Timestamp.fromMillis(now),
     endTime: Timestamp.fromMillis(endTimeMillis),
+    food: currentTurn.food,
+    hazards: currentTurn.hazards,
+    snakes: currentTurn.snakes,
+    allowedMoves: currentTurn.allowedMoves,
+    walls: currentTurn.walls,
+  }
+
+  // Handle game-specific data structures
+  if ((currentTurn as any).claimedPositions) {
+    ;(newTurn as any).claimedPositions = (currentTurn as any).claimedPositions
+  }
+
+  if ((currentTurn as any).grid) {
+    ;(newTurn as any).grid = (currentTurn as any).grid
   }
 
   // Construct DocumentReference for the new turn

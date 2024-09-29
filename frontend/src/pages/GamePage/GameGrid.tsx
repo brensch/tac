@@ -1,8 +1,8 @@
 // src/components/GameGrid.tsx
 
-import { Box } from "@mui/material"
-import { PlayerInfo, Square } from "@shared/types/Game"
 import React, { useLayoutEffect, useRef, useState } from "react"
+import { Box } from "@mui/material"
+import { PlayerInfo, Turn } from "@shared/types/Game"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
@@ -17,24 +17,25 @@ const GameGrid: React.FC = () => {
     setSelectedSquare,
   } = useGameStateContext()
 
-  const { board } = currentTurn!
   const winners = gameState?.winners || []
-  const gridSize = gameState?.boardWidth || 8 // Default to 8 if undefined
+  const gridWidth = gameState?.boardWidth || 8 // Default to 8 if undefined
+  const gridHeight = gameState?.boardHeight || 8 // Default to 8 if undefined
+  const totalCells = gridWidth * gridHeight
   const winningSquaresSet = new Set(
-    (winners?.length && winners?.length > 0 && winners[0].winningSquares) || [],
+    (winners?.length && winners[0].winningSquares) || [],
   )
   const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
   const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
+  const user = useUser()
 
   // Handle responsive sizing
   const gridRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState<number>(0)
 
   // Calculate cell size and font size
-  const cellSize = containerWidth ? containerWidth / gridSize : 0
+  const cellSize = containerWidth ? containerWidth / gridWidth : 0
   const fontSize = cellSize ? Math.min(cellSize * 0.6, 48) : 16 // Set a max font size
-  const user = useUser()
 
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
@@ -49,34 +50,100 @@ const GameGrid: React.FC = () => {
     }
   }, [gameState?.boardWidth, currentTurn])
 
-  const handleClashClick = (clash: { players: string[]; reason: string }) => {
-    const players = clash.players.map(
-      (id) =>
-        playerInfos.find((p) => p.id === id) || {
-          id,
-          nickname: "Unknown",
-          emoji: "",
-          colour: "#000000",
-        },
-    )
+  // Generate a map of positions to cell content
+  const cellContentMap: { [index: number]: JSX.Element[] } = {}
 
-    setClashPlayersList(players)
-    setClashReason(clash.reason)
-    setOpenClashDialog(true)
+  if (currentTurn) {
+    const { snakes, food, hazards, playerIDs, grid, claimedPositions } =
+      currentTurn
+
+    // Place snakes (players' occupied positions)
+    Object.keys(snakes).forEach((playerID) => {
+      const positions = snakes[playerID]
+      const playerInfo = playerInfos.find((p) => p.id === playerID)
+
+      positions.forEach((position, index) => {
+        if (!cellContentMap[position]) {
+          cellContentMap[position] = []
+        }
+
+        const isHead = index === 0
+        const content = (
+          <span key={`${playerID}-${index}`} style={{ fontSize }}>
+            {playerInfo?.emoji || "⭕"}
+          </span>
+        )
+        cellContentMap[position].push(content)
+      })
+    })
+
+    // Place food
+    food?.forEach((position) => {
+      if (!cellContentMap[position]) {
+        cellContentMap[position] = []
+      }
+      cellContentMap[position].push(
+        <span key={`food-${position}`} style={{ fontSize }}>
+          🍎
+        </span>,
+      )
+    })
+
+    // Place hazards
+    hazards?.forEach((position) => {
+      if (!cellContentMap[position]) {
+        cellContentMap[position] = []
+      }
+      cellContentMap[position].push(
+        <span key={`hazard-${position}`} style={{ fontSize }}>
+          ☠️
+        </span>,
+      )
+    })
+
+    // For Connect4 and TacticToes, use grid or claimedPositions
+    if (grid) {
+      Object.keys(grid).forEach((positionStr) => {
+        const position = parseInt(positionStr)
+        const playerID = grid[position]
+        if (playerID) {
+          if (!cellContentMap[position]) {
+            cellContentMap[position] = []
+          }
+          const playerInfo = playerInfos.find((p) => p.id === playerID)
+          cellContentMap[position].push(
+            <span key={`grid-${position}`} style={{ fontSize }}>
+              {playerInfo?.emoji || "⭕"}
+            </span>,
+          )
+        }
+      })
+    } else if (claimedPositions) {
+      Object.keys(claimedPositions).forEach((positionStr) => {
+        const position = parseInt(positionStr)
+        const playerID = claimedPositions[position]
+        if (playerID) {
+          if (!cellContentMap[position]) {
+            cellContentMap[position] = []
+          }
+          const playerInfo = playerInfos.find((p) => p.id === playerID)
+          cellContentMap[position].push(
+            <span key={`claimed-${position}`} style={{ fontSize }}>
+              {playerInfo?.emoji || "⭕"}
+            </span>,
+          )
+        }
+      })
+    }
   }
 
-  // Handle selecting a square
   const handleSquareClick = (index: number) => {
     if (!currentTurn) return
-    const cell: Square = currentTurn.board[index]
-
-    if (cell.clash) {
-      handleClashClick(cell.clash)
-    }
 
     if (gameState?.started && !hasSubmittedMove) {
-      // Check if the current user is allowed to move into this square
-      if (cell.allowedPlayers.includes(user.userID)) {
+      // Determine if the current user can move into this square
+      const allowedMoves = currentTurn.allowedMoves[user.userID] || []
+      if (allowedMoves.includes(index)) {
         setSelectedSquare(index)
       }
     }
@@ -84,14 +151,14 @@ const GameGrid: React.FC = () => {
 
   const disabled = hasSubmittedMove
 
-  console.log(playerInfos)
+  console.log(currentTurn)
 
   return (
     <Box
       ref={gridRef}
       sx={{
         display: "grid",
-        gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+        gridTemplateColumns: `repeat(${gridWidth}, 1fr)`,
         width: "100%",
         maxWidth: 600,
         margin: "0 auto",
@@ -100,65 +167,27 @@ const GameGrid: React.FC = () => {
         pointerEvents: disabled ? "none" : "auto", // Disable interactions if disabled
       }}
     >
-      {board.map((cell: Square, index: number) => {
+      {Array.from({ length: totalCells }).map((_, index) => {
         const isSelected = selectedSquare === index
         const isWinningSquare = winningSquaresSet.has(index)
 
-        // Determine if the current user can move into this square
-        const canUserMoveHere = cell.allowedPlayers.includes(user.userID)
-
-        // Get player info if the cell is occupied
-        const playerInfo = cell.playerID
-          ? playerInfos.find((p) => p.id === cell.playerID)
-          : null
+        const cellContents = cellContentMap[index] || []
 
         // Determine background color
         let backgroundColor = "white"
-        if (cell.wall) {
-          backgroundColor = "#8B4513" // Brown color for walls
-        } else if (isWinningSquare) {
+        if (isWinningSquare) {
           backgroundColor = "green"
-        } else if (cell.playerID && playerInfo) {
-          backgroundColor = playerInfo.colour
         }
 
-        // Determine the content to display in the cell
-        let cellContent = ""
-        if (cell.wall) {
-          cellContent = "🧱"
-        } else if (cell.clash) {
-          cellContent = "💥" // Explosion emoji for clashes
-        } else if (cell.playerID && cell.bodyPosition.includes(0)) {
-          // Head of the snake
-          cellContent = playerInfo?.emoji || "🐍"
-        } else if (cell.food) {
-          cellContent = "🍎" // Food emoji
-        } else if (cell.playerID && cell.bodyPosition.length > 0) {
-          // Body of the snake
-          const arrowEmoji = getDirectionEmoji(
-            board,
-            index,
-            cell.playerID,
-            Math.max(...cell.bodyPosition),
-            gridSize,
-          )
-          if (cell.bodyPosition.length > 1) {
-            // Multiple body segments on the same square
-            cellContent = playerInfo?.emoji || "🐍"
-          } else if (arrowEmoji) {
-            cellContent = arrowEmoji
-          } else {
-            cellContent = playerInfo?.emoji || "🐍" // Default to player's emoji
-          }
+        // Determine if the square is an allowed move for the user
+        const userAllowedMoves = currentTurn?.allowedMoves[user.userID] || []
+        const isAllowedMove = userAllowedMoves.includes(index)
+
+        // Highlight allowed moves
+        let borderColor = "black"
+        if (isAllowedMove) {
+          borderColor = "blue"
         }
-
-        // Determine border style
-        const borderStyle = "1px solid black"
-
-        // If the square is selectable by the user, add green dotted border inside edges
-        const selectableBorder = canUserMoveHere
-          ? "2px dotted green"
-          : borderStyle
 
         return (
           <Box
@@ -171,33 +200,12 @@ const GameGrid: React.FC = () => {
               width: "100%",
               paddingBottom: "100%", // Maintain aspect ratio
               position: "relative",
-              border: borderStyle,
-              cursor: disabled
-                ? "default"
-                : gameState?.started &&
-                  !currentTurn?.hasMoved[user.userID] &&
-                  (canUserMoveHere ||
-                    (!canUserMoveHere && cell.playerID === null))
-                ? "pointer"
-                : "default",
+              border: `1px solid ${borderColor}`,
+              cursor: disabled ? "default" : "pointer",
               backgroundColor: backgroundColor,
               transition: "background-color 0.3s",
             }}
           >
-            {/* Inner box for green dotted border */}
-            {canUserMoveHere && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: "5%",
-                  left: "5%",
-                  right: "5%",
-                  bottom: "5%",
-                  border: selectableBorder,
-                  pointerEvents: "none", // So the inner box doesn't capture clicks
-                }}
-              />
-            )}
             {/* Highlight selected square with solid green border */}
             {isSelected && (
               <Box
@@ -230,7 +238,7 @@ const GameGrid: React.FC = () => {
                 zIndex: 1, // Ensure content is above the inner border
               }}
             >
-              {cellContent}
+              {cellContents}
             </Box>
           </Box>
         )
@@ -247,45 +255,3 @@ const GameGrid: React.FC = () => {
 }
 
 export default GameGrid
-
-/**
- * Helper function to get the direction emoji for a snake's body.
- */
-function getDirectionEmoji(
-  board: Square[],
-  index: number,
-  playerID: string,
-  bodyPosition: number,
-  boardWidth: number,
-): string | null {
-  const directions = [
-    { dx: 0, dy: -1, emoji: "⬆️" }, // Up
-    { dx: 1, dy: -1, emoji: "↗️" }, // Up-Right
-    { dx: 1, dy: 0, emoji: "➡️" }, // Right
-    { dx: 1, dy: 1, emoji: "↘️" }, // Down-Right
-    { dx: 0, dy: 1, emoji: "⬇️" }, // Down
-    { dx: -1, dy: 1, emoji: "↙️" }, // Down-Left
-    { dx: -1, dy: 0, emoji: "⬅️" }, // Left
-    { dx: -1, dy: -1, emoji: "↖️" }, // Up-Left
-  ]
-
-  const x = index % boardWidth
-  const y = Math.floor(index / boardWidth)
-
-  for (const dir of directions) {
-    const nx = x + dir.dx
-    const ny = y + dir.dy
-    if (nx >= 0 && nx < boardWidth && ny >= 0 && ny < boardWidth) {
-      const neighborIndex = ny * boardWidth + nx
-      const neighborSquare = board[neighborIndex]
-      if (
-        neighborSquare.playerID === playerID &&
-        neighborSquare.bodyPosition.includes(bodyPosition - 1)
-      ) {
-        return dir.emoji
-      }
-    }
-  }
-
-  return null
-}

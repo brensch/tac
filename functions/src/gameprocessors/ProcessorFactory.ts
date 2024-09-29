@@ -5,7 +5,7 @@ import { Turn, Move } from "@shared/types/Game"
 import { Connect4Processor } from "./Connect4Processor"
 import { LongboiProcessor } from "./LongboiProcessor"
 import { GameProcessor } from "./GameProcessor"
-import { TacticToeProcessor } from "./TacticToeProcessor"
+import { TacticToesProcessor } from "./TacticToesProcessor"
 import { SnekProcessor } from "./SnekProcessor"
 
 export function getGameProcessor(
@@ -26,7 +26,7 @@ export function getGameProcessor(
     case "longboi":
       return new LongboiProcessor(transaction, gameID, latestMoves, currentTurn)
     case "tactictoes":
-      return new TacticToeProcessor(
+      return new TacticToesProcessor(
         transaction,
         gameID,
         latestMoves,
