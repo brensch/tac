@@ -73,9 +73,7 @@ const GameActive: React.FC = () => {
     setIsRulesDialogOpen(false)
   }
 
-  console.log(currentTurn)
-  console.log(selectedSquare)
-  console.log(gameState)
+  console.log(currentTurn?.scores)
 
   if (!gameState) return
 
@@ -162,6 +160,7 @@ const GameActive: React.FC = () => {
             <TableRow>
               <TableCell>Players</TableCell>
               <TableCell align="right">Time Taken</TableCell>
+              <TableCell align="right">Score</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -177,6 +176,15 @@ const GameActive: React.FC = () => {
                           currentTurn.startTime.seconds,
                       )}s`
                     : "Not yet"}
+                </TableCell>
+                <TableCell align="right">
+                  {
+                    currentTurn.scores[
+                      currentTurn.playerIDs.findIndex(
+                        (playerID) => player.id === playerID,
+                      )
+                    ]
+                  }
                 </TableCell>
               </TableRow>
             ))}

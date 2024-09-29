@@ -37,7 +37,6 @@ const GameFinished: React.FC = () => {
     }
   }, [playAgainButtonRef, sortedPlayers])
 
-  console.log(emojiRainTop)
   useEffect(() => {
     // Build a list of all players with their scores
     const playersWithScores = playerInfos.map((player) => {
@@ -52,7 +51,6 @@ const GameFinished: React.FC = () => {
 
     // Sort the players by score in descending order
     const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
-    console.log(sortedPlayers)
 
     setSortedPlayers(sortedPlayers)
   }, [playerInfos])
@@ -71,7 +69,6 @@ const GameFinished: React.FC = () => {
   const draw =
     sortedPlayers.length > 1 &&
     sortedPlayers[0].score === sortedPlayers[1].score
-  console.log(topPlayerEmoji)
 
   return (
     <>

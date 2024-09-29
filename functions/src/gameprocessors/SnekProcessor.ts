@@ -54,9 +54,7 @@ export class SnekProcessor extends GameProcessor {
         hasMoved: {},
         turnTime: gameState.maxTurnTime,
         startTime: admin.firestore.Timestamp.fromMillis(now),
-        endTime: admin.firestore.Timestamp.fromMillis(
-          now + gameState.maxTurnTime * 1000,
-        ),
+        endTime: admin.firestore.Timestamp.fromMillis(now + 60 * 1000), // 60 seconds timeout for initial turn
         scores: gameState.playerIDs.map(() => 3), // Initial snake length is 3
         alivePlayers: [...gameState.playerIDs], // All players are alive at the start
       }
@@ -92,7 +90,7 @@ export class SnekProcessor extends GameProcessor {
         food: false,
         wall: false,
         bodyPosition: [],
-        allowedPlayers: [...playerIDs], // All players can move into any square initially
+        allowedPlayers: [],
         clash: null, // Initialize clash as null
       }))
 
@@ -107,37 +105,16 @@ export class SnekProcessor extends GameProcessor {
           y === boardWidth - 1
         ) {
           board[index].wall = true
-          // Players can move into walls; include them in allowedPlayers
-          board[index].allowedPlayers = [...playerIDs]
+          board[index].allowedPlayers = []
         }
       }
     }
 
-    // Generate starting positions
-    const numPlayers = playerIDs.length
-    const positions: { x: number; y: number }[] = []
-
-    const numRows = Math.ceil(Math.sqrt(numPlayers))
-    const numCols = Math.ceil(numPlayers / numRows)
-    const rowSpacing = (boardWidth - 2) / (numRows + 1)
-    const colSpacing = (boardWidth - 2) / (numCols + 1)
-
-    let playerIndex = 0
-    for (let row = 1; row <= numRows; row++) {
-      const y = Math.min(
-        Math.max(1, Math.round(row * rowSpacing)),
-        boardWidth - 2,
-      )
-      for (let col = 1; col <= numCols; col++) {
-        if (playerIndex >= numPlayers) break
-        const x = Math.min(
-          Math.max(1, Math.round(col * colSpacing)),
-          boardWidth - 2,
-        )
-        positions.push({ x, y })
-        playerIndex++
-      }
-    }
+    // Generate starting positions with equal board access
+    const positions = this.generateStartingPositions(
+      boardWidth,
+      playerIDs.length,
+    )
 
     // Place each snake with all body segments on the same square
     playerIDs.forEach((playerID, index) => {
@@ -148,8 +125,10 @@ export class SnekProcessor extends GameProcessor {
       // Place the snake with bodyPosition [0,1,2]
       startSquare.playerID = playerID
       startSquare.bodyPosition = [0, 1, 2]
-      startSquare.allowedPlayers = [] // No one can move into a square occupied by a snake
     })
+
+    // Place initial food two spaces towards the center from each snake
+    this.placeInitialFood(board, boardWidth, positions)
 
     // Update allowedPlayers for squares adjacent to heads
     this.updateAllowedPlayers(board, boardWidth, new Set(playerIDs))
@@ -159,6 +138,82 @@ export class SnekProcessor extends GameProcessor {
     })
 
     return board
+  }
+
+  /**
+   * Generates starting positions that aim to give each snake equal access to the board.
+   */
+  private generateStartingPositions(
+    boardWidth: number,
+    numPlayers: number,
+  ): { x: number; y: number }[] {
+    const positions: { x: number; y: number }[] = []
+
+    // Calculate positions around the perimeter, equally spaced
+    const perimeterPositions = [
+      { x: 1, y: 1 },
+      { x: boardWidth - 2, y: 1 },
+      { x: boardWidth - 2, y: boardWidth - 2 },
+      { x: 1, y: boardWidth - 2 },
+    ]
+
+    // For more than 4 players, add positions along the edges
+    if (numPlayers > 4) {
+      const additionalPositions: { x: number; y: number }[] = []
+      const numAdditional = numPlayers - 4
+      const spacing = Math.floor((boardWidth - 4) / (numAdditional + 1))
+
+      for (let i = 1; i <= numAdditional; i++) {
+        additionalPositions.push({ x: 1 + i * spacing, y: 1 })
+        additionalPositions.push({
+          x: boardWidth - 2 - i * spacing,
+          y: boardWidth - 2,
+        })
+      }
+      positions.push(...perimeterPositions, ...additionalPositions)
+    } else {
+      positions.push(...perimeterPositions.slice(0, numPlayers))
+    }
+
+    return positions.slice(0, numPlayers)
+  }
+
+  /**
+   * Places initial food two spaces towards the center from each snake's starting position.
+   */
+  private placeInitialFood(
+    board: Square[],
+    boardWidth: number,
+    positions: { x: number; y: number }[],
+  ): void {
+    positions.forEach(({ x, y }) => {
+      // Move two steps towards the center
+      const centerX = Math.floor(boardWidth / 2)
+      const centerY = Math.floor(boardWidth / 2)
+      let deltaX = centerX - x
+      let deltaY = centerY - y
+
+      // Normalize deltas to move two steps
+      const steps = 2
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      if (distance === 0) return // Already at center
+
+      deltaX = Math.round((deltaX / distance) * steps)
+      deltaY = Math.round((deltaY / distance) * steps)
+
+      const foodX = x + deltaX
+      const foodY = y + deltaY
+
+      if (
+        foodX >= 1 &&
+        foodX < boardWidth - 1 &&
+        foodY >= 1 &&
+        foodY < boardWidth - 1
+      ) {
+        const foodIndex = foodY * boardWidth + foodX
+        board[foodIndex].food = true
+      }
+    })
   }
 
   /**
@@ -267,38 +322,94 @@ export class SnekProcessor extends GameProcessor {
         intendedMoves[playerID] = moveIndex
       })
 
-      // **Check for players moving into walls and kill them if they do**
-      for (const playerID in intendedMoves) {
+      // Apply moves and update snakes
+      const updatedSnakes: {
+        [playerID: string]: { positions: number[]; ateFood: boolean }
+      } = {}
+      const squareOccupants: {
+        [index: number]: { heads: string[]; bodies: string[] }
+      } = {}
+
+      // First, move snakes and record their new positions
+      alivePlayers.forEach((playerID) => {
         const moveIndex = intendedMoves[playerID]
-        const targetSquare = newBoard[moveIndex]
+        let snakeSquares: { index: number; bodyPosition: number[] }[] = []
 
-        if (targetSquare.wall) {
-          // Player dies
-          deadPlayers.add(playerID)
-          alivePlayers.delete(playerID)
-          delete intendedMoves[playerID]
-          logger.info(`Snek: Player ${playerID} moved into a wall and died.`)
-          this.markSnakeAsClash(newBoard, playerID, "Moved into a wall")
+        // Get current positions and update body positions
+        for (let i = 0; i < newBoard.length; i++) {
+          const square = newBoard[i]
+          if (square.playerID === playerID) {
+            snakeSquares.push({
+              index: i,
+              bodyPosition: square.bodyPosition.map((pos) => pos + 1),
+            })
+          }
         }
-      }
 
-      // Map of squares to players who intend to move there
-      const moveCollisions: { [index: number]: string[] } = {}
-      for (const playerID in intendedMoves) {
-        const moveIndex = intendedMoves[playerID]
-        if (!moveCollisions[moveIndex]) {
-          moveCollisions[moveIndex] = []
+        // Add new head
+        snakeSquares.push({ index: moveIndex, bodyPosition: [0] })
+
+        // Check if the snake ate food
+        const ateFood = newBoard[moveIndex].food
+
+        if (ateFood) {
+          // Restore health to 100
+          playerHealth[playerIDs.indexOf(playerID)] = 100
+          logger.info(`Snek: Player ${playerID} ate food and restored health.`)
+        } else {
+          // Remove tail
+          let maxPosition = -1
+          let tailIndex = -1
+          snakeSquares.forEach((part) => {
+            const maxPosInPart = Math.max(...part.bodyPosition)
+            if (maxPosInPart > maxPosition) {
+              maxPosition = maxPosInPart
+              tailIndex = part.index
+            }
+          })
+
+          // Remove the tail segment
+          snakeSquares.forEach((part) => {
+            if (part.index === tailIndex) {
+              part.bodyPosition = part.bodyPosition.filter(
+                (pos) => pos !== maxPosition,
+              )
+            }
+          })
+          // Remove parts with empty bodyPosition
+          snakeSquares = snakeSquares.filter(
+            (part) => part.bodyPosition.length > 0,
+          )
         }
-        moveCollisions[moveIndex].push(playerID)
-      }
 
-      // Handle head-to-head collisions
-      for (const indexStr in moveCollisions) {
+        updatedSnakes[playerID] = {
+          positions: snakeSquares.map((part) => part.index),
+          ateFood,
+        }
+
+        // Update squareOccupants
+        snakeSquares.forEach((part) => {
+          const index = part.index
+          if (!squareOccupants[index]) {
+            squareOccupants[index] = { heads: [], bodies: [] }
+          }
+          if (part.bodyPosition.includes(0)) {
+            squareOccupants[index].heads.push(playerID)
+          } else {
+            squareOccupants[index].bodies.push(playerID)
+          }
+        })
+      })
+
+      // Process collisions
+      for (const indexStr in squareOccupants) {
         const index = parseInt(indexStr)
-        const players = moveCollisions[index]
+        const info = squareOccupants[index]
 
-        if (players.length > 1) {
-          // Collision
+        // Head-to-head collisions
+        if (info.heads.length > 1) {
+          const players = info.heads
+          // Determine the longest snake(s)
           let maxLength = -Infinity
           let survivors: string[] = []
           const lengths: { [playerID: string]: number } = {}
@@ -319,11 +430,9 @@ export class SnekProcessor extends GameProcessor {
             if (!survivors.includes(playerID)) {
               deadPlayers.add(playerID)
               alivePlayers.delete(playerID)
-              delete intendedMoves[playerID]
               logger.info(
                 `Snek: Player ${playerID} died in head-to-head collision at index ${index}.`,
               )
-              // Mark their snake as clashes
               this.markSnakeAsClash(
                 newBoard,
                 playerID,
@@ -337,11 +446,9 @@ export class SnekProcessor extends GameProcessor {
             survivors.forEach((playerID) => {
               deadPlayers.add(playerID)
               alivePlayers.delete(playerID)
-              delete intendedMoves[playerID]
               logger.info(
                 `Snek: Player ${playerID} died in tie head-to-head collision at index ${index}.`,
               )
-              // Mark their snake as clashes
               this.markSnakeAsClash(
                 newBoard,
                 playerID,
@@ -350,106 +457,46 @@ export class SnekProcessor extends GameProcessor {
             })
           }
         }
-      }
 
-      // Check for collisions with other snakes' bodies
-      for (const playerID in intendedMoves) {
-        const moveIndex = intendedMoves[playerID]
-        const targetSquare = newBoard[moveIndex]
-
-        if (
-          targetSquare.playerID !== null &&
-          targetSquare.bodyPosition.length > 0
-        ) {
-          deadPlayers.add(playerID)
-          alivePlayers.delete(playerID)
-          delete intendedMoves[playerID]
-          logger.info(
-            `Snek: Player ${playerID} ran into a snake and died at index ${moveIndex}.`,
-          )
-          // Mark their snake as clashes
-          this.markSnakeAsClash(newBoard, playerID, "Ran into another snake")
-        }
-      }
-
-      // Update snakes for surviving players
-      for (const playerID in intendedMoves) {
-        const moveIndex = intendedMoves[playerID]
-        const targetSquare = newBoard[moveIndex]
-        const ateFood = targetSquare.food
-
-        // Move the head into the new square
-        if (
-          targetSquare.playerID !== null &&
-          targetSquare.bodyPosition.length > 0
-        ) {
-          // Collision with another snake's body (should have been handled earlier)
-          deadPlayers.add(playerID)
-          alivePlayers.delete(playerID)
-          logger.info(
-            `Snek: Player ${playerID} collided with another snake's body at index ${moveIndex}.`,
-          )
-          // Mark their snake as clashes
-          this.markSnakeAsClash(
-            newBoard,
-            playerID,
-            "Collided with another snake's body",
-          )
-          continue
-        }
-
-        // Update body positions
-        // Increase bodyPosition of existing body parts
-        for (const square of newBoard) {
-          if (square.playerID === playerID) {
-            square.bodyPosition = square.bodyPosition.map((pos) => pos + 1)
-          }
-        }
-
-        // Move head to the new square
-        targetSquare.playerID = playerID
-        targetSquare.bodyPosition.push(0)
-        targetSquare.allowedPlayers = [] // No one can move into this square now
-        targetSquare.food = false
-
-        // Remove the tail unless ate food
-        if (!ateFood) {
-          let tailIndex = -1
-          let maxPosition = -1
-          newBoard.forEach((square, idx) => {
-            if (square.playerID === playerID) {
-              const maxPosInSquare = Math.max(...square.bodyPosition)
-              if (maxPosInSquare > maxPosition) {
-                maxPosition = maxPosInSquare
-                tailIndex = idx
+        // Head-to-body collisions
+        if (info.heads.length > 0 && info.bodies.length > 0) {
+          info.heads.forEach((headPlayerID) => {
+            info.bodies.forEach((bodyPlayerID) => {
+              if (headPlayerID !== bodyPlayerID) {
+                // Head collided with another snake's body
+                deadPlayers.add(headPlayerID)
+                alivePlayers.delete(headPlayerID)
+                logger.info(
+                  `Snek: Player ${headPlayerID} collided with another snake's body at index ${index}.`,
+                )
+                this.markSnakeAsClash(
+                  newBoard,
+                  headPlayerID,
+                  "Collided with another snake's body",
+                )
               }
-            }
+            })
           })
-          if (tailIndex >= 0) {
-            const tailSquare = newBoard[tailIndex]
-            tailSquare.bodyPosition = tailSquare.bodyPosition.filter(
-              (pos) => pos !== maxPosition,
-            )
-            if (tailSquare.bodyPosition.length === 0) {
-              tailSquare.playerID = null
-              // Update allowedPlayers for the tail square
-              tailSquare.allowedPlayers = [...alivePlayers]
-            }
-          }
-        } else {
-          // Restore health to 100
-          playerHealth[playerIDs.indexOf(playerID)] = 100
-          logger.info(`Snek: Player ${playerID} ate food and restored health.`)
         }
       }
 
-      // Remove dead players from allowed moves
-      deadPlayers.forEach((playerID) => {
-        // Remove player from all allowedPlayers arrays
-        newBoard.forEach((square) => {
-          square.allowedPlayers = square.allowedPlayers.filter(
-            (id) => id !== playerID,
-          )
+      // Update the board with the new positions
+      // Clear previous snake positions
+      newBoard.forEach((square) => {
+        if (square.playerID && !alivePlayers.has(square.playerID)) {
+          square.playerID = null
+          square.bodyPosition = []
+        }
+      })
+
+      // Update alive snakes
+      alivePlayers.forEach((playerID) => {
+        const snakePositions = updatedSnakes[playerID]?.positions || []
+        snakePositions.forEach((index) => {
+          const square = newBoard[index]
+          square.playerID = playerID
+          square.bodyPosition = [0] // Simplify bodyPosition for now
+          square.food = false // Remove food if any
         })
       })
 
@@ -490,7 +537,7 @@ export class SnekProcessor extends GameProcessor {
       if (square.playerID === playerID) {
         square.playerID = null
         square.bodyPosition = []
-        square.allowedPlayers = [...this.currentTurn!.alivePlayers] // Update allowedPlayers
+        square.allowedPlayers = []
 
         // Mark the square as a clash
         square.clash = {
@@ -647,25 +694,10 @@ export class SnekProcessor extends GameProcessor {
   ): void {
     alivePlayers.forEach((playerID) => {
       const headIndex = this.getHeadIndex(board, playerID)
-      const headX = headIndex % boardWidth
-      const headY = Math.floor(headIndex / boardWidth)
-
-      const directions = [
-        { dx: 0, dy: -1 }, // Up
-        { dx: 0, dy: 1 }, // Down
-        { dx: -1, dy: 0 }, // Left
-        { dx: 1, dy: 0 }, // Right
-      ]
-
-      directions.forEach(({ dx, dy }) => {
-        const x = headX + dx
-        const y = headY + dy
-        if (x >= 0 && x < boardWidth && y >= 0 && y < boardWidth) {
-          const index = y * boardWidth + x
-          const square = board[index]
-          if (!square.allowedPlayers.includes(playerID)) {
-            square.allowedPlayers.push(playerID)
-          }
+      const adjacentSquares = this.getAdjacentIndices(headIndex, boardWidth)
+      adjacentSquares.forEach((squareIndex) => {
+        if (!board[squareIndex].allowedPlayers.includes(playerID)) {
+          board[squareIndex].allowedPlayers.push(playerID)
         }
       })
     })
