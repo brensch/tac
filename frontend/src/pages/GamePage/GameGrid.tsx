@@ -6,7 +6,6 @@ import React, { useLayoutEffect, useRef, useState } from "react"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
-import tinycolor from "tinycolor2"
 
 const GameGrid: React.FC = () => {
   const {
@@ -14,7 +13,6 @@ const GameGrid: React.FC = () => {
     playerInfos,
     hasSubmittedMove,
     currentTurn,
-    selectedSquare,
     setSelectedSquare,
   } = useGameStateContext()
 
@@ -100,7 +98,6 @@ const GameGrid: React.FC = () => {
       }}
     >
       {board.map((cell: Square, index: number) => {
-        const isSelected = selectedSquare === index
         const isWinningSquare = winningSquaresSet.has(index)
 
         // Determine if the current user can move into this square
@@ -149,7 +146,7 @@ const GameGrid: React.FC = () => {
         }
 
         // Determine border style
-        let borderStyle = "1px solid black"
+        const borderStyle = "1px solid black"
 
         // If the square is selectable by the user, add green dotted border inside edges
         const selectableBorder = canUserMoveHere
