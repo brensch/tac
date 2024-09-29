@@ -134,7 +134,7 @@ const GameGrid: React.FC = () => {
         }
 
         // Determine border style
-        let borderStyle = "1px solid black"
+        const borderStyle = "1px solid black"
 
         // If the square is selectable by the user, add green border inside edges
         const selectableBorder = canUserMoveHere
