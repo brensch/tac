@@ -4,7 +4,7 @@ import { db } from "../firebaseConfig"
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
 import { auth } from "../firebaseConfig"
 import SignupPage from "../pages/SignupPage"
-import { Container, Box, Typography } from "@mui/material"
+import { Container, Box } from "@mui/material"
 import { PlayerInfo } from "@shared/types/Game"
 
 interface UserContextType {
