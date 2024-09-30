@@ -56,10 +56,10 @@ const GameGrid: React.FC = () => {
   const cellBackgroundMap: { [index: number]: string } = {}
   const cellAllowedMoveMap: { [index: number]: boolean } = {}
   const clashesAtPosition: { [index: number]: Clash } = {}
+  const latestMovePositionsSet: Set<number> = new Set()
 
   if (currentTurn && gameState) {
-    const { gameType } = gameState
-    const { playerPieces, allowedMoves, clashes } = currentTurn
+    const { gameType, moves, playerPieces, allowedMoves, clashes } = currentTurn
 
     // Map clashes to positions
     if (clashes) {
@@ -74,11 +74,17 @@ const GameGrid: React.FC = () => {
       cellAllowedMoveMap[position] = true
     })
 
+    // Extract the latest move positions
+    if (moves) {
+      Object.values(moves).forEach((position) => {
+        latestMovePositionsSet.add(position)
+      })
+    }
+
     if (gameType === "snek") {
       // Snek-specific rendering
       const { food, hazards, walls } = currentTurn
 
-      // Map of position to snake segments
       const cellSnakeSegments: {
         [position: number]: {
           playerID: string
@@ -88,7 +94,6 @@ const GameGrid: React.FC = () => {
         }
       } = {}
 
-      // Helper function to get arrow emoji based on direction
       const getArrowEmoji = (
         prevPos: number,
         currPos: number,
@@ -111,13 +116,10 @@ const GameGrid: React.FC = () => {
           dy2 = delta.dy
         }
 
-        // Determine direction
         const dx = dx1 + dx2
         const dy = dy1 + dy2
 
-        // Map direction to arrow emoji
         const directionKey = `${dx},${dy}`
-
         const arrowMap: { [key: string]: string } = {
           "0,-2": "⬆️",
           "0,2": "⬇️",
@@ -139,7 +141,6 @@ const GameGrid: React.FC = () => {
         const playerInfo = playerInfos.find((p) => p.id === playerID)
 
         positions.forEach((position, index) => {
-          // Initialize cellSnakeSegments
           if (!cellSnakeSegments[position]) {
             cellSnakeSegments[position] = {
               playerID: playerID,
@@ -151,10 +152,8 @@ const GameGrid: React.FC = () => {
             cellSnakeSegments[position].count += 1
           }
 
-          // Set background color
           cellBackgroundMap[position] = playerInfo?.colour || "white"
 
-          // If not head, determine arrow emoji
           if (index > 0) {
             const prevPos = positions[index - 1]
             const currPos = positions[index]
@@ -168,7 +167,6 @@ const GameGrid: React.FC = () => {
         })
       })
 
-      // Process cellSnakeSegments to create cellContentMap
       Object.keys(cellSnakeSegments).forEach((positionStr) => {
         const position = parseInt(positionStr)
         const segmentInfo = cellSnakeSegments[position]
@@ -179,21 +177,18 @@ const GameGrid: React.FC = () => {
         let content: JSX.Element | null
 
         if (segmentInfo.isHead) {
-          // Head
           content = (
             <span key={`head-${position}`} style={{ fontSize }}>
               {playerInfo?.emoji || "⭕"}
             </span>
           )
         } else if (segmentInfo.arrowEmoji) {
-          // Body with arrow
           content = (
             <span key={`body-${position}`} style={{ fontSize }}>
               {segmentInfo.arrowEmoji}
             </span>
           )
         } else {
-          // Default body segment
           content = (
             <span key={`body-${position}`} style={{ fontSize }}>
               🍑
@@ -201,7 +196,6 @@ const GameGrid: React.FC = () => {
           )
         }
 
-        // Add count indicator if multiple segments
         if (segmentInfo.count > 1) {
           const count = segmentInfo.count
           content = (
@@ -241,7 +235,6 @@ const GameGrid: React.FC = () => {
             🧱
           </span>
         )
-        // Set background color for walls
         cellBackgroundMap[position] = "#8B4513" // Brown color for walls
       })
 
@@ -254,7 +247,7 @@ const GameGrid: React.FC = () => {
         )
       })
 
-      // Place clashes (dead snake segments)
+      // Place clashes
       clashes?.forEach((clash) => {
         const position = clash.index
         cellContentMap[position] = (
@@ -262,7 +255,6 @@ const GameGrid: React.FC = () => {
             💀
           </span>
         )
-        // Set background color for clashes
         cellBackgroundMap[position] = "#d3d3d3" // light gray
       })
     } else {
@@ -280,7 +272,6 @@ const GameGrid: React.FC = () => {
             </span>
           )
 
-          // Set background color
           cellBackgroundMap[position] = playerInfo?.colour || "white"
         })
       })
@@ -293,7 +284,6 @@ const GameGrid: React.FC = () => {
             💥
           </span>
         )
-        // Set background color for clashes
         cellBackgroundMap[position] = "#d3d3d3" // light gray
       })
     }
@@ -303,17 +293,14 @@ const GameGrid: React.FC = () => {
     if (!currentTurn || !gameState) return
 
     if (gameState.started && !hasSubmittedMove) {
-      // Determine if the current user can move into this square
       const allowedMoves = currentTurn.allowedMoves[user.userID] || []
       if (allowedMoves.includes(index)) {
         setSelectedSquare(index)
       }
     }
 
-    // Check if there is a clash at this position
     const clash = clashesAtPosition[index]
     if (clash) {
-      // Get player infos for the players involved
       const playersInvolved = clash.playerIDs
         .map((id) => playerInfos.find((p) => p.id === id))
         .filter((p): p is PlayerInfo => !!p)
@@ -325,8 +312,6 @@ const GameGrid: React.FC = () => {
   }
 
   const disabled = hasSubmittedMove
-
-  console.log(currentTurn?.moves)
 
   return (
     <>
@@ -346,16 +331,15 @@ const GameGrid: React.FC = () => {
         {Array.from({ length: totalCells }).map((_, index) => {
           const isSelected = selectedSquare === index
           const isWinningSquare = winningSquaresSet.has(index)
+          const isLatestMove = latestMovePositionsSet.has(index)
 
           const cellContent = cellContentMap[index] || null
 
-          // Determine background color
           let backgroundColor = cellBackgroundMap[index] || "white"
           if (isWinningSquare) {
             backgroundColor = "green"
           }
 
-          // Determine if the square is an allowed move for the user
           const isAllowedMove = cellAllowedMoveMap[index] || false
 
           return (
@@ -376,7 +360,6 @@ const GameGrid: React.FC = () => {
                 boxSizing: "border-box",
               }}
             >
-              {/* Inner border for allowed moves */}
               {isAllowedMove && (
                 <Box
                   sx={{
@@ -391,7 +374,20 @@ const GameGrid: React.FC = () => {
                   }}
                 />
               )}
-              {/* Content Box */}
+              {isLatestMove && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: "1px",
+                    left: "1px",
+                    right: "1px",
+                    bottom: "1px",
+                    border: `2px solid yellow`,
+                    pointerEvents: "none",
+                    zIndex: 3,
+                  }}
+                />
+              )}
               <Box
                 sx={{
                   position: "absolute",
@@ -415,7 +411,6 @@ const GameGrid: React.FC = () => {
           )
         })}
       </Box>
-      {/* Clash Dialog */}
       <ClashDialog
         open={openClashDialog}
         onClose={() => setOpenClashDialog(false)}

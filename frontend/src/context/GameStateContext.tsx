@@ -21,7 +21,7 @@ import {
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
 import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
-import { Typography } from "@mui/material"
+import { Box } from "@mui/material"
 
 interface GameStateContextType {
   gameState: GameState | null
@@ -319,7 +319,20 @@ export const GameStateProvider: React.FC<{
         timeRemaining,
       }}
     >
-      {gameState ? children : <Typography>Loading</Typography>}
+      {gameState ? (
+        children
+      ) : (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh", // Full viewport height
+          }}
+        >
+          <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+        </Box>
+      )}{" "}
     </GameStateContext.Provider>
   )
 }

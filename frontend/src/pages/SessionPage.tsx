@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { Stack, Typography } from "@mui/material"
+import { Box, Stack, Typography } from "@mui/material"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   collection,
@@ -56,7 +56,16 @@ const Sessionpage: React.FC = () => {
       {errorMessage ? (
         <Typography>{errorMessage}</Typography>
       ) : (
-        <Typography>Loading...</Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh", // Full viewport height
+          }}
+        >
+          <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+        </Box>
       )}
     </Stack>
   )
