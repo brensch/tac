@@ -81,42 +81,6 @@ const GameActive: React.FC = () => {
 
   if (!gameState.started || !currentTurn) return null
 
-  // For checking if the player can move to the selected square
-  const canPlayerMoveToSelectedSquare = () => {
-    if (!currentTurn || selectedSquare === null) return false
-
-    // For games like Snek, check if the selected square is adjacent to the snake's head
-    if (gameState.gameType === "snek") {
-      const playerIndex = currentTurn.playerIDs.indexOf(userID)
-      if (playerIndex === -1) return false
-
-      const userSnake = currentTurn.snakes[playerIndex]
-      const headPosition = userSnake[0]
-      const validMoves = getAdjacentIndices(
-        headPosition,
-        currentTurn.boardWidth,
-        currentTurn.boardHeight,
-      )
-      return validMoves.includes(selectedSquare)
-    }
-
-    // For games like TacticToe and Longboi, check if the position is unclaimed
-    if (
-      ["tactictoes", "longboi"].includes(gameState.gameType) &&
-      !(currentTurn as any).claimedPositions[selectedSquare]
-    ) {
-      return true
-    }
-
-    // For Connect4, check if the column is valid
-    if (gameState.gameType === "connect4") {
-      const column = selectedSquare
-      return column >= 0 && column < currentTurn.boardWidth
-    }
-
-    return false
-  }
-
   return (
     <Stack spacing={2} pt={2}>
       {/* Rules Dialog - Only shown on the first turn */}
@@ -146,7 +110,6 @@ const GameActive: React.FC = () => {
             !!currentTurn?.hasMoved[userID] ||
             !playerInCurrentGame ||
             selectedSquare === null ||
-            !canPlayerMoveToSelectedSquare() ||
             turns.length !== currentTurn?.turnNumber
           }
           variant="contained"
@@ -212,13 +175,7 @@ const GameActive: React.FC = () => {
                     : "Not yet"}
                 </TableCell>
                 <TableCell align="right">
-                  {
-                    currentTurn.scores[
-                      currentTurn.playerIDs.findIndex(
-                        (playerID) => player.id === playerID,
-                      )
-                    ]
-                  }
+                  {currentTurn.scores[player.id]}
                 </TableCell>
               </TableRow>
             ))}

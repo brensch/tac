@@ -51,7 +51,7 @@ export async function createNewGame(
       nextGame: "", // No next game yet
       maxTurnTime: gameData.maxTurnTime,
       playersReady: [], // Reset players ready
-      firstPlayerReadyTime: undefined, // Reset first player ready time
+      firstPlayerReadyTime: null,
     }
 
     // Set the new game document within the transaction

@@ -5,6 +5,7 @@ import { Winner, Turn, Move, GameState } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
+import { Timestamp } from "firebase-admin/firestore"
 
 /**
  * Processor class for Longboi game logic.
@@ -83,17 +84,15 @@ export class LongboiProcessor extends GameProcessor {
       playerHealth: {}, // Not used in Longboi
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
-      startTime: admin.firestore.Timestamp.fromMillis(now),
-      endTime: admin.firestore.Timestamp.fromMillis(
-        now + gameState.maxTurnTime * 1000,
-      ),
+      startTime: Timestamp.fromMillis(now),
+      endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
       scores: {}, // Initialize scores as empty map
       alivePlayers: [...playerIDs], // All players are alive at the start
 
       // New fields
       food: [], // Not used in Longboi
       hazards: [], // Not used in Longboi
-      snakes: snakes, // Players' occupied positions
+      playerPieces: snakes, // Players' occupied positions
       allowedMoves: allowedMoves,
       walls: [], // No walls in Longboi
     }
@@ -107,7 +106,12 @@ export class LongboiProcessor extends GameProcessor {
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const { playerIDs, boardWidth, boardHeight, snakes } = this.currentTurn
+      const {
+        playerIDs,
+        boardWidth,
+        boardHeight,
+        playerPieces: snakes,
+      } = this.currentTurn
 
       // Deep copy snakes
       const newSnakes: { [playerID: string]: number[] } = {}
@@ -194,7 +198,7 @@ export class LongboiProcessor extends GameProcessor {
       })
 
       // Update the current turn
-      this.currentTurn.snakes = newSnakes
+      this.currentTurn.playerPieces = newSnakes
       this.currentTurn.scores = scores
       this.currentTurn.allowedMoves = newAllowedMoves
       this.currentTurn.alivePlayers = [...playerIDs] // All players are alive
@@ -214,8 +218,13 @@ export class LongboiProcessor extends GameProcessor {
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const { boardWidth, boardHeight, playerIDs, snakes, scores } =
-        this.currentTurn
+      const {
+        boardWidth,
+        boardHeight,
+        playerIDs,
+        playerPieces: snakes,
+        scores,
+      } = this.currentTurn
       const totalPositions = boardWidth * boardHeight
 
       // Check if all positions are claimed

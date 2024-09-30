@@ -2,6 +2,7 @@
 
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
+import { Timestamp } from "firebase-admin/firestore"
 import * as logger from "firebase-functions/logger"
 import { GameState } from "./types/Game"
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
@@ -16,6 +17,7 @@ export const onReadyExpirationRequest = functions.firestore
     const gameRef = admin.firestore().collection("games").doc(gameID)
     const gameDoc = await gameRef.get()
     const gameData = gameDoc.data() as GameState
+    console.log("yooooooooooooooooo")
 
     if (!gameData) {
       logger.error("Game not found", { gameID })
@@ -30,7 +32,8 @@ export const onReadyExpirationRequest = functions.firestore
     if (!gameData.firstPlayerReadyTime) {
       return
     }
-    const now = admin.firestore.Timestamp.now()
+    console.log(Timestamp)
+    const now = Timestamp.now()
     const firstPlayerReadyTime = gameData.firstPlayerReadyTime
     const elapsedSeconds = now.seconds - firstPlayerReadyTime.seconds
 

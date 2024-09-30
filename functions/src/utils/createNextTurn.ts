@@ -40,7 +40,7 @@ export async function createNextTurn(
     endTime: Timestamp.fromMillis(endTimeMillis),
     food: currentTurn.food,
     hazards: currentTurn.hazards,
-    snakes: currentTurn.snakes,
+    playerPieces: currentTurn.playerPieces,
     allowedMoves: currentTurn.allowedMoves,
     walls: currentTurn.walls,
   }

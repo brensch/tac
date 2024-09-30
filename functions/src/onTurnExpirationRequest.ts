@@ -1,5 +1,7 @@
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
+import { Timestamp } from "firebase-admin/firestore"
+
 import * as logger from "firebase-functions/logger"
 import { Turn } from "./types/Game"
 import { processTurn } from "./gameprocessors/processTurn"
@@ -54,7 +56,7 @@ export const onTurnExpirationRequest = functions.firestore
       }
 
       const currentTurn = currentTurnDoc.data() as Turn
-      const now = admin.firestore.Timestamp.now()
+      const now = Timestamp.now()
 
       // Check if the turn has expired
       if (now.toMillis() > currentTurn.endTime.toMillis()) {

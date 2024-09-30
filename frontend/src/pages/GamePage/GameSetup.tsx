@@ -41,7 +41,8 @@ const GameSetup: React.FC = () => {
   const { gameState, playerInfos } = useGameStateContext()
 
   const [boardWidth, setBoardWidth] = useState<string>("8")
-  const [gameType, setGameType] = useState<GameType>("connect4")
+  const [boardHeight, setBoardHeight] = useState<string>("8")
+  const [gameType, setGameType] = useState<GameType>("snek")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null) // To store interval ID
@@ -51,6 +52,7 @@ const GameSetup: React.FC = () => {
   useEffect(() => {
     if (gameState) {
       setBoardWidth(`${gameState.boardWidth}`)
+      setBoardHeight(`${gameState.boardHeight}`)
       if (gameState.gameType) setGameType(gameState.gameType)
       setSecondsPerTurn(`${gameState.maxTurnTime}`)
     }
@@ -122,6 +124,14 @@ const GameSetup: React.FC = () => {
     setBoardWidth(value)
   }
 
+  // Handle board width change
+  const handleBoardHeightChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value
+    setBoardHeight(value)
+  }
+
   // Update Firestore when the input loses focus
   const handleBoardWidthBlur = async () => {
     if (gameID && !gameState?.started) {
@@ -137,6 +147,30 @@ const GameSetup: React.FC = () => {
         setBoardWidth("8")
         await updateDoc(gameDocRef, {
           boardWidth: 8,
+        })
+      }
+    }
+  }
+
+  // Update Firestore when the input loses focus
+  const handleBoardHeightBlur = async () => {
+    if (gameID && !gameState?.started) {
+      const newBoardHeight = parseInt(boardHeight, 10)
+      const gameDocRef = doc(db, "games", gameID)
+
+      if (
+        !isNaN(newBoardHeight) &&
+        newBoardHeight >= 5 &&
+        newBoardHeight <= 20
+      ) {
+        await updateDoc(gameDocRef, {
+          boardHeight: newBoardHeight,
+        })
+      } else {
+        // Handle invalid input: reset to default
+        setBoardHeight("8")
+        await updateDoc(gameDocRef, {
+          boardHeight: 8,
         })
       }
     }
@@ -193,11 +227,20 @@ const GameSetup: React.FC = () => {
       <Typography variant="h5">New Game</Typography>
       <Box sx={{ display: "flex", gap: 2 }}>
         <TextField
-          label="Board Size"
+          label="Board Width"
           type="number"
           value={boardWidth}
           onChange={handleBoardWidthChange}
           onBlur={handleBoardWidthBlur}
+          disabled={started}
+          fullWidth
+        />
+        <TextField
+          label="Board Height"
+          type="number"
+          value={boardHeight}
+          onChange={handleBoardHeightChange}
+          onBlur={handleBoardHeightBlur}
           disabled={started}
           fullWidth
         />
@@ -206,7 +249,7 @@ const GameSetup: React.FC = () => {
         )}
 
         <TextField
-          label="Seconds per Turn"
+          label="Turn time (s)"
           type="number"
           value={secondsPerTurn}
           onChange={handleSecondsPerTurnChange}

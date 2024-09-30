@@ -1,6 +1,6 @@
 // @shared/types/Game.ts
 
-import * as admin from "firebase-admin"
+import { Timestamp } from "firebase-admin/firestore"
 
 // Define the Winner interface
 export interface Winner {
@@ -15,7 +15,7 @@ export interface Move {
   moveNumber: number // The turn number
   playerID: string
   move: number // The index of the square the player wants to move into
-  timestamp: admin.firestore.Timestamp // Server timestamp when the move was submitted
+  timestamp: Timestamp // Server timestamp when the move was submitted
 }
 
 export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
@@ -34,7 +34,7 @@ export interface GameState {
   maxTurnTime: number // Time limit per turn in seconds
 
   playersReady: string[]
-  firstPlayerReadyTime?: admin.firestore.Timestamp
+  firstPlayerReadyTime: Timestamp | null
 }
 
 export interface PlayerInfo {
@@ -44,7 +44,7 @@ export interface PlayerInfo {
   colour: string
 }
 
-// Updated Turn interface to include 'allowedMoves' and 'walls'
+// Updated Turn interface to include 'allowedMoves', 'walls', and 'clashes'
 export interface Turn {
   turnNumber: number
   boardWidth: number
@@ -53,28 +53,25 @@ export interface Turn {
   playerIDs: string[] // This is to avoid a lookup of game for every move server-side
   playerHealth: { [playerID: string]: number } // Map of playerID to health
   hasMoved: {
-    [playerID: string]: { moveTime: admin.firestore.Timestamp }
+    [playerID: string]: { moveTime: Timestamp }
   } // Map of playerID to moveTime
   turnTime: number
-  startTime: admin.firestore.Timestamp // When the turn started
-  endTime: admin.firestore.Timestamp // When the turn ended
+  startTime: Timestamp // When the turn started
+  endTime: Timestamp // When the turn ended
   scores: { [playerID: string]: number } // Map of playerID to score
   alivePlayers: string[] // List of player IDs who are still alive
 
   // New fields
   food: number[] // Positions of food on the board
   hazards: number[] // Positions of hazards on the board
-  snakes: {
+  playerPieces: {
     [playerID: string]: number[] // Map of playerID to array of positions
   } // Each snake is represented by a map entry
   allowedMoves: { [playerID: string]: number[] } // Map of playerID to allowed move indexes
   walls: number[] // Positions of walls on the board
 
-  // For games like Connect4 and TacticToe
-  claimedPositions?: { [position: number]: string } // Map of position to playerID
-
-  // For Connect4 grid (flattened to avoid nested arrays)
-  grid?: { [position: number]: string | null } // Map of position to playerID or null
+  // Clashes
+  clashes?: { [playerID: string]: number[] } // Map of playerID to positions of their dead snake
 }
 
 // Function to initialize a new game
@@ -85,7 +82,7 @@ export const initializeGame = (
 ): GameState => {
   return {
     sessionName: sessionName,
-    gameType: "connect4",
+    gameType: "snek",
     sessionIndex: 0,
     playerIDs: [],
     playersReady: [],
@@ -95,5 +92,6 @@ export const initializeGame = (
     started: false,
     nextGame: "",
     maxTurnTime: 10, // Default time limit per turn in seconds
+    firstPlayerReadyTime: null,
   }
 }

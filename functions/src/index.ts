@@ -6,6 +6,14 @@ import * as admin from "firebase-admin"
 
 admin.initializeApp()
 
+if (process.env.FIRESTORE_EMULATOR_HOST) {
+  const firestore = admin.firestore()
+  firestore.settings({
+    host: process.env.FIRESTORE_EMULATOR_HOST,
+    ssl: false,
+  })
+}
+
 // Export your functions
 export {
   onMoveCreated,

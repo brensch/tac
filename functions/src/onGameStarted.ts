@@ -5,6 +5,7 @@ import * as admin from "firebase-admin"
 import { GameState } from "@shared/types/Game" // Adjust the path as necessary
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 import { logger } from "./logger" // Adjust the path as necessary
+import { Timestamp } from "firebase-admin/firestore"
 
 /**
  * Firestore Trigger to start the game when all players are ready.
@@ -34,7 +35,7 @@ export const onGameStarted = functions.firestore
       ) {
         // Set firstPlayerReadyTime to now if the first player is ready
         transaction.update(gameRef, {
-          firstPlayerReadyTime: admin.firestore.Timestamp.now(),
+          firstPlayerReadyTime: Timestamp.now(),
         })
 
         logger.info(

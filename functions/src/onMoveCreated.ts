@@ -3,6 +3,7 @@ import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 import { Turn, Move } from "./types/Game" // Adjust the import path as necessary
 import { processTurn } from "./gameprocessors/processTurn"
+import { Timestamp } from "firebase-admin/firestore"
 
 export const onMoveCreated = functions.firestore
   .document("games/{gameID}/privateMoves/{moveID}")
@@ -29,7 +30,7 @@ export const onMoveCreated = functions.firestore
       }
 
       const currentTurn = currentTurnDoc.data() as Turn
-      const now = admin.firestore.Timestamp.now()
+      const now = Timestamp.now()
       const timesUp = now.toMillis() > currentTurn.endTime.toMillis()
 
       // Check if the move was submitted within the allowed time for this turn and that it's the current turn
