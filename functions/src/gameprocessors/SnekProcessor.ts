@@ -103,6 +103,7 @@ export class SnekProcessor extends GameProcessor {
       walls: walls, // Positions of walls
       clashes: [], // Initialize empty array for clashes
       gameOver: false,
+      moves: {},
     }
 
     return firstTurn

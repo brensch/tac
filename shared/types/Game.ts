@@ -73,6 +73,7 @@ export interface Turn {
   // Clashes
   clashes: Clash[] // Map of playerID to positions of their dead snake
   gameOver: boolean
+  moves: { [playerID: string]: number }
 }
 
 export interface Clash {

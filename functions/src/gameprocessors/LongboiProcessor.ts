@@ -1,7 +1,7 @@
 // functions/src/gameprocessors/LongboiProcessor.ts
 
 import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, GameState } from "@shared/types/Game"
+import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
@@ -61,10 +61,10 @@ export class LongboiProcessor extends GameProcessor {
     const { boardWidth, boardHeight, playerIDs } = gameState
     const now = Date.now()
 
-    // Initialize snakes as occupied positions for each player
-    const snakes: { [playerID: string]: number[] } = {}
+    // Initialize playerPieces as occupied positions for each player
+    const playerPieces: { [playerID: string]: number[] } = {}
     playerIDs.forEach((playerID) => {
-      snakes[playerID] = []
+      playerPieces[playerID] = []
     })
 
     // Initialize allowed moves (all positions on the board)
@@ -87,16 +87,17 @@ export class LongboiProcessor extends GameProcessor {
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
       scores: {}, // Initialize scores as empty map
-      alivePlayers: [...playerIDs], // All players are alive at the start
+      alivePlayers: [...playerIDs], // All players are alive
 
       // New fields
       food: [], // Not used in Longboi
       hazards: [], // Not used in Longboi
-      playerPieces: snakes, // Players' occupied positions
+      playerPieces: playerPieces, // Players' occupied positions
       allowedMoves: allowedMoves,
       walls: [], // No walls in Longboi
-      clashes: [],
+      clashes: [], // Initialize empty array for clashes
       gameOver: false,
+      moves: {},
     }
 
     return firstTurn
@@ -108,36 +109,30 @@ export class LongboiProcessor extends GameProcessor {
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const {
-        playerIDs,
-        boardWidth,
-        boardHeight,
-        playerPieces: snakes,
-      } = this.currentTurn
+      const { playerIDs, boardWidth, boardHeight, playerPieces, allowedMoves } =
+        this.currentTurn
 
-      // Deep copy snakes
-      const newSnakes: { [playerID: string]: number[] } = {}
-      Object.keys(snakes).forEach((playerID) => {
-        newSnakes[playerID] = [...snakes[playerID]]
+      // Deep copy playerPieces
+      const newPlayerPieces: { [playerID: string]: number[] } = {}
+      Object.keys(playerPieces).forEach((playerID) => {
+        newPlayerPieces[playerID] = [...playerPieces[playerID]]
       })
 
       // Map to keep track of moves to positions
       const moveMap: { [position: number]: string[] } = {}
 
-      // Apply moves
+      // Clashes array
+      const clashes: Clash[] = []
+
+      // Process latest moves
       this.latestMoves.forEach((move) => {
         const position = move.move
         const playerID = move.playerID
 
-        // Check if position is already claimed by any player
-        const isPositionClaimed = Object.values(newSnakes).some((positions) =>
-          positions.includes(position),
-        )
-
-        if (isPositionClaimed) {
-          // Position already claimed
+        // Check if position is allowed for the player
+        if (!allowedMoves[playerID]?.includes(position)) {
           logger.warn(
-            `Longboi: Position ${position} already claimed. Move by player ${playerID} ignored.`,
+            `Longboi: Invalid move by player ${playerID} to position ${position}. Move ignored.`,
           )
           return
         }
@@ -156,7 +151,7 @@ export class LongboiProcessor extends GameProcessor {
         if (players.length === 1) {
           // Valid move
           const playerID = players[0]
-          newSnakes[playerID].push(position)
+          newPlayerPieces[playerID].push(position)
           logger.info(
             `Longboi: Position ${position} claimed by player ${playerID}.`,
           )
@@ -167,7 +162,12 @@ export class LongboiProcessor extends GameProcessor {
               ", ",
             )}.`,
           )
-          // Optionally, you could implement a clash mechanic here
+          // Record the clash
+          clashes.push({
+            index: position,
+            playerIDs: players,
+            reason: "Multiple players attempted to claim the same position",
+          })
         }
       }
 
@@ -178,7 +178,7 @@ export class LongboiProcessor extends GameProcessor {
         (_, index) => index,
       )
       const claimedPositions = new Set<number>()
-      Object.values(newSnakes).forEach((positions) => {
+      Object.values(newPlayerPieces).forEach((positions) => {
         positions.forEach((pos) => claimedPositions.add(pos))
       })
 
@@ -193,17 +193,18 @@ export class LongboiProcessor extends GameProcessor {
       const scores: { [playerID: string]: number } = {}
       playerIDs.forEach((playerID) => {
         scores[playerID] = this.calculateLongestLine(
-          newSnakes[playerID],
+          newPlayerPieces[playerID],
           boardWidth,
           boardHeight,
         )
       })
 
       // Update the current turn
-      this.currentTurn.playerPieces = newSnakes
+      this.currentTurn.playerPieces = newPlayerPieces
       this.currentTurn.scores = scores
       this.currentTurn.allowedMoves = newAllowedMoves
       this.currentTurn.alivePlayers = [...playerIDs] // All players are alive
+      this.currentTurn.clashes = clashes
     } catch (error) {
       logger.error(
         `Longboi: Error applying moves for game ${this.gameID}:`,
@@ -220,24 +221,20 @@ export class LongboiProcessor extends GameProcessor {
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const {
-        boardWidth,
-        boardHeight,
-        playerIDs,
-        playerPieces: snakes,
-        scores,
-      } = this.currentTurn
+      const { boardWidth, boardHeight, playerIDs, playerPieces, scores } =
+        this.currentTurn
       const totalPositions = boardWidth * boardHeight
 
       // Check if all positions are claimed
-      const claimedPositionsCount = Object.values(snakes).reduce(
+      const claimedPositionsCount = Object.values(playerPieces).reduce(
         (sum, positions) => sum + positions.length,
         0,
       )
 
       const isBoardFull = claimedPositionsCount >= totalPositions
 
-      if (!isBoardFull) {
+      // If no one moved, also end the game
+      if (!isBoardFull && this.latestMoves.length !== 0) {
         // Game continues
         return []
       }
@@ -259,7 +256,7 @@ export class LongboiProcessor extends GameProcessor {
 
       if (potentialWinners.length === 1) {
         const winnerID = potentialWinners[0]
-        const winningSquares = snakes[winnerID]
+        const winningSquares = playerPieces[winnerID]
         const winner: Winner = {
           playerID: winnerID,
           score: maxLineLength,
@@ -279,7 +276,7 @@ export class LongboiProcessor extends GameProcessor {
         return potentialWinners.map((playerID) => ({
           playerID,
           score: scores[playerID],
-          winningSquares: snakes[playerID],
+          winningSquares: playerPieces[playerID],
         }))
       }
     } catch (error) {

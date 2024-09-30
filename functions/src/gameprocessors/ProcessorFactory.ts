@@ -2,10 +2,10 @@
 
 import { Transaction } from "firebase-admin/firestore"
 import { Turn, Move } from "@shared/types/Game"
-// import { Connect4Processor } from "./Connect4Processor"
+import { Connect4Processor } from "./Connect4Processor"
 import { LongboiProcessor } from "./LongboiProcessor"
 import { GameProcessor } from "./GameProcessor"
-// import { TacticToesProcessor } from "./TacticToesProcessor"
+import { TacticToesProcessor } from "./TacticToesProcessor"
 import { SnekProcessor } from "./SnekProcessor"
 
 export function getGameProcessor(
@@ -16,22 +16,22 @@ export function getGameProcessor(
   currentTurn?: Turn,
 ): GameProcessor | null {
   switch (gameType) {
-    // case "connect4":
-    //   return new Connect4Processor(
-    //     transaction,
-    //     gameID,
-    //     latestMoves,
-    //     currentTurn,
-    //   )
+    case "connect4":
+      return new Connect4Processor(
+        transaction,
+        gameID,
+        latestMoves,
+        currentTurn,
+      )
     case "longboi":
       return new LongboiProcessor(transaction, gameID, latestMoves, currentTurn)
-    // case "tactictoes":
-    //   return new TacticToesProcessor(
-    //     transaction,
-    //     gameID,
-    //     latestMoves,
-    //     currentTurn,
-    //   )
+    case "tactictoes":
+      return new TacticToesProcessor(
+        transaction,
+        gameID,
+        latestMoves,
+        currentTurn,
+      )
     case "snek":
       return new SnekProcessor(transaction, gameID, latestMoves, currentTurn)
     default:

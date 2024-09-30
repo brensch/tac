@@ -113,6 +113,12 @@ export async function processTurn(
           `No winners yet for game ${gameID} in round ${currentRound}`,
         )
       }
+      // record latest moves
+      let moves: {
+        [playerID: string]: number
+      } = {}
+      latestMoves.forEach((move) => (moves[move.playerID] = move.move))
+      currentTurn.moves = moves
       await createNextTurn(transaction, gameID, currentTurn)
       logger.info(
         `New turn created for game ${gameID} in round ${currentRound + 1}`,
