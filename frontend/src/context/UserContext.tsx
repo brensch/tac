@@ -98,9 +98,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
           flexDirection="column"
           alignItems="center"
         >
-          <Typography variant="h4" sx={{ my: 4 }}>
-            Hi 👋
-          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100vh", // Full viewport height
+            }}
+          >
+            <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+          </Box>
         </Box>
       </Container>
     )
