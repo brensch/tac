@@ -112,7 +112,8 @@ const GameActive: React.FC = () => {
             !playerInCurrentGame ||
             selectedSquare === null ||
             turns.length !== currentTurn?.turnNumber ||
-            !latestTurn?.allowedMoves[userID].includes(selectedSquare)
+            (latestTurn?.allowedMoves[userID] &&
+              !latestTurn?.allowedMoves[userID].includes(selectedSquare))
           }
           variant="contained"
           onClick={handleMoveSubmit}
@@ -164,7 +165,7 @@ const GameActive: React.FC = () => {
           </TableHead>
           <TableBody>
             {playerInfos.map((player) => (
-              <TableRow key={player.id}>
+              <TableRow key={player.id} sx={{ backgroundColor: player.colour }}>
                 <TableCell>
                   {player.nickname} {player.emoji}
                 </TableCell>
@@ -174,7 +175,7 @@ const GameActive: React.FC = () => {
                         currentTurn.hasMoved[player.id].moveTime.seconds -
                           currentTurn.startTime.seconds,
                       )}s`
-                    : "Not yet"}
+                    : "Haven't moved"}
                 </TableCell>
                 <TableCell align="right">
                   {currentTurn.scores[player.id]}

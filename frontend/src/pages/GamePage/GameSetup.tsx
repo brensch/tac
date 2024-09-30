@@ -310,10 +310,13 @@ const GameSetup: React.FC = () => {
           <TableBody>
             {playerInfos.map((player) => (
               <TableRow key={player.id}>
-                <TableCell>
+                <TableCell sx={{ backgroundColor: player.colour }}>
                   {player.nickname} {player.emoji}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell
+                  align="right"
+                  sx={{ backgroundColor: player.colour }}
+                >
                   {playersReady.includes(player.id) ? "Yeah" : "Nah"}
                 </TableCell>
               </TableRow>
