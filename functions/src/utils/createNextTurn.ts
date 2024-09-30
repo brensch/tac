@@ -43,6 +43,7 @@ export async function createNextTurn(
     playerPieces: currentTurn.playerPieces,
     allowedMoves: currentTurn.allowedMoves,
     walls: currentTurn.walls,
+    clashes: currentTurn.clashes,
   }
 
   // Handle game-specific data structures

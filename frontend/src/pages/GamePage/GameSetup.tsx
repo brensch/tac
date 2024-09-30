@@ -33,7 +33,6 @@ import {
 import { useGameStateContext } from "../../context/GameStateContext"
 import { GameType } from "@shared/types/Game"
 import { getRulesComponent } from "./RulesDialog"
-import { Connect4Rules } from "../../constants/Rules"
 
 const GameSetup: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
@@ -45,7 +44,7 @@ const GameSetup: React.FC = () => {
   const [gameType, setGameType] = useState<GameType>("snek")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
-  const [RulesComponent, setRulesComponent] = useState<React.FC>(Connect4Rules)
+  const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
 
   // **NEW**: Ref to store the interval ID
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
@@ -296,7 +295,7 @@ const GameSetup: React.FC = () => {
       </FormControl>
 
       {/* Game rules */}
-      <RulesComponent />
+      {RulesComponent && <RulesComponent />}
 
       {/* Players Table */}
       <TableContainer>

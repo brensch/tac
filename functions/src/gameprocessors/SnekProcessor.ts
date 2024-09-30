@@ -100,6 +100,7 @@ export class SnekProcessor extends GameProcessor {
       playerPieces: playerPieces, // Snakes positions as a map
       allowedMoves: allowedMoves, // Map of allowed moves per player
       walls: walls, // Positions of walls
+      clashes: [],
     }
 
     return firstTurn
@@ -228,28 +229,6 @@ export class SnekProcessor extends GameProcessor {
 
         // Add the latest move index to the start of the snake (new head position)
         snake.unshift(moveIndex)
-
-        // Check if they landed on a food piece
-        const foodIndex = newFood.indexOf(moveIndex)
-        if (foodIndex !== -1) {
-          // Remove the food
-          newFood.splice(foodIndex, 1)
-
-          // Add an extra value to the end of the snake (extend tail)
-          snake.push(snake[snake.length - 1])
-
-          // Restore health to 100
-          newPlayerHealth[playerID] = 100
-          logger.info(`Snek: Player ${playerID} ate food and restored health.`)
-        } else {
-          // Decrease health
-          newPlayerHealth[playerID] -= 1
-          if (newPlayerHealth[playerID] <= 0) {
-            deadPlayers.add(playerID)
-            clashes[playerID] = snake
-            logger.info(`Snek: Player ${playerID} died due to zero health.`)
-          }
-        }
       })
 
       // After all moves, check for collisions between snakes
@@ -278,7 +257,62 @@ export class SnekProcessor extends GameProcessor {
 
       console.log("heades", headPositions)
 
-      // Detect collisions between snake heads and bodies
+      // Detect head-to-head and head-to-neck collisions
+      Object.keys(newSnakes).forEach((playerID) => {
+        const snake = newSnakes[playerID]
+        const headPosition = snake[0] // New head position after move
+        const neckPosition = snake[1] // Neck position
+
+        // Check if another snake's head moved into this snake's neck
+        Object.keys(newSnakes).forEach((otherPlayerID) => {
+          if (playerID !== otherPlayerID) {
+            const otherSnake = newSnakes[otherPlayerID]
+            const otherHeadPosition = otherSnake[0]
+            const otherNeckPosition = otherSnake[1]
+
+            // Check for head-to-head or head-to-neck collision
+            if (
+              (headPosition === otherNeckPosition &&
+                otherHeadPosition === neckPosition) ||
+              headPosition === otherHeadPosition
+            ) {
+              logger.info(
+                `Snek: Head-to-head (or head-to-neck) collision between ${playerID} and ${otherPlayerID}`,
+              )
+
+              // Determine the shorter snake(s)
+              let playerLength = newSnakes[playerID].length
+              let otherPlayerLength = newSnakes[otherPlayerID].length
+
+              // Eliminate the shorter snake
+              if (playerLength < otherPlayerLength) {
+                deadPlayers.add(playerID)
+                clashes[playerID] = newSnakes[playerID]
+                logger.info(
+                  `Snek: Player ${playerID} eliminated due to shorter length in head-to-head collision.`,
+                )
+              } else if (otherPlayerLength < playerLength) {
+                deadPlayers.add(otherPlayerID)
+                clashes[otherPlayerID] = newSnakes[otherPlayerID]
+                logger.info(
+                  `Snek: Player ${otherPlayerID} eliminated due to shorter length in head-to-head collision.`,
+                )
+              } else {
+                // If lengths are equal, both snakes die
+                deadPlayers.add(playerID)
+                deadPlayers.add(otherPlayerID)
+                clashes[playerID] = newSnakes[playerID]
+                clashes[otherPlayerID] = newSnakes[otherPlayerID]
+                logger.info(
+                  `Snek: Both players ${playerID} and ${otherPlayerID} eliminated due to equal length in head-to-head collision.`,
+                )
+              }
+            }
+          }
+        })
+      })
+
+      // Detect collisions between heads and bodies (existing logic)
       Object.keys(headPositions).forEach((posStr) => {
         const position = parseInt(posStr)
         const playersAtHead: string[] | undefined = headPositions[position]
@@ -358,6 +392,34 @@ export class SnekProcessor extends GameProcessor {
         delete newPlayerHealth[playerID]
       })
 
+      // **Food Processing (after collision detection)**:
+      Object.keys(newSnakes).forEach((playerID) => {
+        const snake = newSnakes[playerID]
+        const headPosition = snake[0] // New head position
+
+        // Check if they landed on a food piece
+        const foodIndex = newFood.indexOf(headPosition)
+        if (foodIndex !== -1) {
+          // Remove the food
+          newFood.splice(foodIndex, 1)
+
+          // Add an extra value to the end of the snake (extend tail)
+          snake.push(snake[snake.length - 1])
+
+          // Restore health to 100
+          newPlayerHealth[playerID] = 100
+          logger.info(`Snek: Player ${playerID} ate food and restored health.`)
+        } else {
+          // Decrease health
+          newPlayerHealth[playerID] -= 1
+          if (newPlayerHealth[playerID] <= 0) {
+            deadPlayers.add(playerID)
+            clashes[playerID] = snake
+            logger.info(`Snek: Player ${playerID} died due to zero health.`)
+          }
+        }
+      })
+
       // Generate new food based on random chance
       if (Math.random() < this.foodSpawnChance) {
         const freePositions = this.getFreePositions(
@@ -385,7 +447,6 @@ export class SnekProcessor extends GameProcessor {
       )
 
       // Update the current turn with new data
-      console.log("player pieces", newSnakes)
       this.currentTurn.playerPieces = newSnakes
       this.currentTurn.food = newFood
       this.currentTurn.hazards = newHazards

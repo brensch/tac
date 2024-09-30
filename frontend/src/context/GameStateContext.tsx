@@ -21,6 +21,7 @@ import {
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
 import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
+import { Typography } from "@mui/material"
 
 interface GameStateContextType {
   gameState: GameState | null
@@ -286,6 +287,10 @@ export const GameStateProvider: React.FC<{
     }
   }
 
+  // if (!gameState) {
+  //   return <Typography>Loading</Typography>
+  // }
+
   return (
     <GameStateContext.Provider
       value={{
@@ -309,7 +314,7 @@ export const GameStateProvider: React.FC<{
         timeRemaining,
       }}
     >
-      {children}
+      {gameState ? children : <Typography>Loading</Typography>}
     </GameStateContext.Provider>
   )
 }

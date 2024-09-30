@@ -71,7 +71,13 @@ export interface Turn {
   walls: number[] // Positions of walls on the board
 
   // Clashes
-  clashes?: { [playerID: string]: number[] } // Map of playerID to positions of their dead snake
+  clashes: Clash[] // Map of playerID to positions of their dead snake
+}
+
+export interface Clash {
+  index: number
+  playerIDs: number[]
+  reason: string
 }
 
 // Function to initialize a new game
