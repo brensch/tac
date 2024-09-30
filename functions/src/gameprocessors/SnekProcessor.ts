@@ -217,7 +217,18 @@ export class SnekProcessor extends GameProcessor {
           return
         }
 
-        // Add the latest move index to the start of the snake
+        // Self-collision check (before applying the move)
+        if (snake.includes(moveIndex)) {
+          // Snake collides with its own body
+          deadPlayers.add(playerID)
+          clashes[playerID] = snake
+          logger.info(
+            `Snek: Player ${playerID} collided with its own body at position ${moveIndex}.`,
+          )
+          return
+        }
+
+        // Add the latest move index to the start of the snake (new head position)
         snake.unshift(moveIndex)
 
         // Remove the last element of the snake (tail)
@@ -246,7 +257,7 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      // After all moves, check for collisions
+      // After all moves, check for collisions between snakes
       const newOccupiedPositions: { [position: number]: string[] } = {}
       const headPositions: { [position: number]: string[] } = {}
 
@@ -272,7 +283,7 @@ export class SnekProcessor extends GameProcessor {
 
       console.log("heades", headPositions)
 
-      // Detect collisions
+      // Detect collisions between snake heads and bodies
       Object.keys(headPositions).forEach((posStr) => {
         const position = parseInt(posStr)
         const playersAtHead: string[] | undefined = headPositions[position]
