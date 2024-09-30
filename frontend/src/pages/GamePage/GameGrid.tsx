@@ -356,16 +356,6 @@ const GameGrid: React.FC = () => {
           // Determine if the square is an allowed move for the user
           const isAllowedMove = cellAllowedMoveMap[index] || false
 
-          // Highlight allowed moves
-          let borderColor = "black"
-          let borderStyle = "solid"
-          let borderWidth = "1px"
-          if (isAllowedMove) {
-            borderColor = "green"
-            borderStyle = "dotted"
-            borderWidth = "2px"
-          }
-
           return (
             <Box
               key={index}
@@ -377,28 +367,29 @@ const GameGrid: React.FC = () => {
                 width: "100%",
                 paddingBottom: "100%",
                 position: "relative",
-                border: `${borderWidth} ${borderStyle} ${borderColor}`,
+                border: "1px solid black",
                 cursor: disabled ? "default" : "pointer",
                 backgroundColor: backgroundColor,
                 transition: "background-color 0.3s",
                 boxSizing: "border-box",
               }}
             >
-              {/* Highlight selected square with solid green border */}
-              {isSelected && (
+              {/* Inner border for allowed moves */}
+              {isAllowedMove && (
                 <Box
                   sx={{
                     position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    border: "3px solid green",
+                    top: "1px",
+                    left: "1px",
+                    right: "1px",
+                    bottom: "1px",
+                    border: `2px ${isSelected ? "solid" : "dotted"} green`,
                     pointerEvents: "none",
                     zIndex: 2,
                   }}
                 />
               )}
+              {/* Content Box */}
               <Box
                 sx={{
                   position: "absolute",
