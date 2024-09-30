@@ -222,33 +222,3 @@ const GameActive: React.FC = () => {
 }
 
 export default GameActive
-
-/**
- * Helper function to get adjacent indices (up, down, left, right) from a given index.
- */
-function getAdjacentIndices(
-  index: number,
-  boardWidth: number,
-  boardHeight: number,
-): number[] {
-  const x = index % boardWidth
-  const y = Math.floor(index / boardWidth)
-  const indices: number[] = []
-
-  const directions = [
-    { dx: 0, dy: -1 }, // Up
-    { dx: 0, dy: 1 }, // Down
-    { dx: -1, dy: 0 }, // Left
-    { dx: 1, dy: 0 }, // Right
-  ]
-
-  directions.forEach(({ dx, dy }) => {
-    const newX = x + dx
-    const newY = y + dy
-    if (newX >= 0 && newX < boardWidth && newY >= 0 && newY < boardHeight) {
-      indices.push(newY * boardWidth + newX)
-    }
-  })
-
-  return indices
-}

@@ -19,8 +19,8 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji, top }) => {
       style={{
         position: "fixed",
         top: `${top}px`, // Use the dynamic top position
-        left: 0,
-        width: "100%",
+        left: "-20px",
+        width: "120%",
         height: "120%",
         pointerEvents: "none",
         overflow: "hidden",

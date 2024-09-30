@@ -48,7 +48,7 @@ const UserRulesAccept: React.FC<RulesDialogProps> = ({
     <Dialog open={open} onClose={undefined}>
       <DialogTitle>Rules for {rules}</DialogTitle>
       <DialogContent>
-        <DialogContentText>
+        <DialogContentText sx={{ mb: 2 }}>
           <RulesComponent />
         </DialogContentText>
         <FormControlLabel
@@ -59,12 +59,12 @@ const UserRulesAccept: React.FC<RulesDialogProps> = ({
               name="understandCheckbox"
             />
           }
-          label="I understand"
+          label="I have read the instructions"
         />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleStartClick} disabled={!checked}>
-          Start Game ({Math.max(0, timeRemaining).toFixed(1)}s)
+          Start Game ({Math.max(0, timeRemaining).toFixed(0)}s)
         </Button>
       </DialogActions>
     </Dialog>

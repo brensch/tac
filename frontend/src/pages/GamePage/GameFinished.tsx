@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import {
   Button,
   Paper,
@@ -9,33 +9,24 @@ import {
   TableHead,
   TableRow,
   Typography,
+  Box,
 } from "@mui/material"
 import { useGameStateContext } from "../../context/GameStateContext"
 import EmojiRain from "./EmojiRain"
 import { useNavigate } from "react-router-dom"
 import { Winner } from "@shared/types/Game"
 
+interface PlayerResult {
+  playerID: string
+  nickname: string
+  emoji: string
+  score: number
+}
+
 const GameFinished: React.FC = () => {
   const { gameState, playerInfos } = useGameStateContext()
   const navigate = useNavigate()
-  const playAgainButtonRef = useRef<HTMLButtonElement | null>(null)
-  const [emojiRainTop, setEmojiRainTop] = useState<number | null>(null)
-  const [sortedPlayers, setSortedPlayers] = useState<
-    {
-      playerID: string
-      nickname: string
-      emoji: string
-      score: number
-    }[]
-  >([])
-
-  useEffect(() => {
-    // Set the emoji rain's starting position based on the "Play Again?" button position
-    if (playAgainButtonRef.current) {
-      const buttonRect = playAgainButtonRef.current.getBoundingClientRect()
-      setEmojiRainTop(buttonRect.bottom) // Set the top position just below the button
-    }
-  }, [playAgainButtonRef, sortedPlayers])
+  const [sortedPlayers, setSortedPlayers] = useState<PlayerResult[]>([])
 
   useEffect(() => {
     // Build a list of all players with their scores
@@ -65,95 +56,108 @@ const GameFinished: React.FC = () => {
   if (unFinished) return null
 
   // Get the top player's emoji for the EmojiRain effect
-  const topPlayerEmoji = sortedPlayers.length > 0 ? sortedPlayers[0].emoji : ""
+  const topPlayer: PlayerResult | null =
+    sortedPlayers.length > 0 ? sortedPlayers[0] : null
   const draw =
     sortedPlayers.length > 1 &&
     sortedPlayers[0].score === sortedPlayers[1].score
 
   return (
     <>
-      {draw ? (
-        <>
-          <Typography
-            variant="h5"
-            color="primary"
-            sx={{ my: 2, textAlign: "center" }}
-          >
-            Game Over! Nobody made a move.
-          </Typography>
-          {gameState.nextGame !== "" && (
-            <Button
-              ref={playAgainButtonRef}
-              sx={{ my: 2, zIndex: 10000000, bgcolor: "green" }}
-              variant="contained"
-              fullWidth
-              onClick={() => navigate(`/game/${gameState.nextGame}`)}
+      <Box
+        sx={{
+          position: "relative",
+          zIndex: 9999999, // Ensures this section stays on top
+          backgroundColor: "white", // Blocks out the EmojiRain
+          padding: 2,
+          border: "1px solid black",
+          my: 2,
+        }}
+      >
+        {draw ? (
+          <>
+            <Typography
+              variant="h5"
+              color="primary"
+              sx={{ my: 2, textAlign: "center" }}
             >
-              Play Again?
-            </Button>
-          )}
-        </>
-      ) : (
-        <>
-          <Typography
-            variant="h5"
-            color="primary"
-            sx={{ my: 2, textAlign: "center" }}
-          >
-            Game Over!
-          </Typography>
+              It's a draw.
+            </Typography>
+            {gameState.nextGame !== "" && (
+              <Button
+                sx={{ my: 2, bgcolor: "green" }}
+                variant="contained"
+                fullWidth
+                onClick={() => navigate(`/game/${gameState.nextGame}`)}
+              >
+                Play Again?
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Typography
+              variant="h5"
+              color="primary"
+              sx={{ my: 2, textAlign: "left" }}
+            >
+              {topPlayer?.nickname} won. Nice.
+            </Typography>
 
-          {/* Table of Players and Scores */}
-          <TableContainer
-            component={Paper}
-            sx={{ maxWidth: 600, margin: "auto", my: 2 }}
-          >
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell align="center">
-                    <strong>Rank</strong>
-                  </TableCell>
-                  <TableCell align="left">
-                    <strong>Player</strong>
-                  </TableCell>
-                  <TableCell align="right">
-                    <strong>Score</strong>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedPlayers.map((player, index) => (
-                  <TableRow key={player.playerID}>
-                    <TableCell align="center">{index + 1}</TableCell>
-                    <TableCell align="left">
-                      {player.emoji} {player.nickname}
+            {/* Table of Players and Scores */}
+            <TableContainer
+              component={Paper}
+              sx={{ maxWidth: 600, margin: "auto", my: 2 }}
+            >
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell align="center">
+                      <strong>Rank</strong>
                     </TableCell>
-                    <TableCell align="right">{player.score}</TableCell>
+                    <TableCell align="left">
+                      <strong>Player</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Score</strong>
+                    </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {sortedPlayers.map((player, index) => (
+                    <TableRow key={player.playerID}>
+                      <TableCell align="center">{index + 1}</TableCell>
+                      <TableCell align="left">
+                        {player.emoji} {player.nickname}
+                      </TableCell>
+                      <TableCell align="right">{player.score}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
 
-          {/* "Play Again?" Button */}
-          {gameState.nextGame !== "" && (
-            <Button
-              ref={playAgainButtonRef}
-              sx={{ my: 2, zIndex: 10000000, bgcolor: "green" }}
-              variant="contained"
-              fullWidth
-              onClick={() => navigate(`/game/${gameState.nextGame}`)}
-            >
-              Play Again?
-            </Button>
-          )}
+            {/* "Play Again?" Button */}
+            {gameState.nextGame !== "" && (
+              <Button
+                sx={{ my: 2, bgcolor: "green" }}
+                variant="contained"
+                fullWidth
+                onClick={() => navigate(`/game/${gameState.nextGame}`)}
+              >
+                Play Again?
+              </Button>
+            )}
+          </>
+        )}
+      </Box>
 
-          {/* Emoji Rain Effect for Top Player */}
-          {topPlayerEmoji && emojiRainTop !== null && (
-            <EmojiRain emoji={topPlayerEmoji} top={emojiRainTop} />
-          )}
-        </>
+      {/* Emoji Rain Effect for Top Player */}
+      {topPlayer && (
+        <EmojiRain
+          emoji={topPlayer.emoji}
+          top={-20} // Start emoji rain from the top
+        />
       )}
     </>
   )

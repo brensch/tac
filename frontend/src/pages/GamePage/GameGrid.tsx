@@ -1,5 +1,3 @@
-// src/components/GameGrid.tsx
-
 import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box } from "@mui/material"
 import { PlayerInfo } from "@shared/types/Game"
@@ -302,9 +300,11 @@ const GameGrid: React.FC = () => {
         // Highlight allowed moves
         let borderColor = "black"
         let borderStyle = "solid"
+        let borderWidth = "1px"
         if (isAllowedMove) {
-          borderColor = "darkgreen"
+          borderColor = "green"
           borderStyle = "dotted"
+          borderWidth = "2px"
         }
 
         return (
@@ -318,10 +318,11 @@ const GameGrid: React.FC = () => {
               width: "100%",
               paddingBottom: "100%", // Maintain aspect ratio
               position: "relative",
-              border: `1px ${borderStyle} ${borderColor}`,
+              border: `${borderWidth} ${borderStyle} ${borderColor}`,
               cursor: disabled ? "default" : "pointer",
               backgroundColor: backgroundColor,
               transition: "background-color 0.3s",
+              boxSizing: "border-box", // Ensure border stays inside the box
             }}
           >
             {/* Highlight selected square with solid green border */}

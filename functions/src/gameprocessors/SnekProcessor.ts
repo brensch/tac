@@ -92,7 +92,7 @@ export class SnekProcessor extends GameProcessor {
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
-      endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
+      endTime: Timestamp.fromMillis(now + 60 * 1000),
       scores: initialScores,
       alivePlayers: [...playerIDs], // All players are alive at the start
       food: food,
@@ -192,12 +192,7 @@ export class SnekProcessor extends GameProcessor {
               moveIndex = allowedMoves[0]
             } else {
               // No valid moves, eliminate the player
-              deadPlayers.add(playerID)
-              clashes[playerID] = snake
-              logger.warn(
-                `Snek: Player ${playerID} has no valid moves and is eliminated.`,
-              )
-              return
+              moveIndex = headIndex + 1
             }
             console.log("set move using first valid move", moveIndex)
             logger.warn(
