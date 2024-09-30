@@ -1,11 +1,12 @@
 // functions/src/gameprocessors/SnekProcessor.ts
 
 import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, GameState } from "@shared/types/Game"
+import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 import { Timestamp } from "firebase-admin/firestore"
+import { FirstMoveTimeoutSeconds } from "../timings"
 
 export class SnekProcessor extends GameProcessor {
   private foodSpawnChance: number = 0.5 // 50% chance to spawn food
@@ -92,7 +93,7 @@ export class SnekProcessor extends GameProcessor {
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
-      endTime: Timestamp.fromMillis(now + 60 * 1000),
+      endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: initialScores,
       alivePlayers: [...playerIDs], // All players are alive at the start
       food: food,
@@ -100,7 +101,7 @@ export class SnekProcessor extends GameProcessor {
       playerPieces: playerPieces, // Snakes positions as a map
       allowedMoves: allowedMoves, // Map of allowed moves per player
       walls: walls, // Positions of walls
-      clashes: [],
+      clashes: [], // Initialize empty array for clashes
     }
 
     return firstTurn
@@ -156,7 +157,7 @@ export class SnekProcessor extends GameProcessor {
 
       const playerMoves: { [playerID: string]: number } = {}
       const deadPlayers: Set<string> = new Set()
-      const clashes: { [playerID: string]: number[] } = {}
+      const clashes: Clash[] = [] // Use the new Clash interface
 
       // Process latest moves
       this.latestMoves.forEach((move) => {
@@ -179,8 +180,6 @@ export class SnekProcessor extends GameProcessor {
           const direction = this.getLastDirection(snake, boardWidth)
 
           console.log("player didn't move, got direction", direction)
-
-          if (deadPlayers.has(playerID)) return
 
           if (direction) {
             const newX = (headIndex % boardWidth) + direction.dx
@@ -206,7 +205,14 @@ export class SnekProcessor extends GameProcessor {
         // Check for collision with walls
         if (walls.includes(moveIndex)) {
           deadPlayers.add(playerID)
-          clashes[playerID] = snake
+          // Generate a Clash for each segment of the snake
+          snake.forEach((position) => {
+            clashes.push({
+              index: position,
+              playerIDs: [playerID],
+              reason: "Collided with wall",
+            })
+          })
           logger.info(
             `Snek: Player ${playerID} collided with a wall at position ${moveIndex}.`,
           )
@@ -220,7 +226,13 @@ export class SnekProcessor extends GameProcessor {
         if (snake.includes(moveIndex)) {
           // Snake collides with its own body
           deadPlayers.add(playerID)
-          clashes[playerID] = snake
+          snake.forEach((position) => {
+            clashes.push({
+              index: position,
+              playerIDs: [playerID],
+              reason: "Collided with own body",
+            })
+          })
           logger.info(
             `Snek: Player ${playerID} collided with its own body at position ${moveIndex}.`,
           )
@@ -255,7 +267,7 @@ export class SnekProcessor extends GameProcessor {
         })
       })
 
-      console.log("heades", headPositions)
+      console.log("heads", headPositions)
 
       // Detect head-to-head and head-to-neck collisions
       Object.keys(newSnakes).forEach((playerID) => {
@@ -281,38 +293,75 @@ export class SnekProcessor extends GameProcessor {
               )
 
               // Determine the shorter snake(s)
-              let playerLength = newSnakes[playerID].length
-              let otherPlayerLength = newSnakes[otherPlayerID].length
+              let playerLength = snake.length
+              let otherPlayerLength = otherSnake.length
 
-              // Eliminate the shorter snake
+              // Eliminate the shorter snake(s)
               if (playerLength < otherPlayerLength) {
-                deadPlayers.add(playerID)
-                clashes[playerID] = newSnakes[playerID]
-                logger.info(
-                  `Snek: Player ${playerID} eliminated due to shorter length in head-to-head collision.`,
-                )
+                if (!deadPlayers.has(playerID)) {
+                  deadPlayers.add(playerID)
+                  snake.forEach((position) => {
+                    clashes.push({
+                      index: position,
+                      playerIDs: [playerID, otherPlayerID],
+                      reason: "Head-to-head collision (shorter snake died)",
+                    })
+                  })
+                  logger.info(
+                    `Snek: Player ${playerID} eliminated due to shorter length in head-to-head collision.`,
+                  )
+                }
               } else if (otherPlayerLength < playerLength) {
-                deadPlayers.add(otherPlayerID)
-                clashes[otherPlayerID] = newSnakes[otherPlayerID]
-                logger.info(
-                  `Snek: Player ${otherPlayerID} eliminated due to shorter length in head-to-head collision.`,
-                )
+                if (!deadPlayers.has(otherPlayerID)) {
+                  deadPlayers.add(otherPlayerID)
+                  otherSnake.forEach((position) => {
+                    clashes.push({
+                      index: position,
+                      playerIDs: [playerID, otherPlayerID],
+                      reason: "Head-to-head collision (shorter snake died)",
+                    })
+                  })
+                  logger.info(
+                    `Snek: Player ${otherPlayerID} eliminated due to shorter length in head-to-head collision.`,
+                  )
+                }
               } else {
                 // If lengths are equal, both snakes die
-                deadPlayers.add(playerID)
-                deadPlayers.add(otherPlayerID)
-                clashes[playerID] = newSnakes[playerID]
-                clashes[otherPlayerID] = newSnakes[otherPlayerID]
-                logger.info(
-                  `Snek: Both players ${playerID} and ${otherPlayerID} eliminated due to equal length in head-to-head collision.`,
-                )
+                if (!deadPlayers.has(playerID)) {
+                  deadPlayers.add(playerID)
+                  snake.forEach((position) => {
+                    clashes.push({
+                      index: position,
+                      playerIDs: [playerID, otherPlayerID],
+                      reason:
+                        "Head-to-head collision (both snakes equal length)",
+                    })
+                  })
+                  logger.info(
+                    `Snek: Player ${playerID} eliminated due to equal length in head-to-head collision.`,
+                  )
+                }
+                if (!deadPlayers.has(otherPlayerID)) {
+                  deadPlayers.add(otherPlayerID)
+                  otherSnake.forEach((position) => {
+                    clashes.push({
+                      index: position,
+                      playerIDs: [playerID, otherPlayerID],
+                      reason:
+                        "Head-to-head collision (both snakes equal length)",
+                    })
+                  })
+                  logger.info(
+                    `Snek: Player ${otherPlayerID} eliminated due to equal length in head-to-head collision.`,
+                  )
+                }
               }
             }
           }
         })
       })
 
-      // Detect collisions between heads and bodies (existing logic)
+      // Detect collisions between heads and bodies
       Object.keys(headPositions).forEach((posStr) => {
         const position = parseInt(posStr)
         const playersAtHead: string[] | undefined = headPositions[position]
@@ -337,9 +386,18 @@ export class SnekProcessor extends GameProcessor {
 
           // Eliminate the shortest snake(s)
           playersAtHead.forEach((playerID) => {
-            if (newSnakes[playerID].length === minLength) {
+            if (
+              newSnakes[playerID].length === minLength &&
+              !deadPlayers.has(playerID)
+            ) {
               deadPlayers.add(playerID)
-              clashes[playerID] = newSnakes[playerID]
+              newSnakes[playerID].forEach((pos) => {
+                clashes.push({
+                  index: pos,
+                  playerIDs: playersAtHead,
+                  reason: "Head-on collision (shortest snake(s) died)",
+                })
+              })
               logger.info(
                 `Snek: Player ${playerID} eliminated due to being the shortest snake in collision.`,
               )
@@ -359,11 +417,19 @@ export class SnekProcessor extends GameProcessor {
               )
             } else {
               // Snake collided with its own body
-              deadPlayers.add(playerID)
-              clashes[playerID] = snake
-              logger.info(
-                `Snek: Player ${playerID} collided with its own body at position ${position}.`,
-              )
+              if (!deadPlayers.has(playerID)) {
+                deadPlayers.add(playerID)
+                snake.forEach((pos) => {
+                  clashes.push({
+                    index: pos,
+                    playerIDs: [playerID],
+                    reason: "Collided with own body",
+                  })
+                })
+                logger.info(
+                  `Snek: Player ${playerID} collided with its own body at position ${position}.`,
+                )
+              }
             }
           } else {
             // Collision with another snake's body
@@ -372,11 +438,19 @@ export class SnekProcessor extends GameProcessor {
             ].filter((id) => id !== playerID)
 
             if (otherPlayersAtPosition.length > 0) {
-              deadPlayers.add(playerID)
-              clashes[playerID] = snake
-              logger.info(
-                `Snek: Player ${playerID} collided with another snake at position ${position}.`,
-              )
+              if (!deadPlayers.has(playerID)) {
+                deadPlayers.add(playerID)
+                snake.forEach((pos) => {
+                  clashes.push({
+                    index: pos,
+                    playerIDs: [playerID, ...otherPlayersAtPosition],
+                    reason: "Collided with another snake",
+                  })
+                })
+                logger.info(
+                  `Snek: Player ${playerID} collided with another snake at position ${position}.`,
+                )
+              }
             }
           }
         }
@@ -414,10 +488,26 @@ export class SnekProcessor extends GameProcessor {
           newPlayerHealth[playerID] -= 1
           if (newPlayerHealth[playerID] <= 0) {
             deadPlayers.add(playerID)
-            clashes[playerID] = snake
+            snake.forEach((pos) => {
+              clashes.push({
+                index: pos,
+                playerIDs: [playerID],
+                reason: "Died due to zero health",
+              })
+            })
             logger.info(`Snek: Player ${playerID} died due to zero health.`)
           }
         }
+      })
+
+      // Remove any players who died due to zero health in the food processing
+      deadPlayers.forEach((playerID) => {
+        const index = newAlivePlayers.indexOf(playerID)
+        if (index !== -1) {
+          newAlivePlayers.splice(index, 1)
+        }
+        delete newSnakes[playerID]
+        delete newPlayerHealth[playerID]
       })
 
       // Generate new food based on random chance
@@ -463,6 +553,162 @@ export class SnekProcessor extends GameProcessor {
       this.currentTurn.scores = newScores
     } catch (error) {
       logger.error(`Snek: Error applying moves for game ${this.gameID}:`, error)
+      throw error
+    }
+  }
+
+  // ... (rest of the code remains unchanged)
+
+  /**
+   * Helper method to get the last direction of the snake.
+   */
+  private getLastDirection(
+    snake: number[],
+    boardWidth: number,
+  ): { dx: number; dy: number } | null {
+    if (snake.length < 2) return null
+    const head = snake[0]
+    const neck = snake[1]
+
+    const headX = head % boardWidth
+    const headY = Math.floor(head / boardWidth)
+    const neckX = neck % boardWidth
+    const neckY = Math.floor(neck / boardWidth)
+
+    const dx = headX - neckX
+    const dy = headY - neckY
+
+    return { dx, dy }
+  }
+
+  /**
+   * Helper function to get adjacent indices (up, down, left, right) from a given index.
+   */
+  private getAdjacentIndices(
+    index: number,
+    boardWidth: number,
+    boardHeight: number,
+  ): number[] {
+    const x = index % boardWidth
+    const y = Math.floor(index / boardWidth)
+    const indices: number[] = []
+
+    const directions = [
+      { dx: 0, dy: -1 }, // Up
+      { dx: 0, dy: 1 }, // Down
+      { dx: -1, dy: 0 }, // Left
+      { dx: 1, dy: 0 }, // Right
+    ]
+
+    directions.forEach(({ dx, dy }) => {
+      const newX = x + dx
+      const newY = y + dy
+      if (newX >= 0 && newX < boardWidth && newY >= 0 && newY < boardHeight) {
+        indices.push(newY * boardWidth + newX)
+      }
+    })
+
+    return indices
+  }
+
+  /**
+   * Helper function to get positions of walls (edges of the board), avoiding duplicates on corners.
+   */
+  private getWallPositions(boardWidth: number, boardHeight: number): number[] {
+    const wallPositions: Set<number> = new Set()
+
+    // Top and bottom walls
+    for (let x = 0; x < boardWidth; x++) {
+      wallPositions.add(x) // Top wall
+      wallPositions.add((boardHeight - 1) * boardWidth + x) // Bottom wall
+    }
+
+    // Left and right walls
+    for (let y = 0; y < boardHeight; y++) {
+      wallPositions.add(y * boardWidth) // Left wall
+      wallPositions.add(y * boardWidth + (boardWidth - 1)) // Right wall
+    }
+
+    return Array.from(wallPositions)
+  }
+
+  /**
+   * Helper function to get free positions on the board, excluding walls.
+   */
+  private getFreePositions(
+    boardWidth: number,
+    boardHeight: number,
+    playerPieces: { [playerID: string]: number[] },
+    food: number[],
+    hazards: number[],
+  ): number[] {
+    const totalCells = boardWidth * boardHeight
+    const occupied = new Set<number>()
+
+    // Add snake positions
+    Object.values(playerPieces).forEach((snake) => {
+      snake.forEach((pos) => occupied.add(pos))
+    })
+
+    // Add food positions
+    food.forEach((pos) => occupied.add(pos))
+
+    // Add hazard positions
+    hazards.forEach((pos) => occupied.add(pos))
+
+    // Add wall positions to exclude them
+    const wallPositions = this.getWallPositions(boardWidth, boardHeight)
+    wallPositions.forEach((pos) => occupied.add(pos))
+
+    const freePositions: number[] = []
+    for (let i = 0; i < totalCells; i++) {
+      if (!occupied.has(i)) {
+        freePositions.push(i)
+      }
+    }
+
+    return freePositions
+  }
+
+  /**
+   * Finds winners based on the updated Snek game.
+   * @returns An array of Winner objects.
+   */
+  async findWinners(): Promise<Winner[]> {
+    if (!this.currentTurn) return []
+    try {
+      const {
+        alivePlayers,
+        playerPieces: playerPieces,
+        scores,
+        playerIDs,
+      } = this.currentTurn
+
+      const winners: Winner[] = []
+
+      if (alivePlayers.length === 1) {
+        const winnerID = alivePlayers[0]
+        const winningSquares = playerPieces[winnerID]
+        const score = scores[winnerID]
+        winners.push({ playerID: winnerID, score, winningSquares })
+        logger.info(`Snek: Player ${winnerID} has won the game!`)
+      } else if (alivePlayers.length === 0) {
+        const drawnWinners: Winner[] = playerIDs.map((playerID) => ({
+          playerID: playerID,
+          score: 0,
+          winningSquares: [],
+        }))
+        winners.push(...drawnWinners)
+
+        logger.info(`Snek: Game ended in a draw. No players are alive.`)
+      }
+
+      return winners
+    } catch (error) {
+      logger.error(
+        `Snek: Error finding winners for game ${this.gameID}:`,
+        error,
+      )
       throw error
     }
   }
@@ -594,159 +840,5 @@ export class SnekProcessor extends GameProcessor {
     })
 
     return foodPositions
-  }
-
-  /**
-   * Finds winners based on the updated Snek game.
-   * @returns An array of Winner objects.
-   */
-  async findWinners(): Promise<Winner[]> {
-    if (!this.currentTurn) return []
-    try {
-      const {
-        alivePlayers,
-        playerPieces: playerPieces,
-        scores,
-        playerIDs,
-      } = this.currentTurn
-
-      const winners: Winner[] = []
-
-      if (alivePlayers.length === 1) {
-        const winnerID = alivePlayers[0]
-        const winningSquares = playerPieces[winnerID]
-        const score = scores[winnerID]
-        winners.push({ playerID: winnerID, score, winningSquares })
-        logger.info(`Snek: Player ${winnerID} has won the game!`)
-      } else if (alivePlayers.length === 0) {
-        const drawnWinners: Winner[] = playerIDs.map((playerID) => ({
-          playerID: playerID,
-          score: 0,
-          winningSquares: [],
-        }))
-        winners.push(...drawnWinners)
-
-        logger.info(`Snek: Game ended in a draw. No players are alive.`)
-      }
-
-      return winners
-    } catch (error) {
-      logger.error(
-        `Snek: Error finding winners for game ${this.gameID}:`,
-        error,
-      )
-      throw error
-    }
-  }
-
-  /**
-   * Helper method to get the last direction of the snake.
-   */
-  private getLastDirection(
-    snake: number[],
-    boardWidth: number,
-  ): { dx: number; dy: number } | null {
-    if (snake.length < 2) return null
-    const head = snake[0]
-    const neck = snake[1]
-
-    const headX = head % boardWidth
-    const headY = Math.floor(head / boardWidth)
-    const neckX = neck % boardWidth
-    const neckY = Math.floor(neck / boardWidth)
-
-    const dx = headX - neckX
-    const dy = headY - neckY
-
-    return { dx, dy }
-  }
-
-  /**
-   * Helper function to get adjacent indices (up, down, left, right) from a given index.
-   */
-  private getAdjacentIndices(
-    index: number,
-    boardWidth: number,
-    boardHeight: number,
-  ): number[] {
-    const x = index % boardWidth
-    const y = Math.floor(index / boardWidth)
-    const indices: number[] = []
-
-    const directions = [
-      { dx: 0, dy: -1 }, // Up
-      { dx: 0, dy: 1 }, // Down
-      { dx: -1, dy: 0 }, // Left
-      { dx: 1, dy: 0 }, // Right
-    ]
-
-    directions.forEach(({ dx, dy }) => {
-      const newX = x + dx
-      const newY = y + dy
-      if (newX >= 0 && newX < boardWidth && newY >= 0 && newY < boardHeight) {
-        indices.push(newY * boardWidth + newX)
-      }
-    })
-
-    return indices
-  }
-
-  /**
-   * Helper function to get positions of walls (edges of the board), avoiding duplicates on corners.
-   */
-  private getWallPositions(boardWidth: number, boardHeight: number): number[] {
-    const wallPositions: Set<number> = new Set()
-
-    // Top and bottom walls
-    for (let x = 0; x < boardWidth; x++) {
-      wallPositions.add(x) // Top wall
-      wallPositions.add((boardHeight - 1) * boardWidth + x) // Bottom wall
-    }
-
-    // Left and right walls
-    for (let y = 0; y < boardHeight; y++) {
-      wallPositions.add(y * boardWidth) // Left wall
-      wallPositions.add(y * boardWidth + (boardWidth - 1)) // Right wall
-    }
-
-    return Array.from(wallPositions)
-  }
-
-  /**
-   * Helper function to get free positions on the board, excluding walls.
-   */
-  private getFreePositions(
-    boardWidth: number,
-    boardHeight: number,
-    playerPieces: { [playerID: string]: number[] },
-    food: number[],
-    hazards: number[],
-  ): number[] {
-    const totalCells = boardWidth * boardHeight
-    const occupied = new Set<number>()
-
-    // Add snake positions
-    Object.values(playerPieces).forEach((snake) => {
-      snake.forEach((pos) => occupied.add(pos))
-    })
-
-    // Add food positions
-    food.forEach((pos) => occupied.add(pos))
-
-    // Add hazard positions
-    hazards.forEach((pos) => occupied.add(pos))
-
-    // Add wall positions to exclude them
-    const wallPositions = this.getWallPositions(boardWidth, boardHeight)
-    wallPositions.forEach((pos) => occupied.add(pos))
-
-    const freePositions: number[] = []
-    for (let i = 0; i < totalCells; i++) {
-      if (!occupied.has(i)) {
-        freePositions.push(i)
-      }
-    }
-
-    return freePositions
   }
 }

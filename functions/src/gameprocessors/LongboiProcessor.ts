@@ -95,6 +95,7 @@ export class LongboiProcessor extends GameProcessor {
       playerPieces: snakes, // Players' occupied positions
       allowedMoves: allowedMoves,
       walls: [], // No walls in Longboi
+      clashes: [],
     }
 
     return firstTurn

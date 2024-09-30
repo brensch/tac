@@ -1,6 +1,8 @@
+// src/components/GameGrid.tsx
+
 import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box } from "@mui/material"
-import { PlayerInfo } from "@shared/types/Game"
+import { PlayerInfo, Clash } from "@shared/types/Game"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
@@ -22,9 +24,9 @@ const GameGrid: React.FC = () => {
   const winningSquaresSet = new Set(
     (winners?.length && winners[0].winningSquares) || [],
   )
-  const [clashReason] = useState<string>("")
+  const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
-  const [clashPlayersList] = useState<PlayerInfo[]>([])
+  const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
   const user = useUser()
 
   // Handle responsive sizing
@@ -53,6 +55,7 @@ const GameGrid: React.FC = () => {
   const cellContentMap: { [index: number]: JSX.Element } = {}
   const cellBackgroundMap: { [index: number]: string } = {}
   const cellAllowedMoveMap: { [index: number]: boolean } = {}
+  const clashesAtPosition: { [index: number]: Clash } = {}
 
   if (currentTurn) {
     const { playerPieces: snakes, food, hazards, walls, clashes } = currentTurn
@@ -64,8 +67,14 @@ const GameGrid: React.FC = () => {
         isHead: boolean
         arrowEmoji: string
         count: number
+        index: number
       }
     } = {}
+
+    // Map clashes to positions
+    clashes?.forEach((clash) => {
+      clashesAtPosition[clash.index] = clash
+    })
 
     // Helper function to get arrow emoji based on direction
     const getArrowEmoji = (
@@ -116,6 +125,7 @@ const GameGrid: React.FC = () => {
     Object.keys(snakes).forEach((playerID) => {
       const positions = snakes[playerID]
       const playerInfo = playerInfos.find((p) => p.id === playerID)
+      console.log(positions)
 
       positions.forEach((position, index) => {
         // Initialize cellSnakeSegments
@@ -125,10 +135,14 @@ const GameGrid: React.FC = () => {
             isHead: index === 0,
             arrowEmoji: "",
             count: 1,
+            index: index,
           }
         } else {
-          cellSnakeSegments[position].count += 1
+          if (cellSnakeSegments[position].index !== 0) {
+            cellSnakeSegments[position].count += 1
+          }
         }
+        console.log(cellSnakeSegments)
 
         // Set background color
         cellBackgroundMap[position] = playerInfo?.colour || "white"
@@ -143,8 +157,51 @@ const GameGrid: React.FC = () => {
           if (emoji) {
             cellSnakeSegments[position].arrowEmoji = emoji
           }
+        } else {
+          cellSnakeSegments[position].count = positions.length
         }
       })
+    })
+
+    // Place food
+    food?.forEach((position) => {
+      cellContentMap[position] = (
+        <span key={`food-${position}`} style={{ fontSize }}>
+          🍎
+        </span>
+      )
+    })
+
+    // Place walls
+    walls?.forEach((position) => {
+      cellContentMap[position] = (
+        <span key={`wall-${position}`} style={{ fontSize }}>
+          🧱
+        </span>
+      )
+      // Set background color for walls
+      cellBackgroundMap[position] = "#8B4513" // Brown color for walls
+    })
+
+    // Place hazards
+    hazards?.forEach((position) => {
+      cellContentMap[position] = (
+        <span key={`hazard-${position}`} style={{ fontSize }}>
+          ☠️
+        </span>
+      )
+    })
+
+    // Place clashes (dead snake segments)
+    clashes?.forEach((clash) => {
+      const position = clash.index
+      cellContentMap[position] = (
+        <span key={`clash-${position}`} style={{ fontSize }}>
+          💀
+        </span>
+      )
+      // Set background color for clashes
+      cellBackgroundMap[position] = "#d3d3d3" // light gray
     })
 
     // Process cellSnakeSegments to create cellContentMap
@@ -202,51 +259,6 @@ const GameGrid: React.FC = () => {
       cellContentMap[position] = content
     })
 
-    // Place food
-    food?.forEach((position) => {
-      cellContentMap[position] = (
-        <span key={`food-${position}`} style={{ fontSize }}>
-          🍎
-        </span>
-      )
-    })
-
-    // Place walls
-    walls?.forEach((position) => {
-      cellContentMap[position] = (
-        <span key={`wall-${position}`} style={{ fontSize }}>
-          🧱
-        </span>
-      )
-      // Set background color for walls
-      cellBackgroundMap[position] = "#8B4513" // Brown color for walls
-    })
-
-    // Place hazards
-    hazards?.forEach((position) => {
-      cellContentMap[position] = (
-        <span key={`hazard-${position}`} style={{ fontSize }}>
-          ☠️
-        </span>
-      )
-    })
-
-    // Place clashes (dead snakes)
-    if (clashes) {
-      Object.keys(clashes).forEach((playerID) => {
-        const positions = clashes[playerID]
-        positions.forEach((position) => {
-          cellContentMap[position] = (
-            <span key={`clash-${playerID}-${position}`} style={{ fontSize }}>
-              💀
-            </span>
-          )
-          // Set background color for clashes
-          cellBackgroundMap[position] = "#d3d3d3" // light gray
-        })
-      })
-    }
-
     // Map allowed moves for the user
     const userAllowedMoves = currentTurn?.allowedMoves[user.userID] || []
     userAllowedMoves.forEach((position) => {
@@ -265,69 +277,96 @@ const GameGrid: React.FC = () => {
         setSelectedSquare(index)
       }
     }
+
+    // Check if there is a clash at this position
+    const clash = clashesAtPosition[index]
+    if (clash) {
+      // Get player infos for the players involved
+      const playersInvolved = clash.playerIDs
+        .map((id) => playerInfos.find((p) => p.id === id))
+        .filter((p): p is PlayerInfo => !!p)
+
+      setClashReason(clash.reason)
+      setClashPlayersList(playersInvolved)
+      setOpenClashDialog(true)
+    }
   }
 
   const disabled = hasSubmittedMove
 
   return (
-    <Box
-      ref={gridRef}
-      sx={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${gridWidth}, 1fr)`,
-        width: "100%",
-        maxWidth: 600,
-        margin: "0 auto",
-        border: "2px solid black",
-        opacity: disabled ? 0.5 : 1, // Adjust opacity if disabled
-        pointerEvents: disabled ? "none" : "auto", // Disable interactions if disabled
-      }}
-    >
-      {Array.from({ length: totalCells }).map((_, index) => {
-        const isSelected = selectedSquare === index
-        const isWinningSquare = winningSquaresSet.has(index)
+    <>
+      <Box
+        ref={gridRef}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${gridWidth}, 1fr)`,
+          width: "100%",
+          maxWidth: 600,
+          margin: "0 auto",
+          border: "2px solid black",
+          opacity: disabled ? 0.5 : 1, // Adjust opacity if disabled
+          pointerEvents: disabled ? "none" : "auto", // Disable interactions if disabled
+        }}
+      >
+        {Array.from({ length: totalCells }).map((_, index) => {
+          const isSelected = selectedSquare === index
+          const isWinningSquare = winningSquaresSet.has(index)
 
-        const cellContent = cellContentMap[index] || null
+          const cellContent = cellContentMap[index] || null
 
-        // Determine background color
-        let backgroundColor = cellBackgroundMap[index] || "white"
-        if (isWinningSquare) {
-          backgroundColor = "green"
-        }
+          // Determine background color
+          let backgroundColor = cellBackgroundMap[index] || "white"
+          if (isWinningSquare) {
+            backgroundColor = "green"
+          }
 
-        // Determine if the square is an allowed move for the user
-        const isAllowedMove = cellAllowedMoveMap[index] || false
+          // Determine if the square is an allowed move for the user
+          const isAllowedMove = cellAllowedMoveMap[index] || false
 
-        // Highlight allowed moves
-        let borderColor = "black"
-        let borderStyle = "solid"
-        let borderWidth = "1px"
-        if (isAllowedMove) {
-          borderColor = "green"
-          borderStyle = "dotted"
-          borderWidth = "2px"
-        }
+          // Highlight allowed moves
+          let borderColor = "black"
+          let borderStyle = "solid"
+          let borderWidth = "1px"
+          if (isAllowedMove) {
+            borderColor = "green"
+            borderStyle = "dotted"
+            borderWidth = "2px"
+          }
 
-        return (
-          <Box
-            key={index}
-            onClick={() => {
-              if (disabled) return
-              handleSquareClick(index)
-            }}
-            sx={{
-              width: "100%",
-              paddingBottom: "100%", // Maintain aspect ratio
-              position: "relative",
-              border: `${borderWidth} ${borderStyle} ${borderColor}`,
-              cursor: disabled ? "default" : "pointer",
-              backgroundColor: backgroundColor,
-              transition: "background-color 0.3s",
-              boxSizing: "border-box", // Ensure border stays inside the box
-            }}
-          >
-            {/* Highlight selected square with solid green border */}
-            {isSelected && (
+          return (
+            <Box
+              key={index}
+              onClick={() => {
+                if (disabled) return
+                handleSquareClick(index)
+              }}
+              sx={{
+                width: "100%",
+                paddingBottom: "100%", // Maintain aspect ratio
+                position: "relative",
+                border: `${borderWidth} ${borderStyle} ${borderColor}`,
+                cursor: disabled ? "default" : "pointer",
+                backgroundColor: backgroundColor,
+                transition: "background-color 0.3s",
+                boxSizing: "border-box", // Ensure border stays inside the box
+              }}
+            >
+              {/* Highlight selected square with solid green border */}
+              {isSelected && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    border: "3px solid green",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                  }}
+                />
+              )}
               <Box
                 sx={{
                   position: "absolute",
@@ -335,34 +374,22 @@ const GameGrid: React.FC = () => {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  border: "3px solid green",
-                  pointerEvents: "none",
-                  zIndex: 2,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  fontSize: `${fontSize}px`, // Dynamic font size
+                  textAlign: "center",
+                  padding: 1,
+                  userSelect: "none",
+                  zIndex: 1, // Ensure content is above the inner border
                 }}
-              />
-            )}
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                fontSize: `${fontSize}px`, // Dynamic font size
-                textAlign: "center",
-                padding: 1,
-                userSelect: "none",
-                zIndex: 1, // Ensure content is above the inner border
-              }}
-            >
-              {cellContent}
+              >
+                {cellContent}
+              </Box>
             </Box>
-          </Box>
-        )
-      })}
+          )
+        })}
+      </Box>
       {/* Clash Dialog */}
       <ClashDialog
         open={openClashDialog}
@@ -370,7 +397,7 @@ const GameGrid: React.FC = () => {
         clashReason={clashReason}
         clashPlayersList={clashPlayersList}
       />
-    </Box>
+    </>
   )
 }
 

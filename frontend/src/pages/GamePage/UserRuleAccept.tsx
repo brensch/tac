@@ -59,7 +59,7 @@ const UserRulesAccept: React.FC<RulesDialogProps> = ({
               name="understandCheckbox"
             />
           }
-          label="I have read the instructions"
+          label="I have read the rules"
         />
       </DialogContent>
       <DialogActions>

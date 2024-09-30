@@ -76,7 +76,7 @@ export interface Turn {
 
 export interface Clash {
   index: number
-  playerIDs: number[]
+  playerIDs: string[]
   reason: string
 }
 
