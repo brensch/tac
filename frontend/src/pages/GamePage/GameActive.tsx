@@ -116,7 +116,7 @@ const GameActive: React.FC = () => {
           onClick={handleMoveSubmit}
           fullWidth
         >
-          Submit Move ({Math.max(0, timeRemaining).toFixed(1)}, round{" "}
+          Submit Move ({Math.max(0, timeRemaining).toFixed(0)}s, round{" "}
           {latestTurn?.turnNumber})
         </Button>
       )}

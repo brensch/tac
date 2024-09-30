@@ -66,6 +66,9 @@ export const GameStateProvider: React.FC<{
   // Use useRef to persist playersMap across renders
   const playersMapRef = useRef<{ [id: string]: PlayerInfo }>({})
 
+  // **NEW**: Use useRef to store the interval ID
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
+
   // Subscribe to game document
   useEffect(() => {
     if (gameID && userID !== "") {
@@ -167,12 +170,12 @@ export const GameStateProvider: React.FC<{
       (gameState?.winners.length && gameState?.winners.length > 0) || // Updated condition
       !currentTurn ||
       !gameState?.maxTurnTime ||
+      gameState.nextGame !== "" ||
       !gameID
     )
       return
 
-    let intervalTime = 100 // Initial interval time
-    let intervalId: NodeJS.Timeout
+    let intervalTime = 1000 // Initial interval time
 
     const intervalFunction = async () => {
       const now = Date.now() / 1000 // Current time in seconds
@@ -182,9 +185,10 @@ export const GameStateProvider: React.FC<{
       setTimeRemaining(remaining) // Update your local state for the timer display
 
       if (remaining > -1) {
-        return
+        return // If there's still time remaining, continue the interval
       }
-      // If the time runs out, check Firestore for existing expiration requests
+
+      // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(
         db,
         `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
@@ -196,17 +200,32 @@ export const GameStateProvider: React.FC<{
         playerID: userID,
       })
 
-      console.log(`Turn expiration request created for gameID: ${gameID}`)
+      console.log(
+        `Turn expiration request created for gameID: ${gameID}, turn ${latestTurn.turnNumber}`,
+      )
 
       // Slow down the interval after expiration to reduce resource usage
-      clearInterval(intervalId) // Clear the current interval
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current) // Clear the current interval
+      }
       intervalTime = 3000 // Increase interval time
-      intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
+      intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
     }
 
-    intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
+    // Clear any existing interval before setting a new one
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current)
+    }
 
-    return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
+    intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
+
+    // Cleanup function: stop the timer when the current turn changes
+    return () => {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
+      }
+    }
   }, [latestTurn, userID, currentTurn, gameState, gameID])
 
   // Function to start the game

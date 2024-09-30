@@ -100,15 +100,15 @@ const GameGrid: React.FC = () => {
       const directionKey = `${dx},${dy}`
 
       const arrowMap: { [key: string]: string } = {
-        "0,-2": "↑",
-        "0,2": "↓",
-        "-2,0": "←",
-        "2,0": "→",
-        "1,-1": "↗",
-        "1,1": "↘",
-        "-1,-1": "↖",
-        "-1,1": "↙",
-        "0,0": "", // Empty for no movement
+        "0,-2": "⬆️", // Up arrow
+        "0,2": "⬇️", // Down arrow
+        "-2,0": "⬅️", // Left arrow
+        "2,0": "➡️", // Right arrow
+        "1,-1": "↗️", // Up-right arrow
+        "1,1": "↘️", // Down-right arrow
+        "-1,-1": "↖️", // Up-left arrow
+        "-1,1": "↙️", // Down-left arrow
+        "0,0": "", // No movement
       }
 
       return arrowMap[directionKey] || ""
@@ -155,7 +155,7 @@ const GameGrid: React.FC = () => {
       const segmentInfo = cellSnakeSegments[position]
       const playerInfo = playerInfos.find((p) => p.id === segmentInfo.playerID)
 
-      let content: JSX.Element
+      let content: JSX.Element | null
 
       if (segmentInfo.isHead) {
         // Head
@@ -173,15 +173,19 @@ const GameGrid: React.FC = () => {
         )
       } else {
         // No arrow emoji (could happen if direction is undefined)
-        content = <span key={`body-${position}`} style={{ fontSize }} />
+        content = (
+          <span key={`body-${position}`} style={{ fontSize }}>
+            🍑
+          </span>
+        )
       }
 
       // Add count indicator if multiple segments
       if (segmentInfo.count > 1) {
-        const count = "i".repeat(segmentInfo.count)
+        const count = segmentInfo.count
         content = (
           <Box key={`body-${position}`} sx={{ position: "relative" }}>
-            {content}
+            {content ?? <></>}
             <span
               style={{
                 position: "absolute",

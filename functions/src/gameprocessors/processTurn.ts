@@ -45,13 +45,6 @@ export async function processTurn(
     // Log moves received in this round
     logger.info(`Moves received in round ${currentRound}`, { movesThisRound })
 
-    // If no one moved, set winner to an empty array (nobody won) and create a new game
-    if (movesThisRound.length === 0) {
-      await createNewGame(transaction, gameID)
-      logger.info("No moves this round. New game created.", { gameID })
-      return
-    }
-
     // Process only the latest move for each player
     const latestMoves: Move[] = movesThisRound
       .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()) // Sort moves by timestamp, newest first

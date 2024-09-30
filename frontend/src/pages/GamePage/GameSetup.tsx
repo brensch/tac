@@ -7,7 +7,7 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useRef } from "react"
 import { useParams } from "react-router-dom"
 import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"
@@ -45,8 +45,10 @@ const GameSetup: React.FC = () => {
   const [gameType, setGameType] = useState<GameType>("snek")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null) // To store interval ID
   const [RulesComponent, setRulesComponent] = useState<React.FC>(Connect4Rules)
+
+  // **NEW**: Ref to store the interval ID
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update local state when gameState changes
   useEffect(() => {
@@ -62,11 +64,10 @@ const GameSetup: React.FC = () => {
   useEffect(() => {
     if (!gameState?.firstPlayerReadyTime || gameState.started) return
 
-    let intervalTime = 100 // Initial interval time
-    let intervalId: NodeJS.Timeout
-
     const startDelay = 60 // seconds
     const firstReadyTime = gameState.firstPlayerReadyTime.toDate().getTime() // Convert Firestore Timestamp to JS Date
+    let intervalTime = 1000 // Initial interval time
+
     const intervalFunction = async () => {
       const now = Date.now()
       const elapsedSeconds = (now - firstReadyTime) / 1000
@@ -74,7 +75,7 @@ const GameSetup: React.FC = () => {
       setCountdown(Math.max(remaining, 0))
 
       if (elapsedSeconds < 60) {
-        return
+        return // If there's still time remaining, continue the interval
       }
 
       const expirationRequestsRef = collection(
@@ -86,24 +87,38 @@ const GameSetup: React.FC = () => {
         timestamp: new Date(),
       })
 
-      console.log(`ready expiration request created for gameID: ${gameID}`)
+      console.log(`Ready expiration request created for gameID: ${gameID}`)
 
       // Slow down the interval after expiration to reduce resource usage
-      clearInterval(intervalId) // Clear the current interval
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current) // Clear the current interval
+      }
       intervalTime = 3000 // Increase interval time
-      intervalId = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
+      intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
     }
-    intervalId = setInterval(intervalFunction, intervalTime) // Set initial interval
 
-    return () => clearInterval(intervalId) // Cleanup on unmount or dependency change
-  }, [gameState?.firstPlayerReadyTime])
+    // Clear any existing interval before setting a new one
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current)
+    }
+
+    intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
+
+    // Cleanup function: stop the timer when component unmounts or dependencies change
+    return () => {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
+      }
+    }
+  }, [gameState?.firstPlayerReadyTime, gameState?.started, gameID])
 
   useEffect(() => {
-    if (countdown === 0 && intervalId) {
-      clearInterval(intervalId)
-      setIntervalId(null)
+    if (countdown === 0 && intervalIdRef.current) {
+      clearInterval(intervalIdRef.current)
+      intervalIdRef.current = null
     }
-  }, [countdown, intervalId])
+  }, [countdown])
 
   // Start game
   const handleStartGame = async () => {
@@ -326,7 +341,7 @@ const GameSetup: React.FC = () => {
             ? `Waiting for others`
             : "Ready?"}
           {!!gameState.firstPlayerReadyTime &&
-            ` (starting in ${countdown.toFixed(1)}s)`}
+            ` (starting in ${countdown.toFixed(0)}s)`}
         </Typography>
       </Button>
     </Stack>
