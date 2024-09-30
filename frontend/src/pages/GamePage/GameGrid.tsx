@@ -326,6 +326,8 @@ const GameGrid: React.FC = () => {
 
   const disabled = hasSubmittedMove
 
+  console.log(currentTurn?.moves)
+
   return (
     <>
       <Box

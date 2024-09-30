@@ -189,12 +189,10 @@ export const GameStateProvider: React.FC<{
       const remaining = endTimeSeconds - now // Time remaining for the turn
 
       setTimeRemaining(remaining) // Update your local state for the timer display
-      console.log("ha", remaining)
 
       if (remaining > -1) {
         return // If there's still time remaining, continue the interval
       }
-      console.log("ye")
 
       // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(

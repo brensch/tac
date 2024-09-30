@@ -6,6 +6,7 @@ import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 import { Timestamp } from "firebase-admin/firestore"
+import { FirstMoveTimeoutSeconds } from "../timings"
 
 /**
  * Processor class for the TacticToes game logic.
@@ -85,7 +86,7 @@ export class TacticToesProcessor extends GameProcessor {
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
-      endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
+      endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Not applicable at the start
       alivePlayers: [...playerIDs],
       allowedMoves: allowedMoves,
@@ -243,32 +244,92 @@ export class TacticToesProcessor extends GameProcessor {
         }))
       }
 
-      // Implement game-specific logic to determine a winner
-      // For TacticToes, a player wins by occupying all positions in a row, column, or diagonal.
+      // Collect winning lines for each player
+      const winningLinesMap: { [playerID: string]: number[][] } = {}
+      const allWinningSquares = new Set<number>()
+      const playersWithWinningLines: string[] = []
 
-      // Example winning conditions (rows, columns, diagonals)
-      const lines = this.getWinningLines(boardWidth, boardHeight)
+      // Winning lines (rows, columns, diagonals)
+      const lines = this.getAllPossibleLines(boardWidth, boardHeight)
 
       for (const playerID of playerIDs) {
         const playerPositions = new Set(playerPieces[playerID])
+        const winningLines: number[][] = []
+
         for (const line of lines) {
-          if (line.every((pos) => playerPositions.has(pos))) {
-            // Player has won
-            const winner: Winner = {
-              playerID,
-              score: 1,
-              winningSquares: line,
-            }
-            logger.info(`TacticToes: Player ${playerID} has won the game.`)
-            return [winner]
+          const consecutiveCount = this.getMaxConsecutiveCount(
+            line,
+            playerPositions,
+          )
+          if (consecutiveCount >= 4) {
+            winningLines.push(line)
+            line.forEach((pos) => allWinningSquares.add(pos))
           }
         }
+
+        if (winningLines.length > 0) {
+          winningLinesMap[playerID] = winningLines
+          playersWithWinningLines.push(playerID)
+        }
+      }
+
+      if (playersWithWinningLines.length === 1) {
+        // Single winner
+        const winnerID = playersWithWinningLines[0]
+        const winningSquares = Array.from(
+          new Set(winningLinesMap[winnerID].flat()),
+        )
+        const winner: Winner = {
+          playerID: winnerID,
+          score: 1,
+          winningSquares,
+        }
+        logger.info(`TacticToes: Player ${winnerID} has won the game.`)
+        return [winner]
+      } else if (playersWithWinningLines.length > 1) {
+        // Multiple winners: Convert winning moves to clashes
+        const clashes = this.currentTurn.clashes || []
+        const involvedPlayers = playersWithWinningLines
+
+        // For each winning square, create a clash
+        this.latestMoves
+          .filter((move) => playersWithWinningLines.includes(move.playerID))
+          .forEach((position) => {
+            // Remove the position from playerPieces
+            for (const playerID of involvedPlayers) {
+              if (!this.currentTurn) continue
+              const index = this.currentTurn.playerPieces[playerID].indexOf(
+                position.move,
+              )
+              if (index !== -1) {
+                this.currentTurn.playerPieces[playerID].splice(index, 1)
+              }
+            }
+
+            // Add to clashes if not already present
+            if (!clashes.some((clash) => clash.index === position.move)) {
+              clashes.push({
+                index: position.move,
+                playerIDs: involvedPlayers,
+                reason: `Clash due to multiple players achieving a winning line`,
+              })
+            }
+          })
+
+        // Update the turn's clashes
+        this.currentTurn.clashes = clashes
+
+        // No winners, game continues or ends in a draw if no moves left
+        logger.info(
+          `TacticToes: Multiple players achieved a winning line simultaneously. Winning moves have become clashes.`,
+        )
+        return []
       }
 
       // Check for draw (no more moves)
       const totalCells = boardWidth * boardHeight
       const totalOccupied =
-        Object.values(playerPieces).reduce(
+        Object.values(this.currentTurn.playerPieces).reduce(
           (sum, positions) => sum + positions.length,
           0,
         ) + (this.currentTurn.clashes?.length || 0)
@@ -293,41 +354,72 @@ export class TacticToesProcessor extends GameProcessor {
   }
 
   /**
-   * Helper method to get all winning lines (rows, columns, diagonals).
+   * Helper method to get all possible lines (rows, columns, diagonals) of length 4 or more.
    */
-  private getWinningLines(boardWidth: number, boardHeight: number): number[][] {
+  private getAllPossibleLines(
+    boardWidth: number,
+    boardHeight: number,
+  ): number[][] {
     const lines: number[][] = []
 
-    // Rows
+    // Directions: horizontal, vertical, diagonal /
+    const directions = [
+      { dx: 1, dy: 0 }, // Horizontal
+      { dx: 0, dy: 1 }, // Vertical
+      { dx: 1, dy: 1 }, // Diagonal down-right
+      { dx: 1, dy: -1 }, // Diagonal up-right
+    ]
+
     for (let y = 0; y < boardHeight; y++) {
-      const row: number[] = []
       for (let x = 0; x < boardWidth; x++) {
-        row.push(y * boardWidth + x)
-      }
-      lines.push(row)
-    }
+        for (const { dx, dy } of directions) {
+          const line: number[] = []
+          let nx = x
+          let ny = y
 
-    // Columns
-    for (let x = 0; x < boardWidth; x++) {
-      const column: number[] = []
-      for (let y = 0; y < boardHeight; y++) {
-        column.push(y * boardWidth + x)
-      }
-      lines.push(column)
-    }
+          while (
+            nx >= 0 &&
+            nx < boardWidth &&
+            ny >= 0 &&
+            ny < boardHeight &&
+            line.length < 4
+          ) {
+            line.push(ny * boardWidth + nx)
+            nx += dx
+            ny += dy
+          }
 
-    // Diagonals (if square board)
-    if (boardWidth === boardHeight) {
-      const diag1: number[] = []
-      const diag2: number[] = []
-      for (let i = 0; i < boardWidth; i++) {
-        diag1.push(i * boardWidth + i)
-        diag2.push(i * boardWidth + (boardWidth - i - 1))
+          if (line.length >= 4) {
+            lines.push(line)
+          }
+        }
       }
-      lines.push(diag1)
-      lines.push(diag2)
     }
 
     return lines
+  }
+
+  /**
+   * Helper method to get the maximum consecutive count in a line for a player's positions.
+   */
+  private getMaxConsecutiveCount(
+    line: number[],
+    playerPositions: Set<number>,
+  ): number {
+    let maxCount = 0
+    let currentCount = 0
+
+    for (const pos of line) {
+      if (playerPositions.has(pos)) {
+        currentCount++
+        if (currentCount > maxCount) {
+          maxCount = currentCount
+        }
+      } else {
+        currentCount = 0
+      }
+    }
+
+    return maxCount
   }
 }

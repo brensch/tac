@@ -6,6 +6,7 @@ import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 import { Timestamp } from "firebase-admin/firestore"
+import { FirstMoveTimeoutSeconds } from "../timings"
 
 /**
  * Processor class for Longboi game logic.
@@ -85,7 +86,7 @@ export class LongboiProcessor extends GameProcessor {
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
-      endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
+      endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Initialize scores as empty map
       alivePlayers: [...playerIDs], // All players are alive
 
@@ -122,7 +123,9 @@ export class LongboiProcessor extends GameProcessor {
       const moveMap: { [position: number]: string[] } = {}
 
       // Clashes array
-      const clashes: Clash[] = []
+      const clashes: Clash[] = this.currentTurn.clashes
+        ? [...this.currentTurn.clashes]
+        : []
 
       // Process latest moves
       this.latestMoves.forEach((move) => {
@@ -171,7 +174,7 @@ export class LongboiProcessor extends GameProcessor {
         }
       }
 
-      // Update allowed moves (exclude claimed positions)
+      // Update allowed moves (exclude claimed positions and clashes)
       const totalCells = boardWidth * boardHeight
       const allPositions = Array.from(
         { length: totalCells },
@@ -181,6 +184,9 @@ export class LongboiProcessor extends GameProcessor {
       Object.values(newPlayerPieces).forEach((positions) => {
         positions.forEach((pos) => claimedPositions.add(pos))
       })
+      clashes.forEach((clash) => {
+        claimedPositions.add(clash.index)
+      })
 
       const newAllowedMoves: { [playerID: string]: number[] } = {}
       playerIDs.forEach((playerID) => {
@@ -189,22 +195,13 @@ export class LongboiProcessor extends GameProcessor {
         )
       })
 
-      // Calculate scores based on the longest line
-      const scores: { [playerID: string]: number } = {}
-      playerIDs.forEach((playerID) => {
-        scores[playerID] = this.calculateLongestLine(
-          newPlayerPieces[playerID],
-          boardWidth,
-          boardHeight,
-        )
-      })
-
       // Update the current turn
       this.currentTurn.playerPieces = newPlayerPieces
-      this.currentTurn.scores = scores
       this.currentTurn.allowedMoves = newAllowedMoves
-      this.currentTurn.alivePlayers = [...playerIDs] // All players are alive
       this.currentTurn.clashes = clashes
+
+      // Calculate scores after moves have been applied
+      this.updateScores()
     } catch (error) {
       logger.error(
         `Longboi: Error applying moves for game ${this.gameID}:`,
@@ -215,21 +212,42 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
+   * Updates the scores for all players based on the current board state.
+   */
+  private updateScores(): void {
+    const { boardWidth, boardHeight, playerIDs, playerPieces } =
+      this.currentTurn!
+    const scores: { [playerID: string]: number } = {}
+
+    for (const playerID of playerIDs) {
+      const result = this.calculateLongestPath(
+        playerPieces[playerID],
+        boardWidth,
+        boardHeight,
+      )
+      scores[playerID] = result.length
+    }
+
+    this.currentTurn!.scores = scores
+  }
+
+  /**
    * Finds winners based on the updated Longboi game.
    * @returns An array of Winner objects.
    */
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const { boardWidth, boardHeight, playerIDs, playerPieces, scores } =
+      const { boardWidth, boardHeight, playerIDs, playerPieces } =
         this.currentTurn
       const totalPositions = boardWidth * boardHeight
 
-      // Check if all positions are claimed
-      const claimedPositionsCount = Object.values(playerPieces).reduce(
-        (sum, positions) => sum + positions.length,
-        0,
-      )
+      // Check if all positions are claimed or no one moved
+      const claimedPositionsCount =
+        Object.values(playerPieces).reduce(
+          (sum, positions) => sum + positions.length,
+          0,
+        ) + (this.currentTurn.clashes?.length || 0)
 
       const isBoardFull = claimedPositionsCount >= totalPositions
 
@@ -239,45 +257,62 @@ export class LongboiProcessor extends GameProcessor {
         return []
       }
 
-      // Determine the player(s) with the longest line
-      let maxLineLength = 0
+      // Calculate longest paths for each player
+      const longestPaths: {
+        [playerID: string]: { length: number; path: number[] }
+      } = {}
+
+      let maxLength = 0
+
+      for (const playerID of playerIDs) {
+        const result = this.calculateLongestPath(
+          playerPieces[playerID],
+          boardWidth,
+          boardHeight,
+        )
+        longestPaths[playerID] = result
+        if (result.length > maxLength) {
+          maxLength = result.length
+        }
+      }
+
+      // Determine the player(s) with the longest path
       const potentialWinners: string[] = []
 
-      playerIDs.forEach((playerID) => {
-        const lineLength = scores[playerID]
-        if (lineLength > maxLineLength) {
-          maxLineLength = lineLength
-          potentialWinners.length = 0 // Reset potential winners
-          potentialWinners.push(playerID)
-        } else if (lineLength === maxLineLength) {
+      for (const playerID of playerIDs) {
+        if (longestPaths[playerID].length === maxLength && maxLength > 0) {
           potentialWinners.push(playerID)
         }
-      })
+      }
 
       if (potentialWinners.length === 1) {
         const winnerID = potentialWinners[0]
-        const winningSquares = playerPieces[winnerID]
+        const winningSquares = longestPaths[winnerID].path
         const winner: Winner = {
           playerID: winnerID,
-          score: maxLineLength,
+          score: maxLength,
           winningSquares: winningSquares,
         }
         logger.info(
-          `Longboi: Player ${winnerID} has won the game with a longest line of ${maxLineLength}.`,
+          `Longboi: Player ${winnerID} has won the game with a longest path of ${maxLength}.`,
         )
         return [winner]
-      } else {
-        // Tie or draw
+      } else if (potentialWinners.length > 1) {
+        // Tie among players with the same longest path length
         logger.info(
-          `Longboi: Game ended in a draw among players: ${potentialWinners.join(
+          `Longboi: Game ended in a tie among players: ${potentialWinners.join(
             ", ",
           )}.`,
         )
         return potentialWinners.map((playerID) => ({
           playerID,
-          score: scores[playerID],
-          winningSquares: playerPieces[playerID],
+          score: longestPaths[playerID].length,
+          winningSquares: longestPaths[playerID].path,
         }))
+      } else {
+        // No winner
+        logger.info(`Longboi: Game ended with no winner.`)
+        return []
       }
     } catch (error) {
       logger.error(
@@ -289,65 +324,91 @@ export class LongboiProcessor extends GameProcessor {
   }
 
   /**
-   * Calculates the longest continuous line for a player.
+   * Calculates the longest single path (no branches) for a player.
    * @param positions The positions claimed by the player.
    * @param boardWidth The width of the board.
    * @param boardHeight The height of the board.
-   * @returns The length of the longest line.
+   * @returns An object containing the length and the path.
    */
-  private calculateLongestLine(
+  private calculateLongestPath(
     positions: number[],
     boardWidth: number,
     boardHeight: number,
-  ): number {
-    if (positions.length === 0) return 0
+  ): { length: number; path: number[] } {
+    if (positions.length === 0) return { length: 0, path: [] }
 
-    // Convert positions to a grid for easier traversal
-    const grid = Array(boardHeight)
-      .fill(null)
-      .map(() => Array(boardWidth).fill(false))
-
-    positions.forEach((pos) => {
-      const x = pos % boardWidth
-      const y = Math.floor(pos / boardWidth)
-      grid[y][x] = true
-    })
-
-    const directions = [
-      { dx: 1, dy: 0 }, // horizontal
-      { dx: 0, dy: 1 }, // vertical
-      { dx: 1, dy: 1 }, // diagonal down-right
-      { dx: 1, dy: -1 }, // diagonal up-right
-    ]
+    // Convert positions to a set for faster lookup
+    const positionSet = new Set(positions)
 
     let maxLength = 0
+    let longestPath: number[] = []
 
-    for (let y = 0; y < boardHeight; y++) {
-      for (let x = 0; x < boardWidth; x++) {
-        if (grid[y][x]) {
-          for (const dir of directions) {
-            let length = 1
-            let nx = x + dir.dx
-            let ny = y + dir.dy
-            while (
-              ny >= 0 &&
-              ny < boardHeight &&
-              nx >= 0 &&
-              nx < boardWidth &&
-              grid[ny][nx]
-            ) {
-              length++
-              nx += dir.dx
-              ny += dir.dy
-            }
-            if (length > maxLength) {
-              maxLength = length
-            }
+    // For each position, perform DFS to find the longest path
+    for (const startPos of positions) {
+      const visited = new Set<number>()
+      const stack: { pos: number; path: number[] }[] = []
+      stack.push({ pos: startPos, path: [startPos] })
+
+      while (stack.length > 0) {
+        const { pos, path } = stack.pop()!
+
+        if (path.length > maxLength) {
+          maxLength = path.length
+          longestPath = [...path]
+        }
+
+        visited.add(pos)
+
+        const neighbors = this.getNeighborPositions(
+          pos,
+          boardWidth,
+          boardHeight,
+        )
+
+        for (const neighbor of neighbors) {
+          if (
+            positionSet.has(neighbor) &&
+            !path.includes(neighbor) // prevent cycles
+          ) {
+            stack.push({ pos: neighbor, path: [...path, neighbor] })
           }
         }
       }
     }
 
-    return maxLength
+    return { length: maxLength, path: longestPath }
+  }
+
+  /**
+   * Get the neighboring positions (up, down, left, right) of a given position.
+   */
+  private getNeighborPositions(
+    pos: number,
+    boardWidth: number,
+    boardHeight: number,
+  ): number[] {
+    const x = pos % boardWidth
+    const y = Math.floor(pos / boardWidth)
+
+    const neighbors: number[] = []
+
+    // Up
+    if (y > 0) {
+      neighbors.push((y - 1) * boardWidth + x)
+    }
+    // Down
+    if (y < boardHeight - 1) {
+      neighbors.push((y + 1) * boardWidth + x)
+    }
+    // Left
+    if (x > 0) {
+      neighbors.push(y * boardWidth + (x - 1))
+    }
+    // Right
+    if (x < boardWidth - 1) {
+      neighbors.push(y * boardWidth + (x + 1))
+    }
+
+    return neighbors
   }
 }

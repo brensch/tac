@@ -6,6 +6,7 @@ import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
 import { Timestamp } from "firebase-admin/firestore"
+import { FirstMoveTimeoutSeconds } from "../timings"
 
 /**
  * Processor class for the Connect4 game logic.
@@ -88,7 +89,7 @@ export class Connect4Processor extends GameProcessor {
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
-      endTime: Timestamp.fromMillis(now + gameState.maxTurnTime * 1000),
+      endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Not used at the start
       alivePlayers: [...playerIDs],
       allowedMoves: allowedMoves,
@@ -160,6 +161,9 @@ export class Connect4Processor extends GameProcessor {
       // Map to track moves to columns
       const moveMap: { [column: number]: string[] } = {}
 
+      // Map to track the final positions of moves for each player
+      const latestMovePositions: { [playerID: string]: number } = {}
+
       // Process latest moves
       for (const move of this.latestMoves) {
         const { playerID, move: position } = move
@@ -214,6 +218,9 @@ export class Connect4Processor extends GameProcessor {
 
           // Update the player's occupied positions
           newPlayerPieces[playerID].push(targetPosition)
+
+          // Record the latest move position for the player
+          latestMovePositions[playerID] = targetPosition
         } else {
           // Clash occurs at targetPosition
           logger.warn(
@@ -247,6 +254,9 @@ export class Connect4Processor extends GameProcessor {
       this.currentTurn.allowedMoves = newAllowedMoves
       this.currentTurn.playerPieces = newPlayerPieces
       this.currentTurn.clashes = clashes
+
+      // Store the latest move positions for use in findWinners
+      ;(this.currentTurn as any).latestMovePositions = latestMovePositions
     } catch (error) {
       logger.error(
         `Connect4: Error applying moves for game ${this.gameID}:`,
@@ -265,6 +275,8 @@ export class Connect4Processor extends GameProcessor {
     try {
       const { boardWidth, boardHeight, playerIDs } = this.currentTurn
       const grid: (string | null)[] = (this.currentTurn as any).grid
+      const latestMovePositions: { [playerID: string]: number } =
+        (this.currentTurn as any).latestMovePositions || {}
 
       if (this.latestMoves.length === 0) {
         return this.currentTurn.alivePlayers.map((player) => ({
@@ -274,23 +286,81 @@ export class Connect4Processor extends GameProcessor {
         }))
       }
 
-      // Check for a winner
+      // Map to hold winning squares for each player
+      const playerWinningLines: { [playerID: string]: number[] } = {}
+
+      // Check for winners starting from their latest move positions
       for (const playerID of playerIDs) {
-        const winningSquares = this.checkWinner(
+        const latestMovePos = latestMovePositions[playerID]
+        if (latestMovePos === undefined) {
+          continue
+        }
+        const winningSquares = this.checkWinnerAtPosition(
           grid,
           boardWidth,
           boardHeight,
           playerID,
+          latestMovePos,
         )
         if (winningSquares.length >= 4) {
-          const winner: Winner = {
-            playerID,
-            score: 1,
-            winningSquares,
-          }
-          logger.info(`Connect4: Player ${playerID} has won the game.`)
-          return [winner]
+          playerWinningLines[playerID] = winningSquares
         }
+      }
+
+      const winners = Object.keys(playerWinningLines)
+
+      if (winners.length === 1) {
+        const winnerID = winners[0]
+        const winner: Winner = {
+          playerID: winnerID,
+          score: 1,
+          winningSquares: playerWinningLines[winnerID],
+        }
+        logger.info(`Connect4: Player ${winnerID} has won the game.`)
+        return [winner]
+      } else if (winners.length > 1) {
+        // Multiple players won at the same time
+        logger.info(
+          `Connect4: Multiple players have won simultaneously: ${winners.join(
+            ", ",
+          )}. Converting winning moves to clashes.`,
+        )
+
+        // Convert only the positions of their latest moves to clashes
+        for (const playerID of winners) {
+          const latestMovePos = latestMovePositions[playerID]
+          if (latestMovePos === undefined) {
+            continue
+          }
+
+          // Avoid duplicate clashes at the same position
+          if (
+            (this.currentTurn.clashes || []).some(
+              (clash) => clash.index === latestMovePos,
+            )
+          ) {
+            continue
+          }
+
+          this.currentTurn.clashes!.push({
+            index: latestMovePos,
+            playerIDs: winners,
+            reason: "Multiple players achieved a winning line simultaneously",
+          })
+
+          // Update grid to reflect the clash
+          ;(this.currentTurn as any).grid[latestMovePos] = "clash"
+
+          // Remove the piece from playerPieces
+          const playerPieces = this.currentTurn.playerPieces[playerID]
+          const index = playerPieces.indexOf(latestMovePos)
+          if (index !== -1) {
+            playerPieces.splice(index, 1)
+          }
+        }
+
+        // No winner declared
+        return []
       }
 
       // Check for draw (no more moves)
@@ -318,13 +388,14 @@ export class Connect4Processor extends GameProcessor {
   }
 
   /**
-   * Checks if the player has won.
+   * Checks if the player has a winning line starting from a specific position.
    */
-  private checkWinner(
+  private checkWinnerAtPosition(
     grid: (string | null)[],
     boardWidth: number,
     boardHeight: number,
     playerID: string,
+    position: number,
   ): number[] {
     const directions = [
       { dx: 1, dy: 0 }, // Horizontal
@@ -333,28 +404,44 @@ export class Connect4Processor extends GameProcessor {
       { dx: 1, dy: -1 }, // Diagonal up-right
     ]
 
-    for (let y = 0; y < boardHeight; y++) {
-      for (let x = 0; x < boardWidth; x++) {
-        const index = y * boardWidth + x
-        if (grid[index] !== playerID) continue
+    const x = position % boardWidth
+    const y = Math.floor(position / boardWidth)
 
-        for (const { dx, dy } of directions) {
-          const winningSquares = [index]
-          let nx = x + dx
-          let ny = y + dy
-          while (
-            nx >= 0 &&
-            nx < boardWidth &&
-            ny >= 0 &&
-            ny < boardHeight &&
-            grid[ny * boardWidth + nx] === playerID
-          ) {
-            winningSquares.push(ny * boardWidth + nx)
-            if (winningSquares.length >= 4) return winningSquares
-            nx += dx
-            ny += dy
-          }
-        }
+    for (const { dx, dy } of directions) {
+      const winningSquares = [position]
+
+      // Check in the positive direction
+      let nx = x + dx
+      let ny = y + dy
+      while (
+        nx >= 0 &&
+        nx < boardWidth &&
+        ny >= 0 &&
+        ny < boardHeight &&
+        grid[ny * boardWidth + nx] === playerID
+      ) {
+        winningSquares.push(ny * boardWidth + nx)
+        nx += dx
+        ny += dy
+      }
+
+      // Check in the negative direction
+      nx = x - dx
+      ny = y - dy
+      while (
+        nx >= 0 &&
+        nx < boardWidth &&
+        ny >= 0 &&
+        ny < boardHeight &&
+        grid[ny * boardWidth + nx] === playerID
+      ) {
+        winningSquares.push(ny * boardWidth + nx)
+        nx -= dx
+        ny -= dy
+      }
+
+      if (winningSquares.length >= 4) {
+        return winningSquares
       }
     }
 
