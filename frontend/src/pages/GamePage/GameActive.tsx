@@ -81,6 +81,7 @@ const GameActive: React.FC = () => {
 
   if (!gameState.started || !currentTurn) return null
 
+  console.log(latestTurn?.allowedMoves[userID])
   return (
     <Stack spacing={2} pt={2}>
       {/* Rules Dialog - Only shown on the first turn */}
@@ -110,7 +111,8 @@ const GameActive: React.FC = () => {
             !!currentTurn?.hasMoved[userID] ||
             !playerInCurrentGame ||
             selectedSquare === null ||
-            turns.length !== currentTurn?.turnNumber
+            turns.length !== currentTurn?.turnNumber ||
+            !latestTurn?.allowedMoves[userID].includes(selectedSquare)
           }
           variant="contained"
           onClick={handleMoveSubmit}

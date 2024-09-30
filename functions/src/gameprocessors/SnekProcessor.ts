@@ -212,6 +212,9 @@ export class SnekProcessor extends GameProcessor {
           return
         }
 
+        // Remove the last element of the snake (tail)
+        snake.pop()
+
         // Self-collision check (before applying the move)
         if (snake.includes(moveIndex)) {
           // Snake collides with its own body
@@ -225,9 +228,6 @@ export class SnekProcessor extends GameProcessor {
 
         // Add the latest move index to the start of the snake (new head position)
         snake.unshift(moveIndex)
-
-        // Remove the last element of the snake (tail)
-        snake.pop()
 
         // Check if they landed on a food piece
         const foodIndex = newFood.indexOf(moveIndex)

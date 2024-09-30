@@ -79,20 +79,10 @@ const GameFinished: React.FC = () => {
             <Typography
               variant="h5"
               color="primary"
-              sx={{ my: 2, textAlign: "center" }}
+              sx={{ my: 2, textAlign: "left" }}
             >
-              It's a draw.
+              It's a draw. Lame.
             </Typography>
-            {gameState.nextGame !== "" && (
-              <Button
-                sx={{ my: 2, bgcolor: "green" }}
-                variant="contained"
-                fullWidth
-                onClick={() => navigate(`/game/${gameState.nextGame}`)}
-              >
-                Play Again?
-              </Button>
-            )}
           </>
         ) : (
           <>
@@ -103,57 +93,57 @@ const GameFinished: React.FC = () => {
             >
               {topPlayer?.nickname} won. Nice.
             </Typography>
-
-            {/* Table of Players and Scores */}
-            <TableContainer
-              component={Paper}
-              sx={{ maxWidth: 600, margin: "auto", my: 2 }}
-            >
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell align="center">
-                      <strong>Rank</strong>
-                    </TableCell>
-                    <TableCell align="left">
-                      <strong>Player</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Score</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedPlayers.map((player, index) => (
-                    <TableRow key={player.playerID}>
-                      <TableCell align="center">{index + 1}</TableCell>
-                      <TableCell align="left">
-                        {player.emoji} {player.nickname}
-                      </TableCell>
-                      <TableCell align="right">{player.score}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            {/* "Play Again?" Button */}
-            {gameState.nextGame !== "" && (
-              <Button
-                sx={{ my: 2, bgcolor: "green" }}
-                variant="contained"
-                fullWidth
-                onClick={() => navigate(`/game/${gameState.nextGame}`)}
-              >
-                Play Again?
-              </Button>
-            )}
           </>
+        )}
+
+        {/* Table of Players and Scores */}
+        <TableContainer
+          component={Paper}
+          sx={{ maxWidth: 600, margin: "auto", my: 2 }}
+        >
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell align="center">
+                  <strong>Rank</strong>
+                </TableCell>
+                <TableCell align="left">
+                  <strong>Player</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Score</strong>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedPlayers.map((player, index) => (
+                <TableRow key={player.playerID}>
+                  <TableCell align="center">{index + 1}</TableCell>
+                  <TableCell align="left">
+                    {player.emoji} {player.nickname}
+                  </TableCell>
+                  <TableCell align="right">{player.score}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* "Play Again?" Button */}
+        {gameState.nextGame !== "" && (
+          <Button
+            sx={{ my: 2, bgcolor: "green" }}
+            variant="contained"
+            fullWidth
+            onClick={() => navigate(`/game/${gameState.nextGame}`)}
+          >
+            Play Again?
+          </Button>
         )}
       </Box>
 
       {/* Emoji Rain Effect for Top Player */}
-      {topPlayer && (
+      {topPlayer && !draw && (
         <EmojiRain
           emoji={topPlayer.emoji}
           top={-20} // Start emoji rain from the top

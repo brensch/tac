@@ -255,6 +255,7 @@ const GameGrid: React.FC = () => {
   }
 
   const handleSquareClick = (index: number) => {
+    console.log(index)
     if (!currentTurn) return
 
     if (gameState?.started && !hasSubmittedMove) {
