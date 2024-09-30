@@ -26,7 +26,7 @@ const ClashDialog: React.FC<ClashDialogProps> = ({
   clashPlayersList,
 }) => {
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={onClose} sx={{ zIndex: 99999999 }}>
       <DialogTitle>Clash Details</DialogTitle>
       <DialogContent>
         <DialogContentText>{clashReason}</DialogContentText>

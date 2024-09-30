@@ -102,6 +102,7 @@ export class SnekProcessor extends GameProcessor {
       allowedMoves: allowedMoves, // Map of allowed moves per player
       walls: walls, // Positions of walls
       clashes: [], // Initialize empty array for clashes
+      gameOver: false,
     }
 
     return firstTurn

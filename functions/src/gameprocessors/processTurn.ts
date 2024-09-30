@@ -37,6 +37,11 @@ export async function processTurn(
       movesQuery,
     )
 
+    if (currentTurn.gameOver) {
+      logger.warn("game already finished.")
+      return
+    }
+
     // Extract move data from the snapshot
     const movesThisRound: Move[] = movesSnapshot.docs.map(
       (doc) => doc.data() as Move,
@@ -89,6 +94,8 @@ export async function processTurn(
 
         // Create a new game after updating the current game with winners
         await createNewGame(transaction, gameID)
+        // set gameover so that when nextturn gets created it has the gameover state
+        currentTurn.gameOver = true
         logger.info(
           `Winners found for game ${gameID} in round ${currentRound}. New game created.`,
           {

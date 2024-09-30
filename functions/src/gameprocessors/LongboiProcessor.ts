@@ -96,6 +96,7 @@ export class LongboiProcessor extends GameProcessor {
       allowedMoves: allowedMoves,
       walls: [], // No walls in Longboi
       clashes: [],
+      gameOver: false,
     }
 
     return firstTurn

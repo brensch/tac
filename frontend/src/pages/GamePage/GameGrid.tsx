@@ -125,7 +125,6 @@ const GameGrid: React.FC = () => {
     Object.keys(snakes).forEach((playerID) => {
       const positions = snakes[playerID]
       const playerInfo = playerInfos.find((p) => p.id === playerID)
-      console.log(positions)
 
       positions.forEach((position, index) => {
         // Initialize cellSnakeSegments
@@ -142,7 +141,6 @@ const GameGrid: React.FC = () => {
             cellSnakeSegments[position].count += 1
           }
         }
-        console.log(cellSnakeSegments)
 
         // Set background color
         cellBackgroundMap[position] = playerInfo?.colour || "white"

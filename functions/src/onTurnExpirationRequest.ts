@@ -60,7 +60,7 @@ export const onTurnExpirationRequest = functions.firestore
 
       // Check if the turn has expired
       if (now.toMillis() > currentTurn.endTime.toMillis()) {
-        logger.info(`Turn ${turnNumber} has expired. Processing...`)
+        logger.info(`Client reported ${turnNumber} has expired. Processing...`)
 
         // Process the expired turn inside the transaction
         await processTurn(transaction, gameID, currentTurn)

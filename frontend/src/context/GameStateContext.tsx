@@ -166,15 +166,20 @@ export const GameStateProvider: React.FC<{
 
   // Handle turn expiration
   useEffect(() => {
+    // Early return if latestTurn, currentTurn, maxTurnTime, gameID, or nextGame is not valid
     if (
       !latestTurn ||
-      (gameState?.winners.length && gameState?.winners.length > 0) || // Updated condition
       !currentTurn ||
       !gameState?.maxTurnTime ||
-      gameState.nextGame !== "" ||
-      !gameID
-    )
+      !gameID ||
+      gameState?.nextGame !== ""
+    ) {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null // Clear interval if nextGame exists
+      }
       return
+    }
 
     let intervalTime = 1000 // Initial interval time
 
@@ -184,10 +189,12 @@ export const GameStateProvider: React.FC<{
       const remaining = endTimeSeconds - now // Time remaining for the turn
 
       setTimeRemaining(remaining) // Update your local state for the timer display
+      console.log("ha", remaining)
 
       if (remaining > -1) {
         return // If there's still time remaining, continue the interval
       }
+      console.log("ye")
 
       // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(
@@ -209,7 +216,7 @@ export const GameStateProvider: React.FC<{
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current) // Clear the current interval
       }
-      intervalTime = 3000 // Increase interval time
+      intervalTime = 10000 // Increase interval time
       intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
     }
 
@@ -220,7 +227,7 @@ export const GameStateProvider: React.FC<{
 
     intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
 
-    // Cleanup function: stop the timer when the current turn changes
+    // Cleanup function: stop the timer when the current turn changes or nextGame is set
     return () => {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
