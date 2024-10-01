@@ -5,6 +5,11 @@ import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
 
+const BORDER_WIDTH = 6 // Adjust as needed (in pixels)
+const BORDER_COLOR = "white"
+const CORNER_BORDER_COLOR = "white" // Adjust if different colors are needed
+const TAIL_EXTRA_BORDER_COLOR = "white" // Color for the extra tail border
+
 const GameGrid: React.FC = () => {
   const {
     gameState,
@@ -87,16 +92,23 @@ const GameGrid: React.FC = () => {
         [position: number]: {
           playerID: string
           isHead: boolean
-          arrowEmoji: string
+          isTail: boolean
+          transitionStyles: React.CSSProperties
           count: number
+          direction: "vertical" | "horizontal" | "corner"
         }
       } = {}
 
-      const getArrowEmoji = (
-        prevPos: number,
+      // Function to get previous and next movement deltas
+      const getSegmentStyles = (
+        playerInfo: PlayerInfo | undefined,
+        prevPos: number | null,
         currPos: number,
         nextPos: number | null,
-      ): string => {
+      ): {
+        styles: React.CSSProperties
+        direction: "vertical" | "horizontal" | "corner"
+      } => {
         const getDelta = (from: number, to: number) => {
           const x1 = from % gridWidth
           const y1 = Math.floor(from / gridWidth)
@@ -105,32 +117,115 @@ const GameGrid: React.FC = () => {
           return { dx: x2 - x1, dy: y2 - y1 }
         }
 
-        const { dx: dx1, dy: dy1 } = getDelta(prevPos, currPos)
-        let dx2 = 0
-        let dy2 = 0
-        if (nextPos !== null) {
-          const delta = getDelta(currPos, nextPos)
-          dx2 = delta.dx
-          dy2 = delta.dy
+        const prevDelta = prevPos
+          ? getDelta(prevPos, currPos)
+          : { dx: 0, dy: 0 }
+        const nextDelta = nextPos
+          ? getDelta(currPos, nextPos)
+          : { dx: 0, dy: 0 }
+
+        let direction: "vertical" | "horizontal" | "corner" = "horizontal"
+
+        // Determine movement direction
+        if (prevDelta.dy !== 0 || nextDelta.dy !== 0) {
+          direction = "vertical"
+        }
+        if (prevDelta.dx !== 0 || nextDelta.dx !== 0) {
+          direction = "horizontal"
         }
 
-        const dx = dx1 + dx2
-        const dy = dy1 + dy2
-
-        const directionKey = `${dx},${dy}`
-        const arrowMap: { [key: string]: string } = {
-          "0,-2": "⬆️",
-          "0,2": "⬇️",
-          "-2,0": "⬅️",
-          "2,0": "➡️",
-          "1,-1": "↗️",
-          "1,1": "↘️",
-          "-1,-1": "↖️",
-          "-1,1": "↙️",
-          "0,0": "",
+        // If both dx and dy are non-zero, it's a corner
+        if (
+          (prevDelta.dx !== 0 || nextDelta.dx !== 0) &&
+          (prevDelta.dy !== 0 || nextDelta.dy !== 0)
+        ) {
+          direction = "corner"
         }
 
-        return arrowMap[directionKey] || ""
+        const styles: React.CSSProperties = {
+          boxSizing: "border-box",
+          borderTop: "0",
+          borderBottom: "0",
+          borderLeft: "0",
+          borderRight: "0",
+          backgroundColor: playerInfo?.colour || "white",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+        }
+
+        if (direction === "vertical") {
+          // Apply left and right borders for vertical movement
+          styles.borderLeft = `${BORDER_WIDTH}px solid ${BORDER_COLOR}`
+          styles.borderRight = `${BORDER_WIDTH}px solid ${BORDER_COLOR}`
+        } else if (direction === "horizontal") {
+          // Apply top and bottom borders for horizontal movement
+          styles.borderTop = `${BORDER_WIDTH}px solid ${BORDER_COLOR}`
+          styles.borderBottom = `${BORDER_WIDTH}px solid ${BORDER_COLOR}`
+        } else if (direction === "corner") {
+          // Apply two borders for corner transitions
+          // Determine which two borders based on movement
+
+          // Determine based on deltas
+          if (
+            (prevDelta.dx === 1 && nextDelta.dy === 1) || // Moving right then down
+            (nextDelta.dx === -1 && prevDelta.dy === -1) // left then down
+          ) {
+            styles.borderRight = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderTop = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+
+          if (
+            prevDelta.dy === 1 &&
+            nextDelta.dx === 1 // Moving down then right
+          ) {
+            styles.borderLeft = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderBottom = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+
+          if (
+            prevDelta.dx === -1 &&
+            nextDelta.dy === 1 // Moving left then down
+          ) {
+            styles.borderLeft = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderTop = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+
+          if (
+            prevDelta.dy === 1 &&
+            nextDelta.dx === -1 // Moving down then left
+          ) {
+            styles.borderRight = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderBottom = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+
+          if (
+            prevDelta.dx === 1 &&
+            nextDelta.dy === -1 // Moving right then up
+          ) {
+            styles.borderRight = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderBottom = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+
+          if (
+            prevDelta.dy === -1 &&
+            nextDelta.dx === 1 // Moving up then right
+          ) {
+            styles.borderLeft = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderTop = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+          if (
+            prevDelta.dx === -1 &&
+            nextDelta.dy === -1 // Moving left then up
+          ) {
+            styles.borderLeft = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+            styles.borderBottom = `${BORDER_WIDTH}px solid ${CORNER_BORDER_COLOR}`
+          }
+        }
+
+        return { styles, direction }
       }
 
       // Collect snake segments
@@ -139,32 +234,37 @@ const GameGrid: React.FC = () => {
         const playerInfo = playerInfos.find((p) => p.id === playerID)
 
         positions.forEach((position, index) => {
+          const isHead = index === 0
+          const isTail = index === positions.length - 1
+          const prevPos = positions[index - 1] || null
+          const nextPos = positions[index + 1] || null
+          const { styles, direction } = getSegmentStyles(
+            playerInfo,
+            prevPos,
+            position,
+            nextPos,
+          )
+
           if (!cellSnakeSegments[position]) {
             cellSnakeSegments[position] = {
               playerID: playerID,
-              isHead: index === 0,
-              arrowEmoji: "",
+              isHead,
+              isTail,
+              transitionStyles: {
+                ...styles,
+                backgroundColor: playerInfo?.colour || "white",
+              },
               count: 1,
+              direction,
             }
           } else {
-            // Only add count to the head and ignore other segments for stacked bodies
-            if (!cellSnakeSegments[position].isHead) {
+            // Increment count if this is the tail and stacked
+            if (!cellSnakeSegments[position].isTail) {
               cellSnakeSegments[position].count += 1
             }
           }
 
           cellBackgroundMap[position] = playerInfo?.colour || "white"
-
-          if (index > 0) {
-            const prevPos = positions[index - 1]
-            const currPos = positions[index]
-            const nextPos = positions[index + 1] || null
-
-            const emoji = getArrowEmoji(prevPos, currPos, nextPos)
-            if (emoji) {
-              cellSnakeSegments[position].arrowEmoji = emoji
-            }
-          }
         })
       })
 
@@ -177,10 +277,14 @@ const GameGrid: React.FC = () => {
 
         let content: JSX.Element | null
 
+        // Head logic with emoji and length display
         if (segmentInfo.isHead) {
           const snakeLength = playerPieces[segmentInfo.playerID].length
           content = (
-            <Box key={`head-${position}`} sx={{ position: "relative" }}>
+            <Box
+              key={`head-${position}`}
+              sx={{ position: "relative", width: "100%", height: "100%" }}
+            >
               <span style={{ fontSize }}>{playerInfo?.emoji || "⭕"}</span>
               {snakeLength > 1 && (
                 <span
@@ -197,21 +301,23 @@ const GameGrid: React.FC = () => {
               )}
             </Box>
           )
-        } else if (segmentInfo.arrowEmoji) {
-          content = (
-            <span key={`body-${position}`} style={{ fontSize }}>
-              {segmentInfo.arrowEmoji}
-            </span>
-          )
         } else {
+          // Body segment with borders indicating direction
           content = (
-            <span key={`body-${position}`} style={{ fontSize }}>
-              🍑
-            </span>
+            <Box
+              key={`body-${position}`}
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                ...segmentInfo.transitionStyles,
+              }}
+            />
           )
         }
 
-        // Only show the count on the head segment, not the rest
         cellContentMap[position] = content
       })
 
@@ -287,6 +393,7 @@ const GameGrid: React.FC = () => {
 
   const handleSquareClick = (index: number) => {
     if (!currentTurn || !gameState) return
+    console.log(index)
 
     if (gameState.started && !hasSubmittedMove) {
       const allowedMoves = currentTurn.allowedMoves[user.userID] || []
@@ -322,6 +429,7 @@ const GameGrid: React.FC = () => {
           border: "2px solid black",
           opacity: disabled ? 0.5 : 1,
           pointerEvents: disabled ? "none" : "auto",
+          boxSizing: "border-box",
         }}
       >
         {Array.from({ length: totalCells }).map((_, index) => {
@@ -347,7 +455,7 @@ const GameGrid: React.FC = () => {
               }}
               sx={{
                 width: "100%",
-                paddingBottom: "100%",
+                paddingBottom: "100%", // Maintain square aspect ratio
                 position: "relative",
                 border: "1px solid black",
                 cursor: disabled ? "default" : "pointer",
@@ -356,34 +464,39 @@ const GameGrid: React.FC = () => {
                 boxSizing: "border-box",
               }}
             >
+              {/* Allowed Move Indicator */}
               {isAllowedMove && (
                 <Box
                   sx={{
                     position: "absolute",
-                    top: "1px",
-                    left: "1px",
-                    right: "1px",
-                    bottom: "1px",
+                    top: BORDER_WIDTH,
+                    left: BORDER_WIDTH,
+                    right: BORDER_WIDTH,
+                    bottom: BORDER_WIDTH,
                     border: `2px ${isSelected ? "solid" : "dotted"} green`,
                     pointerEvents: "none",
                     zIndex: 2,
                   }}
                 />
               )}
+
+              {/* Latest Move Indicator */}
               {isLatestMove && (
                 <Box
                   sx={{
                     position: "absolute",
-                    top: "1px",
-                    left: "1px",
-                    right: "1px",
-                    bottom: "1px",
+                    top: BORDER_WIDTH,
+                    left: BORDER_WIDTH,
+                    right: BORDER_WIDTH,
+                    bottom: BORDER_WIDTH,
                     border: `2px solid yellow`,
                     pointerEvents: "none",
                     zIndex: 3,
                   }}
                 />
               )}
+
+              {/* Cell Content */}
               <Box
                 sx={{
                   position: "absolute",
@@ -407,6 +520,8 @@ const GameGrid: React.FC = () => {
           )
         })}
       </Box>
+
+      {/* Clash Dialog */}
       <ClashDialog
         open={openClashDialog}
         onClose={() => setOpenClashDialog(false)}
