@@ -101,10 +101,15 @@ export const GameStateProvider: React.FC<{
 
   // Subscribe to player documents
   useEffect(() => {
-    if (gameState?.playerIDs) {
-      const unsubscribes: (() => void)[] = []
+    if (!gameState?.playerIDs) return
 
-      gameState.playerIDs.forEach((playerID) => {
+    const newPlayerIDs = gameState.playerIDs
+    const unsubscribes: Record<string, () => void> = {} // Track unsubscribes by playerID
+
+    // Handle subscription setup
+    newPlayerIDs.forEach((playerID) => {
+      if (!unsubscribes[playerID]) {
+        // Create a new subscription if it doesn't exist for this player
         const playerDocRef = doc(db, "users", playerID)
 
         const unsubscribe = onSnapshot(playerDocRef, (docSnap) => {
@@ -117,23 +122,32 @@ export const GameStateProvider: React.FC<{
               colour: playerData.colour,
             }
           } else {
-            playersMapRef.current[playerID] = {
-              id: playerID,
-              nickname: "Unknown",
-              emoji: "🦍",
-              colour: "#222222",
-            }
+            // Player document was deleted or doesn't exist
+            delete playersMapRef.current[playerID] // Remove the player from the map
           }
+
           // Update playerInfos based on the current playersMap
           setPlayerInfos(Object.values(playersMapRef.current))
         })
 
-        unsubscribes.push(unsubscribe)
-      })
-
-      return () => {
-        unsubscribes.forEach((unsubscribe) => unsubscribe())
+        unsubscribes[playerID] = unsubscribe
       }
+    })
+
+    // Clean up subscriptions for players that are no longer in playerIDs
+    const currentPlayerIDs = Object.keys(playersMapRef.current)
+    currentPlayerIDs.forEach((playerID) => {
+      if (!newPlayerIDs.includes(playerID)) {
+        // Unsubscribe and remove the player if they are no longer part of the game
+        unsubscribes[playerID]?.()
+        delete unsubscribes[playerID]
+        delete playersMapRef.current[playerID] // Also remove from the map
+      }
+    })
+
+    // Clean up all subscriptions on unmount or when gameID changes
+    return () => {
+      Object.values(unsubscribes).forEach((unsubscribe) => unsubscribe())
     }
   }, [gameState?.playerIDs, gameID])
 
@@ -291,10 +305,6 @@ export const GameStateProvider: React.FC<{
       setError("Failed to submit move.")
     }
   }
-
-  // if (!gameState) {
-  //   return <Typography>Loading</Typography>
-  // }
 
   return (
     <GameStateContext.Provider

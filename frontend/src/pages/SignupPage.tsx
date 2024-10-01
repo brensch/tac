@@ -118,14 +118,72 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
 
 export default SignupPage
 
-// Helper function to generate random color with consistent lightness
-const getRandomColor = () => {
-  const hue = Math.floor(Math.random() * 360) // Random hue (0-360)
-  const saturation = 80 // Fixed saturation
-  const lightness = 50 // Fixed lightness for consistent brightness
+// Helper function to generate random color with consistent lightness or adjust based on input
+export const getRandomColor = (inputColor?: string) => {
+  let hue = Math.floor(Math.random() * 360) // Random hue (0-360)
+  let saturation = 80 // Default saturation
+  let lightness = 50 // Default lightness
+
+  if (inputColor) {
+    const { h, s, l } = hexToHSL(inputColor)
+
+    // Adjust saturation and lightness if outside the range
+    hue = h % 360
+    saturation = s !== 80 ? 80 : s // Clamp saturation to 80 if it's not already 80
+    lightness = l !== 50 ? 50 : l // Clamp lightness to 50 if it's not already 50
+  }
+
   return hslToHex(hue, saturation, lightness)
 }
 
+// Convert hex to HSL
+const hexToHSL = (hex: string) => {
+  // Convert hex to RGB
+  let r = 0,
+    g = 0,
+    b = 0
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16)
+    g = parseInt(hex[2] + hex[2], 16)
+    b = parseInt(hex[3] + hex[3], 16)
+  } else if (hex.length === 7) {
+    r = parseInt(hex[1] + hex[2], 16)
+    g = parseInt(hex[3] + hex[4], 16)
+    b = parseInt(hex[5] + hex[6], 16)
+  }
+
+  // Normalize to the range 0-1
+  r /= 255
+  g /= 255
+  b /= 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+
+  let h = 0
+  let s = 0
+  let l = (max + min) / 2
+
+  if (delta !== 0) {
+    s = delta / (1 - Math.abs(2 * l - 1))
+    if (max === r) {
+      h = ((g - b) / delta + (g < b ? 6 : 0)) % 6
+    } else if (max === g) {
+      h = (b - r) / delta + 2
+    } else {
+      h = (r - g) / delta + 4
+    }
+    h = Math.round(h * 60)
+  }
+
+  s = +(s * 100).toFixed(1)
+  l = +(l * 100).toFixed(1)
+
+  return { h, s, l }
+}
+
+// Convert HSL to hex
 const hslToHex = (h: number, s: number, l: number) => {
   s /= 100
   l /= 100
@@ -133,9 +191,9 @@ const hslToHex = (h: number, s: number, l: number) => {
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = l - c / 2
-  let r = 0
-  let g = 0
-  let b = 0
+  let r = 0,
+    g = 0,
+    b = 0
 
   if (h >= 0 && h < 60) {
     r = c

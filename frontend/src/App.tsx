@@ -23,6 +23,8 @@ import GamePage from "./pages/GamePage/index"
 import ProfilePage from "./pages/ProfilePage"
 import { UserProvider, useUser } from "./context/UserContext"
 import Sessionpage from "./pages/SessionPage"
+import { doc, updateDoc } from "firebase/firestore"
+import { db } from "./firebaseConfig"
 
 const App: React.FC = () => {
   return (
@@ -35,15 +37,26 @@ const App: React.FC = () => {
 }
 
 const AppContent: React.FC = () => {
-  const { nickname, emoji, colour } = useUser()
+  const { nickname, emoji, colour, userID } = useUser()
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
+  const [updatedNickname, setUpdatedNickname] = useState<string>(nickname)
+  const [updatedColour, setUpdatedColour] = useState<string>(colour)
+  const [updatedEmoji, setUpdatedEmoji] = useState<string>(emoji)
   const navigate = useNavigate()
 
+  // Open the profile modal
   const handleProfileOpen = () => {
     setIsProfileOpen(true)
   }
 
-  const handleProfileClose = () => {
+  // Save the nickname and colour when closing the profile
+  const handleProfileClose = async () => {
+    const userDocRef = doc(db, "users", userID)
+    await updateDoc(userDocRef, {
+      nickname: updatedNickname,
+      colour: updatedColour,
+      emoji: updatedEmoji,
+    })
     setIsProfileOpen(false)
   }
 
@@ -64,10 +77,10 @@ const AppContent: React.FC = () => {
             color="primary"
             sx={{
               height: 30,
-              minWidth: "auto", // Set minWidth to auto to adjust to the content size
-              padding: 0, // Remove padding to make the button fit the emoji size
+              minWidth: "auto",
+              padding: 0,
               px: 1,
-              mr: 2, // Margin right to give space between buttons
+              mr: 2,
             }}
             onClick={() => navigate("/")}
           >
@@ -95,7 +108,7 @@ const AppContent: React.FC = () => {
       {/* Profile Modal */}
       <Dialog
         open={isProfileOpen}
-        onClose={handleProfileClose}
+        onClose={handleProfileClose} // Trigger save on close
         fullWidth
         maxWidth="sm"
       >
@@ -115,7 +128,11 @@ const AppContent: React.FC = () => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ overflowX: "hidden" }}>
-          <ProfilePage />
+          <ProfilePage
+            setUpdatedNickname={setUpdatedNickname}
+            setUpdatedColour={setUpdatedColour}
+            setUpdatedEmoji={setUpdatedEmoji}
+          />
         </DialogContent>
       </Dialog>
     </>

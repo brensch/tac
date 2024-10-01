@@ -1,34 +1,32 @@
 import React, { useState, useEffect } from "react"
 import { useUser } from "../context/UserContext"
-import {
-  Container,
-  Box,
-  TextField,
-  Button,
-  Typography,
-  IconButton,
-  InputAdornment,
-} from "@mui/material"
-import { doc, updateDoc } from "firebase/firestore"
-import { db } from "../firebaseConfig"
-import { emojiList } from "@shared/types/Emojis"
-import RefreshIcon from "@mui/icons-material/Refresh"
-import SaveIcon from "@mui/icons-material/Save"
+import { Container, Box, TextField, Button, Typography } from "@mui/material"
 import Wheel from "@uiw/react-color-wheel"
+import { getRandomColor } from "./SignupPage"
+import { emojiList } from "@shared/types/Emojis"
 
-const ProfilePage: React.FC = () => {
+interface ProfilePageProps {
+  setUpdatedNickname: (nickname: string) => void
+  setUpdatedColour: (colour: string) => void
+  setUpdatedEmoji: (emoji: string) => void
+}
+
+const ProfilePage: React.FC<ProfilePageProps> = ({
+  setUpdatedNickname,
+  setUpdatedColour,
+  setUpdatedEmoji,
+}) => {
   const {
-    userID,
     nickname: initialNickname,
     emoji: initialEmoji,
     colour: initialColour,
   } = useUser()
+
   const [nickname, setNickname] = useState<string>(initialNickname)
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [selectedColour, setSelectedColour] = useState<string>(
-    initialColour || "#000000",
+    getRandomColor(initialColour),
   )
-  const [message, setMessage] = useState<string>("")
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
 
   const randomizeEmojis = () => {
@@ -43,29 +41,21 @@ const ProfilePage: React.FC = () => {
     randomizeEmojis()
   }, [])
 
-  const handleUpdateNickname = async () => {
-    if (!nickname.trim()) {
-      setMessage("Please enter a nickname.")
-      return
-    }
-    const userDocRef = doc(db, "users", userID)
-    await updateDoc(userDocRef, { nickname })
-    setMessage("Nickname updated.")
-  }
+  useEffect(() => {
+    setUpdatedNickname(nickname)
+  }, [nickname, setUpdatedNickname])
 
-  const handleEmojiClick = async (emoji: string) => {
+  useEffect(() => {
+    setUpdatedColour(selectedColour)
+  }, [selectedColour, setUpdatedColour])
+
+  const handleEmojiClick = (emoji: string) => {
     setSelectedEmoji(emoji)
-    const userDocRef = doc(db, "users", userID)
-    await updateDoc(userDocRef, { emoji })
-    setMessage("Emoji updated.")
+    setUpdatedEmoji(emoji)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleColourChange = async (color: any) => {
+  const handleColourChange = (color: any) => {
     setSelectedColour(color.hex)
-    const userDocRef = doc(db, "users", userID)
-    await updateDoc(userDocRef, { colour: color.hex })
-    setMessage("Colour updated.")
   }
 
   return (
@@ -84,15 +74,6 @@ const ProfilePage: React.FC = () => {
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           fullWidth
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={handleUpdateNickname} edge="end">
-                  <SaveIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
         />
 
         <Box
@@ -116,24 +97,25 @@ const ProfilePage: React.FC = () => {
           ))}
         </Box>
 
-        <Button
-          onClick={randomizeEmojis}
-          startIcon={<RefreshIcon />}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={randomizeEmojis} sx={{ mt: 2 }}>
           New emojis please.
         </Button>
 
-        {/* Colour Picker using SliderPicker */}
-        <Box sx={{ mt: 4 }}>
+        {/* Colour Picker */}
+        <Box
+          sx={{
+            mt: 4,
+            width: "100%",
+            display: "flex", // Use flexbox to center the content
+            justifyContent: "center", // Center horizontally
+            alignItems: "center", // Center vertically if needed
+            backgroundColor: selectedColour,
+            border: "1px solid black", // Black outline
+            padding: 2, // Optional padding around the Wheel
+          }}
+        >
           <Wheel color={selectedColour} onChange={handleColourChange} />
         </Box>
-
-        {message && (
-          <Typography color="success" sx={{ mt: 2 }}>
-            {message}
-          </Typography>
-        )}
       </Box>
     </Container>
   )

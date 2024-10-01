@@ -1,12 +1,6 @@
 // src/pages/GamePage/components/GameSetup.tsx
 
-import {
-  addDoc,
-  arrayUnion,
-  collection,
-  doc,
-  updateDoc,
-} from "firebase/firestore"
+import { arrayRemove, arrayUnion, doc, updateDoc } from "firebase/firestore"
 import React, { useEffect, useState, useRef } from "react"
 import { useParams } from "react-router-dom"
 import { useUser } from "../../context/UserContext"
@@ -43,11 +37,7 @@ const GameSetup: React.FC = () => {
   const [boardHeight, setBoardHeight] = useState<string>("8")
   const [gameType, setGameType] = useState<GameType>("snek")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
-  const [countdown, setCountdown] = useState<number>(60) // Countdown state in seconds
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
-
-  // **NEW**: Ref to store the interval ID
-  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update local state when gameState changes
   useEffect(() => {
@@ -59,73 +49,33 @@ const GameSetup: React.FC = () => {
     }
   }, [gameState])
 
-  // Initialize countdown when firstPlayerReadyTime is set
-  useEffect(() => {
-    if (!gameState?.firstPlayerReadyTime || gameState.started) return
-
-    const startDelay = 60 // seconds
-    const firstReadyTime = gameState.firstPlayerReadyTime.toDate().getTime() // Convert Firestore Timestamp to JS Date
-    let intervalTime = 1000 // Initial interval time
-
-    const intervalFunction = async () => {
-      const now = Date.now()
-      const elapsedSeconds = (now - firstReadyTime) / 1000
-      const remaining = startDelay - elapsedSeconds
-      setCountdown(Math.max(remaining, 0))
-
-      if (elapsedSeconds < 60) {
-        return // If there's still time remaining, continue the interval
-      }
-
-      const expirationRequestsRef = collection(
-        db,
-        `games/${gameID}/readyExpirationRequests`,
-      )
-
-      await addDoc(expirationRequestsRef, {
-        timestamp: new Date(),
-      })
-
-      console.log(`Ready expiration request created for gameID: ${gameID}`)
-
-      // Slow down the interval after expiration to reduce resource usage
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current) // Clear the current interval
-      }
-      intervalTime = 3000 // Increase interval time
-      intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
-    }
-
-    // Clear any existing interval before setting a new one
-    if (intervalIdRef.current) {
-      clearInterval(intervalIdRef.current)
-    }
-
-    intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
-
-    // Cleanup function: stop the timer when component unmounts or dependencies change
-    return () => {
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null
-      }
-    }
-  }, [gameState?.firstPlayerReadyTime, gameState?.started, gameID])
-
-  useEffect(() => {
-    if (countdown === 0 && intervalIdRef.current) {
-      clearInterval(intervalIdRef.current)
-      intervalIdRef.current = null
-    }
-  }, [countdown])
-
   // Start game
-  const handleStartGame = async () => {
+  const handleReady = async () => {
     if (gameState && gameID) {
       const gameDocRef = doc(db, "games", gameID)
       await updateDoc(gameDocRef, {
         playersReady: arrayUnion(userID), // Add the current userID to playersReady array
-        firstPlayerReadyTime: gameState.firstPlayerReadyTime || new Date(), // Ensure firstPlayerReadyTime is set
+      })
+    }
+  }
+
+  // Start game
+  const handleStart = async () => {
+    if (gameState && gameID) {
+      const gameDocRef = doc(db, "games", gameID)
+      await updateDoc(gameDocRef, {
+        startRequested: true, // Add the current userID to playersReady array
+      })
+    }
+  }
+
+  // Kick a player by removing their playerID from the playerIDs field
+  const handleKick = async (playerID: string) => {
+    if (gameState && gameID) {
+      const gameDocRef = doc(db, "games", gameID)
+
+      await updateDoc(gameDocRef, {
+        playerIDs: arrayRemove(playerID), // Remove the specified playerID from playerIDs array
       })
     }
   }
@@ -304,6 +254,7 @@ const GameSetup: React.FC = () => {
             <TableRow>
               <TableCell>Player</TableCell>
               <TableCell align="right">Ready</TableCell>
+              <TableCell align="right">Kick</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -318,6 +269,17 @@ const GameSetup: React.FC = () => {
                 >
                   {playersReady.includes(player.id) ? "Yeah" : "Nah"}
                 </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ backgroundColor: player.colour }}
+                >
+                  <Button
+                    onClick={() => handleKick(player.id)}
+                    sx={{ height: 20 }}
+                  >
+                    Kick?
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -326,26 +288,37 @@ const GameSetup: React.FC = () => {
 
       {/* Ready Section */}
 
-      <Button
-        variant="contained"
-        disabled={
-          started ||
-          gameState.boardWidth < 5 ||
-          gameState.boardWidth > 20 ||
-          parseInt(secondsPerTurn) <= 0 ||
-          gameState.playersReady.includes(userID)
-        }
-        onClick={handleStartGame}
-        fullWidth
-      >
-        <Typography variant="body2">
-          {gameState.playersReady.includes(userID)
-            ? `Waiting for others`
-            : "Ready?"}
-          {!!gameState.firstPlayerReadyTime &&
-            ` (starting in ${countdown.toFixed(0)}s)`}
-        </Typography>
-      </Button>
+      {!gameState.playerIDs.every((player) =>
+        gameState.playersReady.includes(player),
+      ) ? (
+        <Button
+          variant="contained"
+          disabled={
+            started ||
+            gameState.boardWidth < 5 ||
+            gameState.boardWidth > 20 ||
+            parseInt(secondsPerTurn) <= 0 ||
+            gameState.playersReady.includes(userID)
+          }
+          onClick={handleReady}
+          fullWidth
+        >
+          <Typography variant="body2">
+            {gameState.playersReady.includes(userID)
+              ? `Waiting for others`
+              : "Ready?"}
+          </Typography>
+        </Button>
+      ) : (
+        <Button
+          disabled={gameState.startRequested}
+          variant="contained"
+          onClick={handleStart}
+          fullWidth
+        >
+          <Typography variant="body2">Start game</Typography>
+        </Button>
+      )}
     </Stack>
   )
 }

@@ -32,9 +32,8 @@ export interface GameState {
   started: boolean
   nextGame: string // New field for the ID of the next game
   maxTurnTime: number // Time limit per turn in seconds
-
   playersReady: string[]
-  firstPlayerReadyTime: Timestamp | null
+  startRequested: boolean
 }
 
 export interface PlayerInfo {
@@ -100,6 +99,6 @@ export const initializeGame = (
     started: false,
     nextGame: "",
     maxTurnTime: 10, // Default time limit per turn in seconds
-    firstPlayerReadyTime: null,
+    startRequested: false,
   }
 }

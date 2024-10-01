@@ -49,6 +49,11 @@ export const onGameStarted = functions.firestore
         return
       }
 
+      if (!afterData.startRequested) {
+        logger.info(`start not requested yet ${gameID}.`)
+        return
+      }
+
       // If the game hasn't started yet, start the game
       if (!afterData.started) {
         // Instantiate the appropriate processor using the factory
