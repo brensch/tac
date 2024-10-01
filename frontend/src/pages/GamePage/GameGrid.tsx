@@ -1,5 +1,3 @@
-// src/components/GameGrid.tsx
-
 import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box } from "@mui/material"
 import { Clash, PlayerInfo } from "@shared/types/Game"
@@ -149,7 +147,10 @@ const GameGrid: React.FC = () => {
               count: 1,
             }
           } else {
-            cellSnakeSegments[position].count += 1
+            // Only add count to the head and ignore other segments for stacked bodies
+            if (!cellSnakeSegments[position].isHead) {
+              cellSnakeSegments[position].count += 1
+            }
           }
 
           cellBackgroundMap[position] = playerInfo?.colour || "white"
@@ -177,10 +178,24 @@ const GameGrid: React.FC = () => {
         let content: JSX.Element | null
 
         if (segmentInfo.isHead) {
+          const snakeLength = playerPieces[segmentInfo.playerID].length
           content = (
-            <span key={`head-${position}`} style={{ fontSize }}>
-              {playerInfo?.emoji || "⭕"}
-            </span>
+            <Box key={`head-${position}`} sx={{ position: "relative" }}>
+              <span style={{ fontSize }}>{playerInfo?.emoji || "⭕"}</span>
+              {snakeLength > 1 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: 2,
+                    right: 2,
+                    fontSize: fontSize * 0.5,
+                    color: "black",
+                  }}
+                >
+                  {snakeLength}
+                </span>
+              )}
+            </Box>
           )
         } else if (segmentInfo.arrowEmoji) {
           content = (
@@ -196,26 +211,7 @@ const GameGrid: React.FC = () => {
           )
         }
 
-        if (segmentInfo.count > 1) {
-          const count = segmentInfo.count
-          content = (
-            <Box key={`body-${position}`} sx={{ position: "relative" }}>
-              {content}
-              <span
-                style={{
-                  position: "absolute",
-                  bottom: 2,
-                  right: 2,
-                  fontSize: fontSize * 0.5,
-                  color: "black",
-                }}
-              >
-                {count}
-              </span>
-            </Box>
-          )
-        }
-
+        // Only show the count on the head segment, not the rest
         cellContentMap[position] = content
       })
 
