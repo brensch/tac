@@ -93,17 +93,10 @@ service cloud.firestore {
           !resource.data.playersReady.hasAny([request.auth.uid])
         )
       ) &&
-
       (
         // Ensure 'winners' array is unchanged or empty
         request.resource.data.winners == resource.data.winners
-      ) &&
-
-      (
-        // Ensure board remains valid in size
-        request.resource.data.boardWidth == resource.data.boardWidth &&
-        request.resource.data.boardHeight == resource.data.boardHeight
-      );
+      ) 
     }
 
 

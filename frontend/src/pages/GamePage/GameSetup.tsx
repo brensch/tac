@@ -109,9 +109,6 @@ const GameSetup: React.FC = () => {
       } else {
         // Handle invalid input: reset to default
         setBoardWidth("8")
-        await updateDoc(gameDocRef, {
-          boardWidth: 8,
-        })
       }
     }
   }

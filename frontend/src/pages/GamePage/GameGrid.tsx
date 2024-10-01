@@ -5,10 +5,9 @@ import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
 
-const BORDER_WIDTH = 6 // Adjust as needed (in pixels)
+const BORDER_WIDTH = 4 // Adjust as needed (in pixels)
 const BORDER_COLOR = "white"
 const CORNER_BORDER_COLOR = "white" // Adjust if different colors are needed
-const TAIL_EXTRA_BORDER_COLOR = "white" // Color for the extra tail border
 
 const GameGrid: React.FC = () => {
   const {
@@ -61,6 +60,17 @@ const GameGrid: React.FC = () => {
   const clashesAtPosition: { [index: number]: Clash } = {}
   const latestMovePositionsSet: Set<number> = new Set()
 
+  // Enhanced cellSnakeSegments to track multiple segments per cell
+  const cellSnakeSegments: {
+    [position: number]: {
+      playerIDs: string[] // IDs of players present in the cell
+      hasHead: boolean
+      hasTail: boolean
+      count: number
+      transitionStyles: React.CSSProperties
+    }
+  } = {}
+
   if (currentTurn && gameState) {
     const { gameType, moves, playerPieces, allowedMoves, clashes } = currentTurn
 
@@ -87,17 +97,6 @@ const GameGrid: React.FC = () => {
     if (gameType === "snek") {
       // Snek-specific rendering
       const { food, hazards, walls } = currentTurn
-
-      const cellSnakeSegments: {
-        [position: number]: {
-          playerID: string
-          isHead: boolean
-          isTail: boolean
-          transitionStyles: React.CSSProperties
-          count: number
-          direction: "vertical" | "horizontal" | "corner"
-        }
-      } = {}
 
       // Function to get previous and next movement deltas
       const getSegmentStyles = (
@@ -238,7 +237,7 @@ const GameGrid: React.FC = () => {
           const isTail = index === positions.length - 1
           const prevPos = positions[index - 1] || null
           const nextPos = positions[index + 1] || null
-          const { styles, direction } = getSegmentStyles(
+          const { styles } = getSegmentStyles(
             playerInfo,
             prevPos,
             position,
@@ -246,49 +245,71 @@ const GameGrid: React.FC = () => {
           )
 
           if (!cellSnakeSegments[position]) {
+            // Initialize the cell entry
             cellSnakeSegments[position] = {
-              playerID: playerID,
-              isHead,
-              isTail,
+              playerIDs: [playerID],
+              hasHead: isHead,
+              hasTail: isTail,
+              count: 1,
               transitionStyles: {
                 ...styles,
                 backgroundColor: playerInfo?.colour || "white",
               },
-              count: 1,
-              direction,
             }
           } else {
-            // Increment count if this is the tail and stacked
-            if (!cellSnakeSegments[position].isTail) {
-              cellSnakeSegments[position].count += 1
-            }
+            // Update existing cell entry
+            cellSnakeSegments[position].count += 1
+            cellSnakeSegments[position].playerIDs.push(playerID)
+            if (isHead) cellSnakeSegments[position].hasHead = true
+            if (isTail) cellSnakeSegments[position].hasTail = true
+            // Optionally, handle transitionStyles if multiple styles are needed
           }
 
+          // Set the background color (last one will prevail if multiple)
           cellBackgroundMap[position] = playerInfo?.colour || "white"
         })
       })
 
+      // Render the segments
       Object.keys(cellSnakeSegments).forEach((positionStr) => {
         const position = parseInt(positionStr)
         const segmentInfo = cellSnakeSegments[position]
-        const playerInfo = playerInfos.find(
-          (p) => p.id === segmentInfo.playerID,
-        )
+        const { hasHead, hasTail, count, transitionStyles } = segmentInfo
 
-        let content: JSX.Element | null
+        let content: JSX.Element | null = null
 
-        // Head logic with emoji and length display
-        if (segmentInfo.isHead) {
-          const snakeLength = playerPieces[segmentInfo.playerID].length
+        // Determine if the head is also the tail
+        const isHeadAndTail = hasHead && hasTail && count === 1
+
+        if (hasHead) {
+          // Find the player who has the head in this cell
+          const headPlayerID = segmentInfo.playerIDs.find(
+            (pid) => playerPieces[pid][0] === position,
+          )
+          if (!headPlayerID) return
+          const playerInfo = playerInfos.find((p) => p.id === headPlayerID)
+
           content = (
             <Box
               key={`head-${position}`}
-              sx={{ position: "relative", width: "100%", height: "100%" }}
+              sx={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
             >
-              <span style={{ fontSize }}>{playerInfo?.emoji || "⭕"}</span>
-              {snakeLength > 1 && (
-                <span
-                  style={{
+              {/* Centered Emoji */}
+              <span style={{ fontSize, lineHeight: 1 }}>
+                {playerInfo?.emoji || "⭕"}
+              </span>
+
+              {/* Snake Length Indicator */}
+              {playerPieces[headPlayerID]?.length > 1 && (
+                <Box
+                  sx={{
                     position: "absolute",
                     bottom: 2,
                     right: 2,
@@ -296,13 +317,64 @@ const GameGrid: React.FC = () => {
                     color: "black",
                   }}
                 >
-                  {snakeLength}
-                </span>
+                  {playerPieces[headPlayerID].length}
+                </Box>
+              )}
+
+              {/* Count Indicator */}
+              {count > 1 && hasTail && !isHeadAndTail && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 2,
+                    left: 2,
+                    fontSize: fontSize * 0.5,
+                    color: "black",
+                  }}
+                >
+                  {count}
+                </Box>
               )}
             </Box>
           )
-        } else {
-          // Body segment with borders indicating direction
+        }
+
+        // If the cell has a tail and multiple pieces, and it's not also the head
+        if (hasTail && count > 1 && !hasHead) {
+          content = (
+            <Box
+              key={`tail-${position}`}
+              sx={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              {/* Tail Representation (could be customized) */}
+              <Box
+                sx={{
+                  ...transitionStyles,
+                }}
+              />
+
+              {/* Count Indicator */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 2,
+                  right: 2,
+                  fontSize: fontSize * 0.5,
+                  color: "black",
+                }}
+              >
+                {count}
+              </Box>
+            </Box>
+          )
+        }
+
+        // If neither head nor tail conditions are met, render the body normally
+        if (!hasHead && !hasTail) {
           content = (
             <Box
               key={`body-${position}`}
@@ -312,12 +384,15 @@ const GameGrid: React.FC = () => {
                 left: 0,
                 width: "100%",
                 height: "100%",
-                ...segmentInfo.transitionStyles,
+                ...transitionStyles,
               }}
             />
           )
         }
 
+        if (!content) return
+
+        // Assign the content to the cellContentMap
         cellContentMap[position] = content
       })
 
