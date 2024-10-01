@@ -1,7 +1,7 @@
 // src/pages/GamePage/components/GameSetup.tsx
 
 import { arrayRemove, arrayUnion, doc, updateDoc } from "firebase/firestore"
-import React, { useEffect, useState, useRef } from "react"
+import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"

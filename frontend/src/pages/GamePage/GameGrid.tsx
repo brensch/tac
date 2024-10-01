@@ -60,14 +60,15 @@ const GameGrid: React.FC = () => {
   const clashesAtPosition: { [index: number]: Clash } = {}
   const latestMovePositionsSet: Set<number> = new Set()
 
-  // Enhanced cellSnakeSegments to track multiple segments per cell
+  // Enhanced cellSnakeSegments to track multiple players per cell
   const cellSnakeSegments: {
     [position: number]: {
-      playerIDs: string[] // IDs of players present in the cell
-      hasHead: boolean
-      hasTail: boolean
-      count: number
-      transitionStyles: React.CSSProperties
+      [playerID: string]: {
+        hasHead: boolean
+        hasTail: boolean
+        count: number
+        transitionStyles: React.CSSProperties
+      }
     }
   } = {}
 
@@ -247,22 +248,37 @@ const GameGrid: React.FC = () => {
           if (!cellSnakeSegments[position]) {
             // Initialize the cell entry
             cellSnakeSegments[position] = {
-              playerIDs: [playerID],
-              hasHead: isHead,
-              hasTail: isTail,
-              count: 1,
-              transitionStyles: {
-                ...styles,
-                backgroundColor: playerInfo?.colour || "white",
+              [playerID]: {
+                hasHead: isHead,
+                hasTail: isTail,
+                count: 1,
+                transitionStyles: {
+                  ...styles,
+                  backgroundColor: playerInfo?.colour || "white",
+                },
               },
             }
           } else {
-            // Update existing cell entry
-            cellSnakeSegments[position].count += 1
-            cellSnakeSegments[position].playerIDs.push(playerID)
-            if (isHead) cellSnakeSegments[position].hasHead = true
-            if (isTail) cellSnakeSegments[position].hasTail = true
-            // Optionally, handle transitionStyles if multiple styles are needed
+            // Initialize or update the player entry within the cell
+            if (!cellSnakeSegments[position][playerID]) {
+              cellSnakeSegments[position][playerID] = {
+                hasHead: isHead,
+                hasTail: isTail,
+                count: 1,
+                transitionStyles: {
+                  ...styles,
+                  backgroundColor: playerInfo?.colour || "white",
+                },
+              }
+            } else {
+              // Update existing player entry
+              cellSnakeSegments[position][playerID].count += 1
+              cellSnakeSegments[position][playerID].hasHead =
+                cellSnakeSegments[position][playerID].hasHead || isHead
+              cellSnakeSegments[position][playerID].hasTail =
+                cellSnakeSegments[position][playerID].hasTail || isTail
+              // Optionally, handle transitionStyles if multiple styles are needed
+            }
           }
 
           // Set the background color (last one will prevail if multiple)
@@ -273,41 +289,105 @@ const GameGrid: React.FC = () => {
       // Render the segments
       Object.keys(cellSnakeSegments).forEach((positionStr) => {
         const position = parseInt(positionStr)
-        const segmentInfo = cellSnakeSegments[position]
-        const { hasHead, hasTail, count, transitionStyles } = segmentInfo
+        const playersInCell = cellSnakeSegments[position]
+        const playerIDs = Object.keys(playersInCell)
 
-        let content: JSX.Element | null = null
+        // For each player in the cell, render their segment
+        playerIDs.forEach((playerID) => {
+          const segmentInfo = playersInCell[playerID]
+          const { hasHead, hasTail, count, transitionStyles } = segmentInfo
 
-        // Determine if the head is also the tail
-        const isHeadAndTail = hasHead && hasTail && count === 1
+          let content: JSX.Element | null = null
 
-        if (hasHead) {
-          // Find the player who has the head in this cell
-          const headPlayerID = segmentInfo.playerIDs.find(
-            (pid) => playerPieces[pid][0] === position,
-          )
-          if (!headPlayerID) return
-          const playerInfo = playerInfos.find((p) => p.id === headPlayerID)
+          // Determine if the head is also the tail for this player
+          const isHeadAndTail = hasHead && hasTail && count === 1
 
-          content = (
-            <Box
-              key={`head-${position}`}
-              sx={{
-                position: "relative",
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              {/* Centered Emoji */}
-              <span style={{ fontSize, lineHeight: 1 }}>
-                {playerInfo?.emoji || "⭕"}
-              </span>
+          if (hasHead) {
+            // Find the player who has the head in this cell
+            if (
+              !playerPieces[playerID] ||
+              playerPieces[playerID][0] !== position
+            ) {
+              // This player does not have the head in this cell
+              return
+            }
+            const playerInfo = playerInfos.find((p) => p.id === playerID)
+            if (!playerInfo) {
+              return // Null check
+            }
 
-              {/* Snake Length Indicator */}
-              {playerPieces[headPlayerID]?.length > 1 && (
+            content = (
+              <Box
+                key={`head-${playerID}-${position}`}
+                sx={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                {/* Centered Emoji */}
+                <span style={{ fontSize, lineHeight: 1 }}>
+                  {playerInfo.emoji || "⭕"}
+                </span>
+
+                {/* Snake Length Indicator */}
+                {playerPieces[playerID]?.length > 1 && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      bottom: 2,
+                      right: 2,
+                      fontSize: fontSize * 0.5,
+                      color: "black",
+                    }}
+                  >
+                    {playerPieces[playerID].length}
+                  </Box>
+                )}
+
+                {/* Count Indicator */}
+                {count > 1 && hasTail && !isHeadAndTail && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 2,
+                      left: 2,
+                      fontSize: fontSize * 0.5,
+                      color: "black",
+                    }}
+                  >
+                    {count}
+                  </Box>
+                )}
+              </Box>
+            )
+          }
+
+          // If the cell has a tail and multiple pieces for this player, and it's not also the head
+          if (hasTail && count > 1 && !hasHead) {
+            content = (
+              <Box
+                key={`tail-${playerID}-${position}`}
+                sx={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                {/* Tail Representation */}
+                <Box
+                // sx={{
+                //   ...transitionStyles,
+                // }}
+                />
+
+                {/* Count Indicator */}
                 <Box
                   sx={{
                     position: "absolute",
@@ -317,83 +397,58 @@ const GameGrid: React.FC = () => {
                     color: "black",
                   }}
                 >
-                  {playerPieces[headPlayerID].length}
-                </Box>
-              )}
-
-              {/* Count Indicator */}
-              {count > 1 && hasTail && !isHeadAndTail && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 2,
-                    left: 2,
-                    fontSize: fontSize * 0.5,
-                    color: "black",
-                  }}
-                >
                   {count}
                 </Box>
-              )}
-            </Box>
-          )
-        }
+              </Box>
+            )
+          }
 
-        // If the cell has a tail and multiple pieces, and it's not also the head
-        if (hasTail && count > 1 && !hasHead) {
-          content = (
-            <Box
-              key={`tail-${position}`}
-              sx={{
-                position: "relative",
-                width: "100%",
-                height: "100%",
-              }}
-            >
-              {/* Tail Representation (could be customized) */}
+          // If neither head nor tail conditions are met, render the body normally
+          if (!hasHead && !hasTail) {
+            content = (
               <Box
+                key={`body-${playerID}-${position}`}
                 sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
                   ...transitionStyles,
                 }}
               />
+            )
+          }
 
-              {/* Count Indicator */}
+          if (!content) return
+
+          // Assign the content to the cellContentMap
+          // If multiple players are in the same cell, stack their contents
+          if (cellContentMap[position]) {
+            // If content already exists, wrap both in a parent Box
+            cellContentMap[position] = (
               <Box
+                key={`multi-${position}`}
                 sx={{
                   position: "absolute",
-                  bottom: 2,
-                  right: 2,
-                  fontSize: fontSize * 0.5,
-                  color: "black",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                {count}
+                {cellContentMap[position]}
+                {content}
               </Box>
-            </Box>
-          )
-        }
-
-        // If neither head nor tail conditions are met, render the body normally
-        if (!hasHead && !hasTail) {
-          content = (
-            <Box
-              key={`body-${position}`}
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                ...transitionStyles,
-              }}
-            />
-          )
-        }
-
-        if (!content) return
-
-        // Assign the content to the cellContentMap
-        cellContentMap[position] = content
+            )
+          } else {
+            cellContentMap[position] = content
+          }
+        })
       })
 
       // Place food
@@ -434,7 +489,10 @@ const GameGrid: React.FC = () => {
         )
         cellBackgroundMap[position] = "#d3d3d3" // light gray
       })
-    } else {
+    }
+
+    // Handle other game types (unchanged)
+    else {
       // Other game modes
 
       // Place player pieces

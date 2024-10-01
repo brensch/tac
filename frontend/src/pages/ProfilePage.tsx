@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react"
 import { useUser } from "../context/UserContext"
-import { Container, Box, TextField, Button, Typography } from "@mui/material"
+import { Container, Box, TextField, Button } from "@mui/material"
 import Wheel from "@uiw/react-color-wheel"
 import { getRandomColor } from "./SignupPage"
 import { emojiList } from "@shared/types/Emojis"
+import { ColorResult } from "react-color"
 
 interface ProfilePageProps {
   setUpdatedNickname: (nickname: string) => void
@@ -54,7 +55,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setUpdatedEmoji(emoji)
   }
 
-  const handleColourChange = (color: any) => {
+  const handleColourChange = (color: ColorResult) => {
     setSelectedColour(color.hex)
   }
 
