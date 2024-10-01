@@ -49,6 +49,11 @@ export const onGameStarted = functions.firestore
         return
       }
 
+      if (afterData.playerIDs.length === 0) {
+        logger.info(`no one in game. nonsense. ${gameID}.`)
+        return
+      }
+
       if (!afterData.startRequested) {
         logger.info(`start not requested yet ${gameID}.`)
         return
