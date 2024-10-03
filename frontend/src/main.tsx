@@ -58,6 +58,16 @@ const theme = createTheme({
         },
       },
     },
+    // MuiPaper: {
+    //   styleOverrides: {
+    //     root: {
+    //       border: "1px solid #000", // Black border
+    //       borderRadius: 0, // Square edges
+    //       boxShadow: "none", // Remove shadow
+    //       padding: "16px", // Consistent padding
+    //     },
+    //   },
+    // },
     MuiButton: {
       styleOverrides: {
         root: {

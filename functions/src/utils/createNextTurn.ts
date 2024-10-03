@@ -30,7 +30,7 @@ export async function createNextTurn(
     boardWidth: currentTurn.boardWidth,
     boardHeight: currentTurn.boardHeight,
     gameType: currentTurn.gameType,
-    playerIDs: currentTurn.playerIDs,
+    players: currentTurn.players,
     playerHealth: currentTurn.playerHealth,
     scores: currentTurn.scores,
     alivePlayers: currentTurn.alivePlayers,

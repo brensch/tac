@@ -12,6 +12,7 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
   SelectChangeEvent,
   Stack,
@@ -25,17 +26,17 @@ import {
   Typography,
 } from "@mui/material"
 import { useGameStateContext } from "../../context/GameStateContext"
-import { GameType } from "@shared/types/Game"
+import { GamePlayer, GameType } from "@shared/types/Game"
 import { getRulesComponent } from "./RulesDialog"
 
 const GameSetup: React.FC = () => {
   const { gameID } = useParams<{ gameID: string }>()
   const { userID } = useUser()
-  const { gameState, playerInfos } = useGameStateContext()
+  const { gameState, players, bots, gameType, setGameType } =
+    useGameStateContext()
 
   const [boardWidth, setBoardWidth] = useState<string>("8")
   const [boardHeight, setBoardHeight] = useState<string>("8")
-  const [gameType, setGameType] = useState<GameType>("snek")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
 
@@ -59,6 +60,19 @@ const GameSetup: React.FC = () => {
     }
   }
 
+  const handleAddBot = async (botID: string) => {
+    if (gameState && gameID) {
+      const gameDocRef = doc(db, "games", gameID)
+      const bot: GamePlayer = {
+        id: botID,
+        type: "bot",
+      }
+      await updateDoc(gameDocRef, {
+        gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
+      })
+    }
+  }
+
   // Start game
   const handleStart = async () => {
     if (gameState && gameID) {
@@ -70,12 +84,15 @@ const GameSetup: React.FC = () => {
   }
 
   // Kick a player by removing their playerID from the playerIDs field
-  const handleKick = async (playerID: string) => {
+  const handleKick = async (playerID: string, type: "bot" | "human") => {
     if (gameState && gameID) {
       const gameDocRef = doc(db, "games", gameID)
-
+      const player: GamePlayer = {
+        id: playerID,
+        type: type,
+      }
       await updateDoc(gameDocRef, {
-        playerIDs: arrayRemove(playerID), // Remove the specified playerID from playerIDs array
+        gamePlayers: arrayRemove(player), // Remove the specified playerID from playerIDs array
       })
     }
   }
@@ -240,10 +257,38 @@ const GameSetup: React.FC = () => {
           <MenuItem value="longboi">Long Boi</MenuItem>
         </Select>
       </FormControl>
-
       {/* Game rules */}
       {RulesComponent && <RulesComponent />}
-
+      {/* Bots List */}
+      {bots.length > 0 && (
+        <Paper
+          sx={{
+            border: "1px solid #000", // Black border
+            borderRadius: 0, // Square edges
+            boxShadow: "none", // Remove shadow
+            padding: "16px", // Consistent padding
+          }}
+        >
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Available Bots
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+            {bots.map((bot) => (
+              <Button
+                key={bot.name}
+                variant="contained"
+                sx={{
+                  backgroundColor: bot.colour,
+                  color: "#fff",
+                }}
+                onClick={() => handleAddBot(bot.id)}
+              >
+                {bot.emoji} {bot.name}
+              </Button>
+            ))}
+          </Box>
+        </Paper>
+      )}
       {/* Players Table */}
       <TableContainer>
         <Table size="small">
@@ -255,39 +300,44 @@ const GameSetup: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {playerInfos.map((player) => (
-              <TableRow key={player.id}>
-                <TableCell sx={{ backgroundColor: player.colour }}>
-                  {player.nickname} {player.emoji}
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ backgroundColor: player.colour }}
-                >
-                  {playersReady.includes(player.id) ? "Yeah" : "Nah"}
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ backgroundColor: player.colour }}
-                >
-                  <Button
-                    onClick={() => handleKick(player.id)}
-                    sx={{ height: 20 }}
+            {gameState.gamePlayers.map((gamePlayer) => {
+              const player = players.find(
+                (player) => player.id === gamePlayer.id,
+              )
+              if (!player) return null
+              return (
+                <TableRow key={player.id}>
+                  <TableCell sx={{ backgroundColor: player.colour }}>
+                    {player.name} {player.emoji}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ backgroundColor: player.colour }}
                   >
-                    Kick?
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                    {playersReady.includes(player.id) ? "Yeah" : "Nah"}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ backgroundColor: player.colour }}
+                  >
+                    <Button
+                      onClick={() => handleKick(player.id, gamePlayer.type)}
+                      sx={{ height: 20 }}
+                    >
+                      Kick?
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>
-
       {/* Ready Section */}
-
-      {!gameState.playerIDs.every((player) =>
-        gameState.playersReady.includes(player),
-      ) ? (
+      {!gameState.gamePlayers
+        .filter((gamePlayer) => gamePlayer.type === "human")
+        .map((human) => human.id)
+        .every((player) => gameState.playersReady.includes(player)) ? (
         <Button
           variant="contained"
           disabled={

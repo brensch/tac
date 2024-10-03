@@ -4,6 +4,7 @@ import {
   Transaction,
   QuerySnapshot,
   DocumentData,
+  Timestamp,
 } from "firebase-admin/firestore"
 import { Turn, Move } from "@shared/types/Game"
 import { getGameProcessor } from "./ProcessorFactory"
@@ -52,10 +53,18 @@ export async function processTurn(
 
     // Process only the latest move for each player
     const latestMoves: Move[] = movesThisRound
-      .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()) // Sort moves by timestamp, newest first
+      .sort((a, b) => {
+        // Ensure both timestamps are valid Timestamp instances
+        const aTime =
+          a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : 0
+        const bTime =
+          b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : 0
+        return bTime - aTime // Sort by timestamp, newest first
+      })
       .reduce((acc: Move[], move: Move) => {
+        // Add only the latest move for each player
         if (!acc.find((m) => m.playerID === move.playerID)) {
-          acc.push(move) // Add only the latest move for each player
+          acc.push(move)
         }
         return acc
       }, [])

@@ -1,5 +1,3 @@
-// functions/src/gameprocessors/TacticToesProcessor.ts
-
 import { GameProcessor } from "./GameProcessor"
 import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
 import { logger } from "../logger"
@@ -59,21 +57,21 @@ export class TacticToesProcessor extends GameProcessor {
    * @returns The initial Turn object.
    */
   private initializeTurn(gameState: GameState): Turn {
-    const { boardWidth, boardHeight, playerIDs } = gameState
+    const { boardWidth, boardHeight, gamePlayers } = gameState
     const now = Date.now()
 
     // Initialize playerPieces as occupied positions for each player
     const playerPieces: { [playerID: string]: number[] } = {}
-    playerIDs.forEach((playerID) => {
-      playerPieces[playerID] = []
+    gamePlayers.forEach((player) => {
+      playerPieces[player.id] = []
     })
 
     // Initialize allowed moves (all positions on the board)
     const totalCells = boardWidth * boardHeight
     const allPositions = Array.from({ length: totalCells }, (_, index) => index)
     const allowedMoves: { [playerID: string]: number[] } = {}
-    playerIDs.forEach((playerID) => {
-      allowedMoves[playerID] = [...allPositions]
+    gamePlayers.forEach((player) => {
+      allowedMoves[player.id] = [...allPositions]
     })
 
     const firstTurn: Turn = {
@@ -81,14 +79,14 @@ export class TacticToesProcessor extends GameProcessor {
       boardWidth: boardWidth,
       boardHeight: boardHeight,
       gameType: gameState.gameType,
-      playerIDs: playerIDs,
+      players: gamePlayers,
       playerHealth: {}, // Not applicable in TacticToes
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Not applicable at the start
-      alivePlayers: [...playerIDs],
+      alivePlayers: [...gamePlayers.map((p) => p.id)],
       allowedMoves: allowedMoves,
       walls: [], // No walls in TacticToes
       playerPieces: playerPieces, // Players' occupied positions
@@ -209,8 +207,8 @@ export class TacticToesProcessor extends GameProcessor {
         (pos) => !occupiedPositions.has(pos),
       )
       const newAllowedMoves: { [playerID: string]: number[] } = {}
-      this.currentTurn.playerIDs.forEach((playerID) => {
-        newAllowedMoves[playerID] = [...freePositions]
+      this.currentTurn.players.forEach((player) => {
+        newAllowedMoves[player.id] = [...freePositions]
       })
 
       // Update the current turn
@@ -233,7 +231,7 @@ export class TacticToesProcessor extends GameProcessor {
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const { boardWidth, boardHeight, playerIDs, playerPieces } =
+      const { boardWidth, boardHeight, players, playerPieces } =
         this.currentTurn
 
       if (this.latestMoves.length === 0) {
@@ -252,8 +250,8 @@ export class TacticToesProcessor extends GameProcessor {
       // Winning lines (rows, columns, diagonals)
       const lines = this.getAllPossibleLines(boardWidth, boardHeight)
 
-      for (const playerID of playerIDs) {
-        const playerPositions = new Set(playerPieces[playerID])
+      for (const player of players) {
+        const playerPositions = new Set(playerPieces[player.id])
         const winningLines: number[][] = []
 
         for (const line of lines) {
@@ -268,8 +266,8 @@ export class TacticToesProcessor extends GameProcessor {
         }
 
         if (winningLines.length > 0) {
-          winningLinesMap[playerID] = winningLines
-          playersWithWinningLines.push(playerID)
+          winningLinesMap[player.id] = winningLines
+          playersWithWinningLines.push(player.id)
         }
       }
 
@@ -335,8 +333,8 @@ export class TacticToesProcessor extends GameProcessor {
         ) + (this.currentTurn.clashes?.length || 0)
       if (totalOccupied >= totalCells) {
         logger.info(`TacticToes: Game ended in a draw.`)
-        return playerIDs.map((playerID) => ({
-          playerID,
+        return players.map((player) => ({
+          playerID: player.id,
           score: 0,
           winningSquares: [],
         }))

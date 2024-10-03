@@ -1,7 +1,12 @@
-// functions/src/gameprocessors/Connect4Processor.ts
-
 import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
+import {
+  Winner,
+  Turn,
+  Move,
+  GameState,
+  Clash,
+  GamePlayer,
+} from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
@@ -59,7 +64,7 @@ export class Connect4Processor extends GameProcessor {
    * @returns The initial Turn object.
    */
   private initializeTurn(gameState: GameState): Turn {
-    const { boardWidth, boardHeight, playerIDs } = gameState
+    const { boardWidth, boardHeight, gamePlayers } = gameState
     const now = Date.now()
 
     // Initialize grid as an array of strings or null
@@ -67,8 +72,8 @@ export class Connect4Processor extends GameProcessor {
 
     // Initialize playerPieces as occupied positions for each player
     const playerPieces: { [playerID: string]: number[] } = {}
-    playerIDs.forEach((playerID) => {
-      playerPieces[playerID] = []
+    gamePlayers.forEach((player) => {
+      playerPieces[player.id] = []
     })
 
     // Initialize allowed moves (top row indices)
@@ -76,7 +81,7 @@ export class Connect4Processor extends GameProcessor {
       grid,
       boardWidth,
       boardHeight,
-      playerIDs,
+      gamePlayers,
     )
 
     const firstTurn: Turn = {
@@ -84,14 +89,14 @@ export class Connect4Processor extends GameProcessor {
       boardWidth: boardWidth,
       boardHeight: boardHeight,
       gameType: gameState.gameType,
-      playerIDs: playerIDs,
+      players: gamePlayers, // Use gamePlayers instead of playerIDs
       playerHealth: {}, // Not used in Connect4
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Not used at the start
-      alivePlayers: [...playerIDs],
+      alivePlayers: gamePlayers.map((player) => player.id), // Use player IDs
       allowedMoves: allowedMoves,
       walls: [], // No walls in Connect4
       playerPieces: playerPieces, // Players' occupied positions
@@ -115,7 +120,7 @@ export class Connect4Processor extends GameProcessor {
     grid: (string | null)[],
     boardWidth: number,
     boardHeight: number,
-    playerIDs: string[],
+    gamePlayers: GamePlayer[],
   ): { [playerID: string]: number[] } {
     const allowedMoves: { [playerID: string]: number[] } = {}
     const topRowIndices: number[] = []
@@ -128,8 +133,8 @@ export class Connect4Processor extends GameProcessor {
     }
 
     // All players have the same allowed moves in Connect4
-    playerIDs.forEach((playerID) => {
-      allowedMoves[playerID] = [...topRowIndices]
+    gamePlayers.forEach((player) => {
+      allowedMoves[player.id] = [...topRowIndices]
     })
 
     return allowedMoves
@@ -246,7 +251,7 @@ export class Connect4Processor extends GameProcessor {
         newGrid,
         boardWidth,
         boardHeight,
-        this.currentTurn.playerIDs,
+        this.currentTurn.players, // Use gamePlayers instead of playerIDs
       )
 
       // Update the current turn
@@ -273,14 +278,14 @@ export class Connect4Processor extends GameProcessor {
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const { boardWidth, boardHeight, playerIDs } = this.currentTurn
+      const { boardWidth, boardHeight, players } = this.currentTurn
       const grid: (string | null)[] = (this.currentTurn as any).grid
       const latestMovePositions: { [playerID: string]: number } =
         (this.currentTurn as any).latestMovePositions || {}
 
       if (this.latestMoves.length === 0) {
-        return this.currentTurn.alivePlayers.map((player) => ({
-          playerID: player,
+        return this.currentTurn.alivePlayers.map((playerID) => ({
+          playerID,
           score: 0,
           winningSquares: [],
         }))
@@ -290,8 +295,8 @@ export class Connect4Processor extends GameProcessor {
       const playerWinningLines: { [playerID: string]: number[] } = {}
 
       // Check for winners starting from their latest move positions
-      for (const playerID of playerIDs) {
-        const latestMovePos = latestMovePositions[playerID]
+      for (const player of players) {
+        const latestMovePos = latestMovePositions[player.id]
         if (latestMovePos === undefined) {
           continue
         }
@@ -299,11 +304,11 @@ export class Connect4Processor extends GameProcessor {
           grid,
           boardWidth,
           boardHeight,
-          playerID,
+          player.id,
           latestMovePos,
         )
         if (winningSquares.length >= 4) {
-          playerWinningLines[playerID] = winningSquares
+          playerWinningLines[player.id] = winningSquares
         }
       }
 
@@ -369,8 +374,8 @@ export class Connect4Processor extends GameProcessor {
       )
       if (allCellsFilled) {
         logger.info(`Connect4: Game ended in a draw.`)
-        return playerIDs.map((playerID) => ({
-          playerID,
+        return players.map((player) => ({
+          playerID: player.id,
           score: 0,
           winningSquares: [],
         }))

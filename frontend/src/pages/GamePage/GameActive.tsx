@@ -1,15 +1,13 @@
 // src/components/GameActive.tsx
 
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
-import React, { useEffect, useState } from "react"
+import { Timestamp } from "firebase/firestore"
+import React, { useState } from "react"
 import { useUser } from "../../context/UserContext"
-import { db } from "../../firebaseConfig"
 
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
 import {
   Alert,
   Box,
-  Button,
   IconButton,
   Stack,
   Table,
@@ -29,12 +27,10 @@ const GameActive: React.FC = () => {
   const { userID } = useUser()
   const {
     gameState,
-    playerInfos,
+    players,
     turns,
-    hasSubmittedMove,
     currentTurn,
     currentTurnIndex,
-    gameID,
     handleLatestTurn,
     handleNextTurn,
     handlePrevTurn,
@@ -43,32 +39,8 @@ const GameActive: React.FC = () => {
     latestTurn,
   } = useGameStateContext()
 
-  const [clicked, setClicked] = useState(false)
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(true) // Show rules dialog initially
   const [isRulesAccepted, setIsRulesAccepted] = useState(false) // Track if rules have been accepted
-
-  // Submit a move
-  const handleMoveSubmit = async () => {
-    if (!currentTurn) return
-    setClicked(true)
-
-    if (selectedSquare !== null && gameState && userID && gameID) {
-      const moveRef = collection(db, `games/${gameID}/privateMoves`)
-      const moveNumber = currentTurn.turnNumber
-
-      await addDoc(moveRef, {
-        gameID,
-        moveNumber,
-        playerID: userID,
-        move: selectedSquare,
-        timestamp: serverTimestamp(),
-      })
-    }
-  }
-
-  useEffect(() => {
-    setClicked(false)
-  }, [latestTurn])
 
   const handleRulesAccepted = () => {
     setIsRulesAccepted(true)
@@ -77,7 +49,9 @@ const GameActive: React.FC = () => {
 
   if (!gameState) return null
 
-  const playerInCurrentGame = gameState.playerIDs.includes(userID)
+  const playerInCurrentGame = gameState.gamePlayers.find(
+    (player) => player.id === userID,
+  )
 
   if (!gameState.started || !currentTurn) return null
 
@@ -102,7 +76,12 @@ const GameActive: React.FC = () => {
         </Alert>
       )}
 
-      {!gameState.nextGame && (
+      <Typography>
+        Turn {latestTurn?.turnNumber}. {Math.max(0, timeRemaining).toFixed(0)}{" "}
+        seconds left.
+      </Typography>
+
+      {/* {!gameState.nextGame && (
         <Button
           disabled={
             clicked ||
@@ -121,9 +100,9 @@ const GameActive: React.FC = () => {
           Submit Move ({Math.max(0, timeRemaining).toFixed(0)}s, round{" "}
           {latestTurn?.turnNumber})
         </Button>
-      )}
+      )} */}
       {latestTurn?.turnNumber == 1 && selectedSquare === null && (
-        <Typography>Tap a square to get started!</Typography>
+        <Typography>Tap a square to submit your move.</Typography>
       )}
 
       {/* Game Grid */}
@@ -163,24 +142,33 @@ const GameActive: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {playerInfos.map((player) => (
-              <TableRow key={player.id} sx={{ backgroundColor: player.colour }}>
-                <TableCell>
-                  {player.nickname} {player.emoji}
-                </TableCell>
-                <TableCell align="right">
-                  {currentTurn?.hasMoved[player.id]?.moveTime
-                    ? `${Math.round(
-                        currentTurn.hasMoved[player.id].moveTime.seconds -
-                          currentTurn.startTime.seconds,
-                      )}s`
-                    : "Haven't moved"}
-                </TableCell>
-                <TableCell align="right">
-                  {currentTurn.scores[player.id]}
-                </TableCell>
-              </TableRow>
-            ))}
+            {players.map((player) => {
+              const moveTime = currentTurn?.hasMoved[player.id]?.moveTime
+
+              return (
+                <TableRow
+                  key={player.id}
+                  sx={{ backgroundColor: player.colour }}
+                >
+                  <TableCell>
+                    {player.name} {player.emoji}
+                  </TableCell>
+                  <TableCell align="right">
+                    {moveTime instanceof Timestamp
+                      ? `${Math.round(
+                          (moveTime.seconds || 0) -
+                            (currentTurn.startTime instanceof Timestamp
+                              ? currentTurn.startTime.seconds
+                              : 0),
+                        )}s`
+                      : "Haven't moved"}
+                  </TableCell>
+                  <TableCell align="right">
+                    {currentTurn.scores[player.id]}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -206,14 +194,14 @@ const GameActive: React.FC = () => {
             <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
               Waiting for
               <br />
-              {playerInfos
+              {players
                 .filter(
                   (player) => !currentTurn.hasMoved[player.id], // Check if player hasn't moved
                 )
                 .map((player, index) => (
                   <React.Fragment key={player.id}>
-                    {player.nickname}
-                    {index < playerInfos.length - 1 && <br />}
+                    {player.name}
+                    {index < players.length - 1 && <br />}
                   </React.Fragment>
                 ))}
             </Typography>

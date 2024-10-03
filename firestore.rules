@@ -37,14 +37,16 @@ service cloud.firestore {
       allow read, write: if true; // Anyone can read and write to expiration requests.
     }
 
+// Games Collection
     match /games/{gameID} {
       allow read: if true; // Allow all users to read the game document.
 
       allow create: if request.auth != null && (
         request.resource.data.sessionName is string &&
-        request.resource.data.gameType == "snek" &&
+        request.resource.data.gameType in ["connect4", "longboi", "tactictoes", "snek"] &&
         request.resource.data.sessionIndex == 0 &&
-        request.resource.data.playerIDs is list && request.resource.data.playerIDs.size() == 0 &&
+        request.resource.data.timeCreated == request.time &&
+        request.resource.data.gamePlayers is list && request.resource.data.gamePlayers.size() == 0 && // Empty gamePlayers list
         request.resource.data.playersReady is list && request.resource.data.playersReady.size() == 0 &&
         request.resource.data.boardWidth is int && request.resource.data.boardWidth >= 5 &&
         request.resource.data.boardHeight is int && request.resource.data.boardHeight >= 5 &&
@@ -55,18 +57,18 @@ service cloud.firestore {
       );
 
       allow update: if request.auth != null && (
-        // Allow adding a player before the game starts
+        // Allow adding a player (human or bot) before the game starts
         (
           !resource.data.started && // Game hasn't started yet
-          request.resource.data.playerIDs.size() == resource.data.playerIDs.size() + 1 && // One more player added
-          request.resource.data.playerIDs.hasAll(resource.data.playerIDs) && // All previous players are still in the list
-          !resource.data.playerIDs.hasAny([request.auth.uid]) // The current user wasn't already in the game
+          request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() + 1 && // One more player added
+          request.resource.data.gamePlayers.hasAll(resource.data.gamePlayers) && // All previous players are still in the list
+          !resource.data.gamePlayers.hasAny([request.auth.uid]) // The current user wasn't already in the game
         )
         ||
         // Allow removing a player (kicking a player) by any authenticated user
         (
-          request.resource.data.playerIDs.size() == resource.data.playerIDs.size() - 1 && // One player removed
-          resource.data.playerIDs.hasAll(request.resource.data.playerIDs) // All remaining players are still in the list
+          request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() - 1 && // One player removed
+          resource.data.gamePlayers.hasAll(request.resource.data.gamePlayers) // All remaining players are still in the list
         )
         ||
         // Allow updating game settings (maxTurnTime, boardWidth, boardHeight) before the game starts
@@ -75,7 +77,7 @@ service cloud.firestore {
           request.resource.data.maxTurnTime > 0 &&
           request.resource.data.boardWidth >= 5 &&
           request.resource.data.boardHeight >= 5 &&
-          request.resource.data.playerIDs == resource.data.playerIDs &&
+          request.resource.data.gamePlayers == resource.data.gamePlayers && // Ensure gamePlayers haven't changed
           request.resource.data.sessionName == resource.data.sessionName &&
           request.resource.data.sessionIndex == resource.data.sessionIndex &&
           request.resource.data.winners.size() == resource.data.winners.size() &&
@@ -96,8 +98,9 @@ service cloud.firestore {
       (
         // Ensure 'winners' array is unchanged or empty
         request.resource.data.winners == resource.data.winners
-      ) 
+      );
     }
+  
 
 
     // Users Collection
@@ -109,8 +112,8 @@ service cloud.firestore {
         request.auth.token.firebase != null && 
         request.auth.token.firebase.sign_in_provider == "firebase" &&
         request.resource.data is map && 
-        request.resource.data.nickname is string && 
-        request.resource.data.createdAt is timestamp); // Only authenticated users or Cloud Functions can write.
+        request.resource.data.name is string && 
+        request.resource.data.createdAt == request.time); // Only authenticated users or Cloud Functions can write.
       allow read: if true; // Anyone can read user documents.
     }
 
@@ -121,6 +124,13 @@ service cloud.firestore {
     match /games/{gameID}/turnExpirationRequests/{requestID} {
       allow create: if request.auth != null; // Authenticated users can create expiration requests.
       allow read: if true; // Anyone can read expiration requests.
+    }
+
+    // Bots Collection
+    // Allow anyone to read the bots collection, no write access.
+    match /bots/{botID} {
+      allow read: if true; // Anyone can read the bots.
+      allow write: if false; // No one is allowed to write directly to bots.
     }
   }
 }

@@ -1,6 +1,6 @@
 // functions/src/utils/createNewGame.ts
 
-import { Transaction } from "firebase-admin/firestore"
+import { Timestamp, Transaction } from "firebase-admin/firestore"
 import { GameState } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
@@ -43,7 +43,7 @@ export async function createNewGame(
       sessionName: gameData.sessionName,
       sessionIndex: newSessionIndex,
       gameType: gameData.gameType,
-      playerIDs: [], // New game starts with no players
+      gamePlayers: [], // New game starts with no players
       boardWidth: gameData.boardWidth,
       boardHeight: gameData.boardHeight,
       winners: [], // Initialize as empty array
@@ -52,6 +52,7 @@ export async function createNewGame(
       maxTurnTime: gameData.maxTurnTime,
       playersReady: [], // Reset players ready
       startRequested: false,
+      timeCreated: Timestamp.now(),
     }
 
     // Set the new game document within the transaction

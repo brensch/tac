@@ -20,9 +20,9 @@ export const onGameStarted = functions.firestore
     logger.debug(`Checking update on game: ${gameID}`)
 
     // Check if all playerIDs are in playersReady
-    const allPlayersReady = afterData.playerIDs.every((playerID) =>
-      afterData.playersReady.includes(playerID),
-    )
+    const allPlayersReady = afterData.gamePlayers
+      .filter((gamePlayer) => gamePlayer.type === "human")
+      .every((player) => afterData.playersReady.includes(player.id))
 
     // Use a transaction to ensure consistency
     await admin.firestore().runTransaction(async (transaction) => {
@@ -49,7 +49,7 @@ export const onGameStarted = functions.firestore
         return
       }
 
-      if (afterData.playerIDs.length === 0) {
+      if (afterData.gamePlayers.length === 0) {
         logger.info(`no one in game. nonsense. ${gameID}.`)
         return
       }

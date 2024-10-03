@@ -1,7 +1,12 @@
-// functions/src/gameprocessors/SnekProcessor.ts
-
 import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
+import {
+  Winner,
+  Turn,
+  Move,
+  GameState,
+  Clash,
+  GamePlayer,
+} from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 import { Transaction } from "firebase-admin/firestore"
@@ -47,14 +52,14 @@ export class SnekProcessor extends GameProcessor {
   }
 
   private initializeTurn(gameState: GameState): Turn {
-    const { boardWidth, boardHeight, playerIDs } = gameState
+    const { boardWidth, boardHeight, gamePlayers } = gameState
     const now = Date.now()
 
     // Initialize playerPieces
     const playerPieces = this.initializeSnakes(
       boardWidth,
       boardHeight,
-      playerIDs,
+      gamePlayers,
     )
 
     // Initialize food positions
@@ -73,14 +78,14 @@ export class SnekProcessor extends GameProcessor {
 
     // Initialize player health
     const initialHealth: { [playerID: string]: number } = {}
-    playerIDs.forEach((playerID) => {
-      initialHealth[playerID] = 100
+    gamePlayers.forEach((player) => {
+      initialHealth[player.id] = 100
     })
 
     // Initialize scores
     const initialScores: { [playerID: string]: number } = {}
-    playerIDs.forEach((playerID) => {
-      initialScores[playerID] = 3 // Initial snake length is 3
+    gamePlayers.forEach((player) => {
+      initialScores[player.id] = 3 // Initial snake length is 3
     })
 
     const firstTurn: Turn = {
@@ -88,14 +93,14 @@ export class SnekProcessor extends GameProcessor {
       boardWidth: boardWidth,
       boardHeight: boardHeight,
       gameType: gameState.gameType,
-      playerIDs: playerIDs,
+      players: gamePlayers, // Use gamePlayers instead of playerIDs
       playerHealth: initialHealth,
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: initialScores,
-      alivePlayers: [...playerIDs], // All players are alive at the start
+      alivePlayers: gamePlayers.map((player) => player.id), // All players are alive at the start
       food: food,
       hazards: [], // No hazards at start
       playerPieces: playerPieces, // Snakes positions as a map
@@ -683,7 +688,7 @@ export class SnekProcessor extends GameProcessor {
         alivePlayers,
         playerPieces: playerPieces,
         scores,
-        playerIDs,
+        players: gamePlayers,
       } = this.currentTurn
 
       const winners: Winner[] = []
@@ -695,8 +700,8 @@ export class SnekProcessor extends GameProcessor {
         winners.push({ playerID: winnerID, score, winningSquares })
         logger.info(`Snek: Player ${winnerID} has won the game!`)
       } else if (alivePlayers.length === 0) {
-        const drawnWinners: Winner[] = playerIDs.map((playerID) => ({
-          playerID: playerID,
+        const drawnWinners: Winner[] = gamePlayers.map((player) => ({
+          playerID: player.id,
           score: 0,
           winningSquares: [],
         }))
@@ -719,31 +724,31 @@ export class SnekProcessor extends GameProcessor {
    * Initializes playerPieces at starting positions.
    * @param boardWidth The width of the board.
    * @param boardHeight The height of the board.
-   * @param playerIDs Array of player IDs.
+   * @param gamePlayers Array of gamePlayers.
    * @returns A map of playerPieces with playerID as key and positions array as value.
    */
   private initializeSnakes(
     boardWidth: number,
     boardHeight: number,
-    playerIDs: string[],
+    gamePlayers: GamePlayer[],
   ): { [playerID: string]: number[] } {
     // Generate starting positions with equal board access
     const positions = this.generateStartingPositions(
       boardWidth,
       boardHeight,
-      playerIDs.length,
+      gamePlayers.length,
     )
 
     // Initialize playerPieces
     const playerPieces: { [playerID: string]: number[] } = {}
 
-    playerIDs.forEach((playerID, index) => {
+    gamePlayers.forEach((player, index) => {
       const { x, y } = positions[index]
       const startIndex = y * boardWidth + x
 
       // Snake starts with length 3, all segments at the same position
       const snake = [startIndex, startIndex, startIndex]
-      playerPieces[playerID] = snake
+      playerPieces[player.id] = snake
     })
 
     return playerPieces

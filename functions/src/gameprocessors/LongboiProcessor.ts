@@ -1,5 +1,3 @@
-// functions/src/gameprocessors/LongboiProcessor.ts
-
 import { GameProcessor } from "./GameProcessor"
 import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
 import { logger } from "../logger"
@@ -59,21 +57,21 @@ export class LongboiProcessor extends GameProcessor {
    * @returns The initial Turn object.
    */
   private initializeTurn(gameState: GameState): Turn {
-    const { boardWidth, boardHeight, playerIDs } = gameState
+    const { boardWidth, boardHeight, gamePlayers } = gameState
     const now = Date.now()
 
     // Initialize playerPieces as occupied positions for each player
     const playerPieces: { [playerID: string]: number[] } = {}
-    playerIDs.forEach((playerID) => {
-      playerPieces[playerID] = []
+    gamePlayers.forEach((player) => {
+      playerPieces[player.id] = []
     })
 
     // Initialize allowed moves (all positions on the board)
     const totalCells = boardWidth * boardHeight
     const allPositions = Array.from({ length: totalCells }, (_, index) => index)
     const allowedMoves: { [playerID: string]: number[] } = {}
-    playerIDs.forEach((playerID) => {
-      allowedMoves[playerID] = [...allPositions]
+    gamePlayers.forEach((player) => {
+      allowedMoves[player.id] = [...allPositions]
     })
 
     const firstTurn: Turn = {
@@ -81,14 +79,14 @@ export class LongboiProcessor extends GameProcessor {
       boardWidth: boardWidth,
       boardHeight: boardHeight,
       gameType: gameState.gameType,
-      playerIDs: playerIDs,
+      players: gamePlayers, // Use gamePlayers instead of playerIDs
       playerHealth: {}, // Not used in Longboi
       hasMoved: {},
       turnTime: gameState.maxTurnTime,
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Initialize scores as empty map
-      alivePlayers: [...playerIDs], // All players are alive
+      alivePlayers: gamePlayers.map((player) => player.id), // All players are alive
 
       // New fields
       food: [], // Not used in Longboi
@@ -110,7 +108,7 @@ export class LongboiProcessor extends GameProcessor {
   async applyMoves(): Promise<void> {
     if (!this.currentTurn) return
     try {
-      const { playerIDs, boardWidth, boardHeight, playerPieces, allowedMoves } =
+      const { players, boardWidth, boardHeight, playerPieces, allowedMoves } =
         this.currentTurn
 
       // Deep copy playerPieces
@@ -149,11 +147,11 @@ export class LongboiProcessor extends GameProcessor {
       // Process moves and handle clashes
       for (const positionStr in moveMap) {
         const position = parseInt(positionStr)
-        const players = moveMap[position]
+        const playersAtPosition = moveMap[position]
 
-        if (players.length === 1) {
+        if (playersAtPosition.length === 1) {
           // Valid move
-          const playerID = players[0]
+          const playerID = playersAtPosition[0]
           newPlayerPieces[playerID].push(position)
           logger.info(
             `Longboi: Position ${position} claimed by player ${playerID}.`,
@@ -161,14 +159,14 @@ export class LongboiProcessor extends GameProcessor {
         } else {
           // Clash: Multiple players attempted to claim the same position
           logger.warn(
-            `Longboi: Clash at position ${position} by players ${players.join(
+            `Longboi: Clash at position ${position} by players ${playersAtPosition.join(
               ", ",
             )}.`,
           )
           // Record the clash
           clashes.push({
             index: position,
-            playerIDs: players,
+            playerIDs: playersAtPosition,
             reason: "Multiple players attempted to claim the same position",
           })
         }
@@ -189,8 +187,8 @@ export class LongboiProcessor extends GameProcessor {
       })
 
       const newAllowedMoves: { [playerID: string]: number[] } = {}
-      playerIDs.forEach((playerID) => {
-        newAllowedMoves[playerID] = allPositions.filter(
+      players.forEach((player) => {
+        newAllowedMoves[player.id] = allPositions.filter(
           (pos) => !claimedPositions.has(pos),
         )
       })
@@ -215,17 +213,16 @@ export class LongboiProcessor extends GameProcessor {
    * Updates the scores for all players based on the current board state.
    */
   private updateScores(): void {
-    const { boardWidth, boardHeight, playerIDs, playerPieces } =
-      this.currentTurn!
+    const { boardWidth, boardHeight, players, playerPieces } = this.currentTurn!
     const scores: { [playerID: string]: number } = {}
 
-    for (const playerID of playerIDs) {
+    for (const player of players) {
       const result = this.calculateLongestPath(
-        playerPieces[playerID],
+        playerPieces[player.id],
         boardWidth,
         boardHeight,
       )
-      scores[playerID] = result.length
+      scores[player.id] = result.length
     }
 
     this.currentTurn!.scores = scores
@@ -238,7 +235,7 @@ export class LongboiProcessor extends GameProcessor {
   async findWinners(): Promise<Winner[]> {
     if (!this.currentTurn) return []
     try {
-      const { boardWidth, boardHeight, playerIDs, playerPieces } =
+      const { boardWidth, boardHeight, players, playerPieces } =
         this.currentTurn
       const totalPositions = boardWidth * boardHeight
 
@@ -264,13 +261,13 @@ export class LongboiProcessor extends GameProcessor {
 
       let maxLength = 0
 
-      for (const playerID of playerIDs) {
+      for (const player of players) {
         const result = this.calculateLongestPath(
-          playerPieces[playerID],
+          playerPieces[player.id],
           boardWidth,
           boardHeight,
         )
-        longestPaths[playerID] = result
+        longestPaths[player.id] = result
         if (result.length > maxLength) {
           maxLength = result.length
         }
@@ -279,9 +276,9 @@ export class LongboiProcessor extends GameProcessor {
       // Determine the player(s) with the longest path
       const potentialWinners: string[] = []
 
-      for (const playerID of playerIDs) {
-        if (longestPaths[playerID].length === maxLength && maxLength > 0) {
-          potentialWinners.push(playerID)
+      for (const player of players) {
+        if (longestPaths[player.id].length === maxLength && maxLength > 0) {
+          potentialWinners.push(player.id)
         }
       }
 

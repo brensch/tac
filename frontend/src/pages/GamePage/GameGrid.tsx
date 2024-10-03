@@ -1,9 +1,11 @@
 import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box } from "@mui/material"
-import { Clash, PlayerInfo } from "@shared/types/Game"
+import { Clash, GamePlayer, Player } from "@shared/types/Game"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { db } from "../../firebaseConfig"
 
 const BORDER_WIDTH = 4 // Adjust as needed (in pixels)
 const BORDER_COLOR = "white"
@@ -12,11 +14,12 @@ const CORNER_BORDER_COLOR = "white" // Adjust if different colors are needed
 const GameGrid: React.FC = () => {
   const {
     gameState,
-    playerInfos,
+    players,
     hasSubmittedMove,
     currentTurn,
     selectedSquare,
     setSelectedSquare,
+    gameID,
   } = useGameStateContext()
 
   const user = useUser()
@@ -30,7 +33,7 @@ const GameGrid: React.FC = () => {
 
   const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
-  const [clashPlayersList, setClashPlayersList] = useState<PlayerInfo[]>([])
+  const [clashPlayersList, setClashPlayersList] = useState<GamePlayer[]>([])
 
   // Handle responsive sizing
   const gridRef = useRef<HTMLDivElement>(null)
@@ -59,6 +62,11 @@ const GameGrid: React.FC = () => {
   const cellAllowedMoveMap: { [index: number]: boolean } = {}
   const clashesAtPosition: { [index: number]: Clash } = {}
   const latestMovePositionsSet: Set<number> = new Set()
+
+  // Submit a move
+  // const handleMoveSubmit = async () => {
+
+  // }
 
   // Enhanced cellSnakeSegments to track multiple players per cell
   const cellSnakeSegments: {
@@ -101,7 +109,7 @@ const GameGrid: React.FC = () => {
 
       // Function to get previous and next movement deltas
       const getSegmentStyles = (
-        playerInfo: PlayerInfo | undefined,
+        playerInfo: Player | undefined,
         prevPos: number | null,
         currPos: number,
         nextPos: number | null,
@@ -231,7 +239,7 @@ const GameGrid: React.FC = () => {
       // Collect snake segments
       Object.keys(playerPieces).forEach((playerID) => {
         const positions = playerPieces[playerID]
-        const playerInfo = playerInfos.find((p) => p.id === playerID)
+        const playerInfo = players.find((p) => p.id === playerID)
 
         positions.forEach((position, index) => {
           const isHead = index === 0
@@ -311,7 +319,7 @@ const GameGrid: React.FC = () => {
               // This player does not have the head in this cell
               return
             }
-            const playerInfo = playerInfos.find((p) => p.id === playerID)
+            const playerInfo = players.find((p) => p.id === playerID)
             if (!playerInfo) {
               return // Null check
             }
@@ -498,7 +506,7 @@ const GameGrid: React.FC = () => {
       // Place player pieces
       Object.keys(playerPieces).forEach((playerID) => {
         const positions = playerPieces[playerID]
-        const playerInfo = playerInfos.find((p) => p.id === playerID)
+        const playerInfo = players.find((p) => p.id === playerID)
 
         positions.forEach((position) => {
           cellContentMap[position] = (
@@ -524,7 +532,7 @@ const GameGrid: React.FC = () => {
     }
   }
 
-  const handleSquareClick = (index: number) => {
+  const handleSquareClick = async (index: number) => {
     if (!currentTurn || !gameState) return
     console.log(index)
 
@@ -537,13 +545,29 @@ const GameGrid: React.FC = () => {
 
     const clash = clashesAtPosition[index]
     if (clash) {
-      const playersInvolved = clash.playerIDs
-        .map((id) => playerInfos.find((p) => p.id === id))
-        .filter((p): p is PlayerInfo => !!p)
+      const playersInvolved: GamePlayer[] = gameState.gamePlayers.filter(
+        (player) => clash.playerIDs.includes(player.id),
+      )
 
       setClashReason(clash.reason)
       setClashPlayersList(playersInvolved)
       setOpenClashDialog(true)
+    }
+
+    if (!currentTurn || !currentTurn.allowedMoves[user.userID].includes(index))
+      return
+
+    if (gameState && user.userID && gameID) {
+      const moveRef = collection(db, `games/${gameID}/privateMoves`)
+      const moveNumber = currentTurn.turnNumber
+
+      await addDoc(moveRef, {
+        gameID,
+        moveNumber,
+        playerID: user.userID,
+        move: index,
+        timestamp: serverTimestamp(),
+      })
     }
   }
 
@@ -660,6 +684,7 @@ const GameGrid: React.FC = () => {
         onClose={() => setOpenClashDialog(false)}
         clashReason={clashReason}
         clashPlayersList={clashPlayersList}
+        players={players}
       />
     </>
   )

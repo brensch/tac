@@ -1,31 +1,39 @@
 // src/context/GameStateContext.tsx
 
+import { Box } from "@mui/material"
+import {
+  Bot,
+  GameState,
+  GameType,
+  Human,
+  Player,
+  Turn,
+} from "@shared/types/Game"
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore"
 import React, {
   createContext,
   useContext,
-  useState,
   useEffect,
   useRef,
+  useState,
 } from "react"
-import {
-  doc,
-  onSnapshot,
-  updateDoc,
-  arrayUnion,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  serverTimestamp,
-} from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
-import { GameState, PlayerInfo, Turn } from "@shared/types/Game"
-import { Box } from "@mui/material"
 
 interface GameStateContextType {
   gameState: GameState | null
-  playerInfos: PlayerInfo[]
   turns: Turn[]
   latestTurn: Turn | undefined
   currentTurn: Turn | undefined
@@ -42,6 +50,11 @@ interface GameStateContextType {
   error: string | null
   gameID: string
   timeRemaining: number
+  bots: Bot[]
+  humans: Human[]
+  gameType: GameType
+  setGameType: React.Dispatch<React.SetStateAction<GameType>>
+  players: Player[]
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -54,7 +67,7 @@ export const GameStateProvider: React.FC<{
 }> = ({ children, gameID }) => {
   const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
-  const [playerInfos, setPlayerInfos] = useState<PlayerInfo[]>([])
+  const [humans, setHumans] = useState<Human[]>([])
   const [turns, setTurns] = useState<Turn[]>([])
   const [latestTurn, setLatestTurn] = useState<Turn | undefined>(undefined)
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
@@ -63,9 +76,11 @@ export const GameStateProvider: React.FC<{
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
   const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
+  const [bots, setBots] = useState<Bot[]>([])
+  const [gameType, setGameType] = useState<GameType>("snek")
 
   // Use useRef to persist playersMap across renders
-  const playersMapRef = useRef<{ [id: string]: PlayerInfo }>({})
+  const humanMapRef = useRef<{ [id: string]: Human }>({})
 
   // **NEW**: Use useRef to store the interval ID
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
@@ -83,10 +98,18 @@ export const GameStateProvider: React.FC<{
         setGameState(gameData)
 
         // Add user to the game if not already in it and game hasn't started
-        if (!gameData.started && !gameData.playerIDs.includes(userID)) {
+        const userExists = gameData.gamePlayers.find(
+          (player) => player.id === userID,
+        )
+        if (!gameData.started && !userExists) {
           try {
+            const newGamePlayer = {
+              id: userID, // userID or bot ID
+              type: "human", // or "bot", depending on the player
+            }
+            // Update the gamePlayers array with arrayUnion to add the new player
             await updateDoc(gameDocRef, {
-              playerIDs: arrayUnion(userID),
+              gamePlayers: arrayUnion(newGamePlayer), // Use arrayUnion with the full GamePlayer object
             })
           } catch (err) {
             console.error("Error adding user to the game:", err)
@@ -99,11 +122,30 @@ export const GameStateProvider: React.FC<{
     }
   }, [gameID, userID])
 
+  // Subscribe to the "bots" collection and filter by 'gameType'
+  useEffect(() => {
+    if (!gameState?.gameType) return // Ensure gameType is available
+
+    const botsQuery = query(
+      collection(db, "bots"),
+      where("capabilities", "array-contains", gameState.gameType), // Query bots where 'capabilities' contains 'gameType'
+    )
+
+    const unsubscribe = onSnapshot(botsQuery, (snapshot) => {
+      const botsData = snapshot.docs.map((doc) => doc.data() as Bot)
+      setBots(botsData)
+    })
+
+    return () => unsubscribe() // Cleanup on component unmount
+  }, [gameState?.gameType]) // Rerun if gameType changes
+
   // Subscribe to player documents
   useEffect(() => {
-    if (!gameState?.playerIDs) return
+    if (!gameState?.gamePlayers) return
 
-    const newPlayerIDs = gameState.playerIDs
+    const newPlayerIDs = gameState.gamePlayers
+      .filter((player) => player.type === "human")
+      .map((player) => player.id)
     const unsubscribes: Record<string, () => void> = {} // Track unsubscribes by playerID
 
     // Handle subscription setup
@@ -114,20 +156,21 @@ export const GameStateProvider: React.FC<{
 
         const unsubscribe = onSnapshot(playerDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            const playerData = docSnap.data() as PlayerInfo
-            playersMapRef.current[playerID] = {
+            const playerData = docSnap.data() as Human
+            humanMapRef.current[playerID] = {
               id: playerID,
-              nickname: playerData?.nickname || "Unknown",
+              name: playerData?.name || "Unknown",
               emoji: playerData.emoji || "🦍",
               colour: playerData.colour,
+              createdAt: playerData.createdAt,
             }
           } else {
             // Player document was deleted or doesn't exist
-            delete playersMapRef.current[playerID] // Remove the player from the map
+            delete humanMapRef.current[playerID] // Remove the player from the map
           }
 
           // Update playerInfos based on the current playersMap
-          setPlayerInfos(Object.values(playersMapRef.current))
+          setHumans(Object.values(humanMapRef.current))
         })
 
         unsubscribes[playerID] = unsubscribe
@@ -135,13 +178,13 @@ export const GameStateProvider: React.FC<{
     })
 
     // Clean up subscriptions for players that are no longer in playerIDs
-    const currentPlayerIDs = Object.keys(playersMapRef.current)
+    const currentPlayerIDs = Object.keys(humanMapRef.current)
     currentPlayerIDs.forEach((playerID) => {
       if (!newPlayerIDs.includes(playerID)) {
         // Unsubscribe and remove the player if they are no longer part of the game
         unsubscribes[playerID]?.()
         delete unsubscribes[playerID]
-        delete playersMapRef.current[playerID] // Also remove from the map
+        delete humanMapRef.current[playerID] // Also remove from the map
       }
     })
 
@@ -149,7 +192,7 @@ export const GameStateProvider: React.FC<{
     return () => {
       Object.values(unsubscribes).forEach((unsubscribe) => unsubscribe())
     }
-  }, [gameState?.playerIDs, gameID])
+  }, [gameState?.gamePlayers, gameID])
 
   // Subscribe to turns collection
   useEffect(() => {
@@ -199,7 +242,8 @@ export const GameStateProvider: React.FC<{
 
     const intervalFunction = async () => {
       const now = Date.now() / 1000 // Current time in seconds
-      const endTimeSeconds = latestTurn.endTime.seconds // End time from Firestore
+      const endTimeSeconds =
+        latestTurn.endTime instanceof Timestamp ? latestTurn.endTime.seconds : 0 // End time from Firestore
       const remaining = endTimeSeconds - now // Time remaining for the turn
 
       setTimeRemaining(remaining) // Update your local state for the timer display
@@ -310,7 +354,7 @@ export const GameStateProvider: React.FC<{
     <GameStateContext.Provider
       value={{
         gameState,
-        playerInfos,
+        humans,
         turns,
         latestTurn,
         currentTurn,
@@ -327,6 +371,10 @@ export const GameStateProvider: React.FC<{
         error,
         gameID,
         timeRemaining,
+        bots,
+        gameType,
+        setGameType,
+        players: [...humans, ...bots],
       }}
     >
       {gameState ? (

@@ -5,7 +5,7 @@ import { onAuthStateChanged, signInAnonymously } from "firebase/auth"
 import { auth } from "../firebaseConfig"
 import SignupPage from "../pages/SignupPage"
 import { Container, Box } from "@mui/material"
-import { PlayerInfo } from "@shared/types/Game"
+import { Human } from "@shared/types/Game"
 
 interface UserContextType {
   userID: string
@@ -48,8 +48,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         // Real-time listener for user document updates
         const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
           if (docSnapshot.exists()) {
-            const userInfo = docSnapshot.data() as PlayerInfo
-            setNickname(userInfo.nickname || "Unknown")
+            const userInfo = docSnapshot.data() as Human
+            setNickname(userInfo.name || "Unknown")
             setEmoji(userInfo.emoji || "")
             setColour(userInfo.colour)
           } else {
@@ -73,15 +73,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Save nickname and emoji once user submits the form
   const handleSaveNicknameEmoji = async (
-    nickname: string,
+    name: string,
     emoji: string,
     colour: string,
   ) => {
     const uid = auth.currentUser?.uid
     if (uid) {
       const userDocRef = doc(db, "users", uid)
-      await setDoc(userDocRef, { nickname, emoji, colour }, { merge: true })
-      setNickname(nickname)
+      await setDoc(userDocRef, { name, emoji, colour }, { merge: true })
+      setNickname(name)
       setEmoji(emoji)
       setUserDocLoaded(true)
       setColour(colour)

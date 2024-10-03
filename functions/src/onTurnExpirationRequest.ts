@@ -58,8 +58,13 @@ export const onTurnExpirationRequest = functions.firestore
       const currentTurn = currentTurnDoc.data() as Turn
       const now = Timestamp.now()
 
+      const endTime =
+        currentTurn.endTime instanceof Timestamp
+          ? currentTurn.endTime.toMillis()
+          : 0
+
       // Check if the turn has expired
-      if (now.toMillis() > currentTurn.endTime.toMillis()) {
+      if (now.toMillis() > endTime) {
         logger.info(`Client reported ${turnNumber} has expired. Processing...`)
 
         // Process the expired turn inside the transaction
@@ -67,7 +72,7 @@ export const onTurnExpirationRequest = functions.firestore
       } else {
         logger.info(`Turn ${turnNumber} has not expired yet.`, {
           now: now.toMillis(),
-          end: currentTurn.endTime.toMillis(),
+          end: endTime,
         })
       }
     })

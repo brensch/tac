@@ -1,6 +1,6 @@
 // @shared/types/Game.ts
 
-import { Timestamp } from "firebase-admin/firestore"
+import { FieldValue, Timestamp } from "firebase-admin/firestore"
 
 // Define the Winner interface
 export interface Winner {
@@ -15,7 +15,7 @@ export interface Move {
   moveNumber: number // The turn number
   playerID: string
   move: number // The index of the square the player wants to move into
-  timestamp: Timestamp // Server timestamp when the move was submitted
+  timestamp: FieldValue | Timestamp // Server timestamp when the move was submitted
 }
 
 export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
@@ -25,7 +25,7 @@ export interface GameState {
   sessionName: string
   sessionIndex: number
   gameType: GameType
-  playerIDs: string[] // List of player IDs in the game
+  gamePlayers: GamePlayer[]
   boardWidth: number // The width of the board
   boardHeight: number // The height of the board
   winners: Winner[] // Updated to an array of winner objects
@@ -34,13 +34,30 @@ export interface GameState {
   maxTurnTime: number // Time limit per turn in seconds
   playersReady: string[]
   startRequested: boolean
+  timeCreated: Timestamp | FieldValue
 }
 
-export interface PlayerInfo {
+export interface GamePlayer {
   id: string
-  nickname: string
+  type: "bot" | "human"
+}
+
+export interface Player {
+  id: string
+  name: string
   emoji: string
   colour: string
+  createdAt: Timestamp | FieldValue
+}
+
+export interface Human extends Player {
+  email?: string
+}
+
+export interface Bot extends Player {
+  owner: string
+  url: string
+  capabilities: GameType[]
 }
 
 // Updated Turn interface to include 'allowedMoves', 'walls', and 'clashes'
@@ -49,14 +66,14 @@ export interface Turn {
   boardWidth: number
   boardHeight: number
   gameType: GameType
-  playerIDs: string[] // This is to avoid a lookup of game for every move server-side
+  players: GamePlayer[] // This is to avoid a lookup of game for every move server-side
   playerHealth: { [playerID: string]: number } // Map of playerID to health
   hasMoved: {
-    [playerID: string]: { moveTime: Timestamp }
+    [playerID: string]: { moveTime: Timestamp | FieldValue }
   } // Map of playerID to moveTime
   turnTime: number
-  startTime: Timestamp // When the turn started
-  endTime: Timestamp // When the turn ended
+  startTime: Timestamp | FieldValue // When the turn started
+  endTime: Timestamp | FieldValue // When the turn ended
   scores: { [playerID: string]: number } // Map of playerID to score
   alivePlayers: string[] // List of player IDs who are still alive
 
@@ -79,26 +96,4 @@ export interface Clash {
   index: number
   playerIDs: string[]
   reason: string
-}
-
-// Function to initialize a new game
-export const initializeGame = (
-  sessionName: string,
-  boardWidth: number = 8,
-  boardHeight: number = 8,
-): GameState => {
-  return {
-    sessionName: sessionName,
-    gameType: "snek",
-    sessionIndex: 0,
-    playerIDs: [],
-    playersReady: [],
-    boardWidth: boardWidth,
-    boardHeight: boardHeight,
-    winners: [], // Initialize as empty array
-    started: false,
-    nextGame: "",
-    maxTurnTime: 10, // Default time limit per turn in seconds
-    startRequested: false,
-  }
 }

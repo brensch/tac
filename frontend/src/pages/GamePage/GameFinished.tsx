@@ -24,17 +24,17 @@ interface PlayerResult {
 }
 
 const GameFinished: React.FC = () => {
-  const { gameState, playerInfos } = useGameStateContext()
+  const { gameState, players } = useGameStateContext()
   const navigate = useNavigate()
   const [sortedPlayers, setSortedPlayers] = useState<PlayerResult[]>([])
 
   useEffect(() => {
     // Build a list of all players with their scores
-    const playersWithScores = playerInfos.map((player) => {
+    const playersWithScores = players.map((player) => {
       const winner = winners.find((w) => w.playerID === player.id)
       return {
         playerID: player.id,
-        nickname: player.nickname,
+        nickname: player.name,
         emoji: player.emoji,
         score: winner ? winner.score : 0,
       }
@@ -44,10 +44,10 @@ const GameFinished: React.FC = () => {
     const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
 
     setSortedPlayers(sortedPlayers)
-  }, [playerInfos])
+  }, [players])
 
-  // Ensure gameState and playerInfos are available
-  if (!gameState || !playerInfos) return null
+  // Ensure gameState and players are available
+  if (!gameState || !players) return null
 
   const winners: Winner[] = gameState.winners || []
 

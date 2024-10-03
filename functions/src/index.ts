@@ -1,5 +1,6 @@
 import { onGameStarted } from "./onGameStarted"
 import { onMoveCreated } from "./onMoveCreated"
+import { onTurnCreated } from "./onTurnCreated"
 import { onTurnExpirationRequest } from "./onTurnExpirationRequest"
 import * as admin from "firebase-admin"
 
@@ -14,4 +15,4 @@ if (process.env.FIRESTORE_EMULATOR_HOST) {
 }
 
 // Export your functions
-export { onMoveCreated, onGameStarted, onTurnExpirationRequest }
+export { onMoveCreated, onGameStarted, onTurnExpirationRequest, onTurnCreated }

@@ -1,9 +1,16 @@
 import React, { useState } from "react"
 import { Button, Stack, TextField, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
-import { addDoc, collection, query, where, getDocs } from "firebase/firestore"
+import {
+  addDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+} from "firebase/firestore"
 import { db } from "../firebaseConfig"
-import { initializeGame } from "@shared/types/Game"
+import { GameState } from "@shared/types/Game"
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
@@ -86,3 +93,26 @@ const HomePage: React.FC = () => {
 }
 
 export default HomePage
+
+// Function to initialize a new game
+const initializeGame = (
+  sessionName: string,
+  boardWidth: number = 8,
+  boardHeight: number = 8,
+): GameState => {
+  return {
+    sessionName: sessionName,
+    gameType: "snek",
+    sessionIndex: 0,
+    playersReady: [],
+    boardWidth: boardWidth,
+    boardHeight: boardHeight,
+    winners: [], // Initialize as empty array
+    started: false,
+    nextGame: "",
+    maxTurnTime: 10, // Default time limit per turn in seconds
+    startRequested: false,
+    timeCreated: serverTimestamp(),
+    gamePlayers: [],
+  }
+}
