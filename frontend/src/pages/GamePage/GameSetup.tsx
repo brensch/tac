@@ -258,7 +258,26 @@ const GameSetup: React.FC = () => {
         </Select>
       </FormControl>
       {/* Game rules */}
-      {RulesComponent && <RulesComponent />}
+      <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
+        <InputLabel shrink sx={{ backgroundColor: "white", px: 1 }}>
+          Rules
+        </InputLabel>
+        <Box
+          sx={{
+            border: "1px solid black",
+            padding: 2,
+            borderRadius: "0px",
+            minHeight: "56px", // Similar height to a TextField
+            display: "flex",
+            alignItems: "start",
+            flexDirection: "column",
+            fontFamily: "monospace", // Ensure consistent text formatting
+            whiteSpace: "pre-wrap", // Maintain whitespace and line breaks
+          }}
+        >
+          {RulesComponent && <RulesComponent />}
+        </Box>
+      </FormControl>
       {/* Bots List */}
       {bots.length > 0 && (
         <Paper
@@ -288,6 +307,39 @@ const GameSetup: React.FC = () => {
             ))}
           </Box>
         </Paper>
+      )}
+      {/* Ready Section */}
+      {!gameState.gamePlayers
+        .filter((gamePlayer) => gamePlayer.type === "human")
+        .map((human) => human.id)
+        .every((player) => gameState.playersReady.includes(player)) ? (
+        <Button
+          variant="contained"
+          disabled={
+            started ||
+            gameState.boardWidth < 5 ||
+            gameState.boardWidth > 20 ||
+            parseInt(secondsPerTurn) <= 0 ||
+            gameState.playersReady.includes(userID)
+          }
+          onClick={handleReady}
+          fullWidth
+        >
+          <Typography variant="body2">
+            {gameState.playersReady.includes(userID)
+              ? `Waiting for others`
+              : "Ready?"}
+          </Typography>
+        </Button>
+      ) : (
+        <Button
+          disabled={gameState.startRequested}
+          variant="contained"
+          onClick={handleStart}
+          fullWidth
+        >
+          <Typography variant="body2">Start game</Typography>
+        </Button>
       )}
       {/* Players Table */}
       <TableContainer>
@@ -333,39 +385,6 @@ const GameSetup: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-      {/* Ready Section */}
-      {!gameState.gamePlayers
-        .filter((gamePlayer) => gamePlayer.type === "human")
-        .map((human) => human.id)
-        .every((player) => gameState.playersReady.includes(player)) ? (
-        <Button
-          variant="contained"
-          disabled={
-            started ||
-            gameState.boardWidth < 5 ||
-            gameState.boardWidth > 20 ||
-            parseInt(secondsPerTurn) <= 0 ||
-            gameState.playersReady.includes(userID)
-          }
-          onClick={handleReady}
-          fullWidth
-        >
-          <Typography variant="body2">
-            {gameState.playersReady.includes(userID)
-              ? `Waiting for others`
-              : "Ready?"}
-          </Typography>
-        </Button>
-      ) : (
-        <Button
-          disabled={gameState.startRequested}
-          variant="contained"
-          onClick={handleStart}
-          fullWidth
-        >
-          <Typography variant="body2">Start game</Typography>
-        </Button>
-      )}
     </Stack>
   )
 }

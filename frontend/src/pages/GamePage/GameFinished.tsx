@@ -18,7 +18,7 @@ import { Winner } from "@shared/types/Game"
 
 interface PlayerResult {
   playerID: string
-  nickname: string
+  name: string
   emoji: string
   score: number
 }
@@ -34,7 +34,7 @@ const GameFinished: React.FC = () => {
       const winner = winners.find((w) => w.playerID === player.id)
       return {
         playerID: player.id,
-        nickname: player.name,
+        name: player.name,
         emoji: player.emoji,
         score: winner ? winner.score : 0,
       }
@@ -91,7 +91,7 @@ const GameFinished: React.FC = () => {
               color="primary"
               sx={{ my: 2, textAlign: "left" }}
             >
-              {topPlayer?.nickname} won. Nice.
+              {topPlayer?.name} won. Nice.
             </Typography>
           </>
         )}
@@ -120,7 +120,7 @@ const GameFinished: React.FC = () => {
                 <TableRow key={player.playerID}>
                   <TableCell align="center">{index + 1}</TableCell>
                   <TableCell align="left">
-                    {player.emoji} {player.nickname}
+                    {player.emoji} {player.name}
                   </TableCell>
                   <TableCell align="right">{player.score}</TableCell>
                 </TableRow>

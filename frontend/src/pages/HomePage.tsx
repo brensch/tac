@@ -11,11 +11,13 @@ import {
 } from "firebase/firestore"
 import { db } from "../firebaseConfig"
 import { GameState } from "@shared/types/Game"
+import { useUser } from "../context/UserContext"
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
   const [sessionName, setSessionName] = useState("")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const { colour } = useUser()
 
   const handleNewGame = async () => {
     try {
@@ -56,14 +58,15 @@ const HomePage: React.FC = () => {
 
   return (
     <Stack spacing={2} alignItems="left">
-      <Typography pt={2} variant="body1" align="left" gutterBottom>
+      <Typography pt={2} variant="h4" align="left" gutterBottom>
         Games entirely unrelated to toes*
       </Typography>
 
       <TextField
         fullWidth
         value={sessionName}
-        label="Session name"
+        // label="Session Name"
+        placeholder="Type your session name"
         onChange={(e) => {
           // Convert to lowercase and remove non-letter characters
           const lowercaseValue = e.target.value
@@ -72,21 +75,84 @@ const HomePage: React.FC = () => {
           setSessionName(lowercaseValue)
           setErrorMessage(null) // Clear error message on input change
         }}
+        sx={{
+          pt: 10,
+          "& .MuiOutlinedInput-root": {
+            backgroundColor: colour, // Set background color to orange
+            "& fieldset": {
+              borderColor: "black", // Default border color
+            },
+            "&:hover fieldset": {
+              borderColor: "black", // Border color when hovered
+            },
+            "&.Mui-focused fieldset": {
+              borderColor: "black", // Border color when focused
+            },
+            "& input": {
+              backgroundColor: colour, // Ensure the input area has the same background
+            },
+          },
+        }}
       />
       {errorMessage && (
         <Typography color="error" variant="body2">
           {errorMessage}
         </Typography>
       )}
-      <Button fullWidth onClick={handleNewGame} disabled={sessionName === ""}>
-        Start session
-      </Button>
-      <Button fullWidth onClick={handleJoin} disabled={sessionName === ""}>
-        Join session
-      </Button>
 
-      <Typography pt={2} variant="subtitle2" align="left" gutterBottom>
+      {/* Stack for the buttons in a row, taking full width */}
+      <Stack
+        direction="row"
+        spacing={2}
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Button
+          sx={{ flexGrow: 1 }}
+          onClick={handleNewGame}
+          disabled={sessionName === ""}
+        >
+          Start session
+        </Button>
+        <Button
+          sx={{ flexGrow: 1 }}
+          onClick={handleJoin}
+          disabled={sessionName === ""}
+        >
+          Join session
+        </Button>
+      </Stack>
+      <Typography pt={5} variant="body2" align="left" gutterBottom>
+        Create a new session name using a memorable word, or type in the word
+        your friend is yelling at you to join them.
+      </Typography>
+
+      <Typography pt={2} variant="body2" align="left" gutterBottom>
+        Ugly colour? Uninspired emoji? Edit it in the top right.
+      </Typography>
+      <Typography
+        pt={2}
+        variant="subtitle2"
+        align="left"
+        gutterBottom
+      ></Typography>
+
+      {/* Footer text fixed at the bottom */}
+      <Typography
+        pt={2}
+        variant="body1"
+        align="left"
+        gutterBottom
+        sx={{
+          position: "fixed",
+          bottom: 10,
+          left: 10,
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
         * Toes may be involved.
+        <br /> A game by brendo
       </Typography>
     </Stack>
   )

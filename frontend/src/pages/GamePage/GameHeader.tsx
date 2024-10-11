@@ -47,13 +47,14 @@ const GameHeader: React.FC = () => {
               height: 30,
               backgroundColor: "#ffd1dc", // Pastel pink
               color: "#000",
+              whiteSpace: "nowrap",
               "&:hover": {
                 backgroundColor: "#ffb6c1", // Slightly darker pastel pink
               },
             }}
-            startIcon={<Book />}
+            // startIcon={<Book />}
           >
-            {gameState?.gameType}
+            📖 Rules
           </Button>
           <Button
             onClick={handleShare}
@@ -61,13 +62,13 @@ const GameHeader: React.FC = () => {
               height: 30,
               backgroundColor: "#b3e5fc", // Pastel blue
               color: "#000",
+              whiteSpace: "nowrap",
               "&:hover": {
                 backgroundColor: "#81d4fa", // Slightly darker pastel blue
               },
             }}
-            startIcon={<PersonAdd />}
           >
-            Invite
+            🧑‍🤝‍🧑 Invite
           </Button>
         </Box>
       </Box>

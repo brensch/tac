@@ -47,7 +47,7 @@ const RulesDialog: React.FC<RulesDialogProps> = ({ open, onClose, rules }) => {
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Game Rules</DialogTitle>
+      <DialogTitle>{rules} rules</DialogTitle>
       <DialogContent>
         <DialogContentText>
           <RulesComponent />

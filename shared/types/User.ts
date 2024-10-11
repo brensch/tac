@@ -1,5 +1,5 @@
 // src/types/User.ts
 export interface User {
-  nickname: string
+  name: string
   createdAt: Date
 }

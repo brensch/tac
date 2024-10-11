@@ -37,9 +37,9 @@ const App: React.FC = () => {
 }
 
 const AppContent: React.FC = () => {
-  const { nickname, emoji, colour, userID } = useUser()
+  const { name, emoji, colour, userID } = useUser()
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
-  const [updatedNickname, setUpdatedNickname] = useState<string>(nickname)
+  const [updatedName, setUpdatedName] = useState<string>(name)
   const [updatedColour, setUpdatedColour] = useState<string>(colour)
   const [updatedEmoji, setUpdatedEmoji] = useState<string>(emoji)
   const navigate = useNavigate()
@@ -49,11 +49,11 @@ const AppContent: React.FC = () => {
     setIsProfileOpen(true)
   }
 
-  // Save the nickname and colour when closing the profile
+  // Save the name and colour when closing the profile
   const handleProfileClose = async () => {
     const userDocRef = doc(db, "users", userID)
     await updateDoc(userDocRef, {
-      nickname: updatedNickname,
+      name: updatedName,
       colour: updatedColour,
       emoji: updatedEmoji,
     })
@@ -64,15 +64,6 @@ const AppContent: React.FC = () => {
     <>
       <AppBar position="static">
         <Container maxWidth="sm" sx={{ p: 1, display: "flex" }}>
-          <Typography
-            variant="h6"
-            color="primary"
-            component={RouterLink}
-            to="/"
-            sx={{ flexGrow: 1, textDecoration: "none" }}
-          >
-            🦶 tactic toes
-          </Typography>
           <Button
             color="primary"
             sx={{
@@ -84,14 +75,22 @@ const AppContent: React.FC = () => {
             }}
             onClick={() => navigate("/")}
           >
-            🏠
+            🦶 tactic toes
           </Button>
+          <Typography
+            variant="h6"
+            color="primary"
+            component={RouterLink}
+            to="/"
+            sx={{ flexGrow: 1, textDecoration: "none" }}
+          ></Typography>
+
           <Button
             color="primary"
             sx={{ height: 30, backgroundColor: colour }}
             onClick={handleProfileOpen}
           >
-            {nickname} {emoji}
+            {name} {emoji}
           </Button>
         </Container>
       </AppBar>
@@ -129,7 +128,7 @@ const AppContent: React.FC = () => {
         </DialogTitle>
         <DialogContent sx={{ overflowX: "hidden" }}>
           <ProfilePage
-            setUpdatedNickname={setUpdatedNickname}
+            setUpdatedName={setUpdatedName}
             setUpdatedColour={setUpdatedColour}
             setUpdatedEmoji={setUpdatedEmoji}
           />

@@ -9,7 +9,7 @@ import { Human } from "@shared/types/Game"
 
 interface UserContextType {
   userID: string
-  nickname: string
+  name: string
   emoji: string
   colour: string
 }
@@ -20,7 +20,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [userID, setUserID] = useState<string>("")
-  const [nickname, setNickname] = useState<string>("")
+  const [name, setName] = useState<string>("")
   const [colour, setColour] = useState<string>("")
   const [emoji, setEmoji] = useState<string>("")
   const [authLoaded, setAuthLoaded] = useState<boolean>(false) // Auth flag
@@ -49,7 +49,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
           if (docSnapshot.exists()) {
             const userInfo = docSnapshot.data() as Human
-            setNickname(userInfo.name || "Unknown")
+            setName(userInfo.name || "Unknown")
             setEmoji(userInfo.emoji || "")
             setColour(userInfo.colour)
           } else {
@@ -71,8 +71,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsubscribeAuth()
   }, [])
 
-  // Save nickname and emoji once user submits the form
-  const handleSaveNicknameEmoji = async (
+  // Save name and emoji once user submits the form
+  const handleSaveNameEmoji = async (
     name: string,
     emoji: string,
     colour: string,
@@ -81,7 +81,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     if (uid) {
       const userDocRef = doc(db, "users", uid)
       await setDoc(userDocRef, { name, emoji, colour }, { merge: true })
-      setNickname(name)
+      setName(name)
       setEmoji(emoji)
       setUserDocLoaded(true)
       setColour(colour)
@@ -113,13 +113,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     )
   }
 
-  // If user doesn't have a nickname or emoji yet, show the form
-  if (!nickname || !emoji) {
-    return <SignupPage onSave={handleSaveNicknameEmoji} />
+  // If user doesn't have a name or emoji yet, show the form
+  if (!name || !emoji) {
+    return <SignupPage onSave={handleSaveNameEmoji} />
   }
 
   return (
-    <UserContext.Provider value={{ userID, nickname, emoji, colour }}>
+    <UserContext.Provider value={{ userID, name, emoji, colour }}>
       {children}
     </UserContext.Provider>
   )
