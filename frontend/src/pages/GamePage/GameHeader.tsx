@@ -2,7 +2,6 @@ import React, { useState } from "react"
 import { Box, Button, Typography } from "@mui/material"
 import RulesDialog from "./RulesDialog"
 import { useGameStateContext } from "../../context/GameStateContext"
-import { Book, PersonAdd } from "@mui/icons-material"
 
 const GameHeader: React.FC = () => {
   const { gameState } = useGameStateContext()

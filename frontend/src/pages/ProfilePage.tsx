@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react"
 import { useUser } from "../context/UserContext"
-import { Container, Box, TextField, Button } from "@mui/material"
-import { HuePicker } from "react-color" // Import HuePicker from react-color
-import { getRandomColor, hexToHSL, hslToHex } from "../utils/colourUtils" // Import your helper functions
+import { Container, Box, TextField, Button, Typography } from "@mui/material"
+import { HuePicker, ColorResult } from "react-color"
+import { getRandomColor, hexToHSL, hslToHex } from "../utils/colourUtils"
 import { emojiList } from "@shared/types/Emojis"
+import { auth, provider } from "../firebaseConfig" // Import Firebase and the Google provider
+import { linkWithPopup, signOut } from "firebase/auth"
 
 interface ProfilePageProps {
   setUpdatedName: (name: string) => void
@@ -22,19 +24,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     colour: initialColour,
   } = useUser()
 
-  // The fixed saturation and lightness values
   const fixedSaturation = 60
   const fixedLightness = 70
 
-  // Initialize with a random color or the input color
   const [name, setName] = useState<string>(initialName)
   const [selectedColour, setSelectedColour] = useState<string>(
     getRandomColor(initialColour),
   )
   const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
+  const [error, setError] = useState<string | null>()
 
-  // Extract the hue from the selected color
   const { h: initialHue } = hexToHSL(selectedColour)
   const [hue, setHue] = useState<number>(initialHue)
 
@@ -54,7 +54,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setUpdatedName(name)
   }, [name, setUpdatedName])
 
-  // Update the selected color based on the hue and fixed saturation/lightness
   useEffect(() => {
     const newColor = hslToHex(hue, fixedSaturation, fixedLightness)
     setSelectedColour(newColor)
@@ -66,9 +65,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setUpdatedEmoji(emoji)
   }
 
-  const handleHueChange = (color: any) => {
-    // Update only the hue based on user input
+  const handleHueChange = (color: ColorResult) => {
     setHue(color.hsl.h)
+  }
+
+  // Function to handle connecting Google Account to anonymous account
+  const handleLinkGoogleAccount = async () => {
+    const user = auth.currentUser
+    console.log(user)
+    if (!user) return
+
+    try {
+      const result = await linkWithPopup(user, provider)
+      console.log(result)
+    } catch (error) {
+      console.error("Error linking Google account:", error)
+      setError("Can't connect your account. Try logging out and logging in.")
+    }
   }
 
   return (
@@ -141,6 +154,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             width="100%" // Set the width to 100% to make it full width
           />
         </Box>
+
+        {/* Button to link Google Account */}
+        {auth.currentUser?.isAnonymous && (
+          <Button
+            onClick={handleLinkGoogleAccount}
+            sx={{ mt: 2, backgroundColor: selectedColour }} // Google blue color
+          >
+            Save stats by linking account
+          </Button>
+        )}
+        <Button
+          onClick={async () => {
+            await signOut(auth)
+            window.location.reload()
+          }}
+          sx={{ mt: 2, backgroundColor: selectedColour }} // Google blue color
+        >
+          Sign out
+        </Button>
+        {error && (
+          <Typography color="error" sx={{ textAlign: "center", mt: 2 }}>
+            {error}
+          </Typography>
+        )}
       </Box>
     </Container>
   )

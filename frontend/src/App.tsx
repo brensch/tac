@@ -3,7 +3,6 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link as RouterLink,
   useNavigate,
 } from "react-router-dom"
 import {
@@ -80,10 +79,8 @@ const AppContent: React.FC = () => {
           <Typography
             variant="h6"
             color="primary"
-            component={RouterLink}
-            to="/"
             sx={{ flexGrow: 1, textDecoration: "none" }}
-          ></Typography>
+          />
 
           <Button
             color="primary"
