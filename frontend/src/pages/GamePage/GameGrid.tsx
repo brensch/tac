@@ -4,7 +4,14 @@ import { Clash, GamePlayer, Player } from "@shared/types/Game"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
 import ClashDialog from "./ClashDialog"
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  updateDoc,
+  doc,
+  arrayUnion,
+} from "firebase/firestore"
 import { db } from "../../firebaseConfig"
 
 const BORDER_WIDTH = 4 // Adjust as needed (in pixels)
@@ -17,9 +24,10 @@ const GameGrid: React.FC = () => {
     gameSetup,
     players,
     hasSubmittedMove,
-    currentTurn,
+    selectedTurn,
     selectedSquare,
     setSelectedSquare,
+    sessionName,
     gameID,
   } = useGameStateContext()
 
@@ -55,7 +63,7 @@ const GameGrid: React.FC = () => {
     return () => {
       window.removeEventListener("resize", updateContainerWidth)
     }
-  }, [gridWidth, currentTurn])
+  }, [gridWidth, selectedTurn])
 
   // Generate maps for cell content, background, allowed moves, and clashes
   const cellContentMap: { [index: number]: JSX.Element } = {}
@@ -63,11 +71,6 @@ const GameGrid: React.FC = () => {
   const cellAllowedMoveMap: { [index: number]: boolean } = {}
   const clashesAtPosition: { [index: number]: Clash } = {}
   const latestMovePositionsSet: Set<number> = new Set()
-
-  // Submit a move
-  // const handleMoveSubmit = async () => {
-
-  // }
 
   // Enhanced cellSnakeSegments to track multiple players per cell
   const cellSnakeSegments: {
@@ -81,8 +84,8 @@ const GameGrid: React.FC = () => {
     }
   } = {}
 
-  if (currentTurn && gameState) {
-    const { moves, playerPieces, allowedMoves, clashes } = currentTurn
+  if (selectedTurn && gameState) {
+    const { moves, playerPieces, allowedMoves, clashes } = selectedTurn
 
     // Map clashes to positions
     if (clashes) {
@@ -106,7 +109,7 @@ const GameGrid: React.FC = () => {
 
     if (gameState.setup.gameType === "snek") {
       // Snek-specific rendering
-      const { food, hazards, walls } = currentTurn
+      const { food, hazards, walls } = selectedTurn
 
       // Function to get previous and next movement deltas
       const getSegmentStyles = (
@@ -534,11 +537,12 @@ const GameGrid: React.FC = () => {
   }
 
   const handleSquareClick = async (index: number) => {
-    if (!currentTurn || !gameState) return
+    if (!selectedTurn || !gameState) return
     console.log(index)
+    console.log(gameSetup)
 
-    if (gameSetup?.started && !hasSubmittedMove) {
-      const allowedMoves = currentTurn.allowedMoves[user.userID] || []
+    if (gameSetup?.started) {
+      const allowedMoves = selectedTurn.allowedMoves[user.userID] || []
       if (allowedMoves.includes(index)) {
         setSelectedSquare(index)
       }
@@ -555,24 +559,39 @@ const GameGrid: React.FC = () => {
       setOpenClashDialog(true)
     }
 
-    if (!currentTurn || !currentTurn.allowedMoves[user.userID].includes(index))
+    if (
+      !selectedTurn ||
+      !selectedTurn.allowedMoves[user.userID].includes(index) ||
+      !gameState ||
+      !user.userID ||
+      !gameID
+    )
       return
 
-    if (gameState && user.userID && gameID) {
-      const moveRef = collection(db, `games/${gameID}/privateMoves`)
-      const moveNumber = gameState.turns.length - 1
+    const moveRef = collection(
+      db,
+      `sessions/${sessionName}/games/${gameID}/privateMoves`,
+    )
+    const moveNumber = gameState.turns.length - 1
+    await addDoc(moveRef, {
+      gameID,
+      moveNumber,
+      playerID: user.userID,
+      move: index,
+      timestamp: serverTimestamp(),
+    })
 
-      await addDoc(moveRef, {
-        gameID,
-        moveNumber,
-        playerID: user.userID,
-        move: index,
-        timestamp: serverTimestamp(),
-      })
-    }
+    const moveStatusDocRef = doc(
+      db,
+      `sessions/${sessionName}/games/${gameID}/moveStatuses/${moveNumber}`,
+    )
+    await updateDoc(moveStatusDocRef, {
+      movedPlayerIDs: arrayUnion(user.userID),
+    })
   }
 
   const disabled = hasSubmittedMove
+  console.log(selectedSquare)
 
   return (
     <>

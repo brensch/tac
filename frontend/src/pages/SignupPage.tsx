@@ -87,10 +87,27 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
           label="Name"
           variant="outlined"
           value={name}
-          sx={{ mb: 2 }}
           onChange={(e) => setName(e.target.value)}
           fullWidth
         />
+        {/* HuePicker with fixed brightness and saturation */}
+        <Box
+          sx={{
+            mt: 4,
+            width: "100%",
+            maxWidth: "600px", // Optional max width for color slider
+            display: "flex", // Use flexbox to center the content
+            justifyContent: "center", // Center horizontally
+            alignItems: "center", // Center vertically if needed
+            padding: 2, // Optional padding
+          }}
+        >
+          <HuePicker
+            color={selectedColour} // Set the current color
+            onChange={handleHueChange} // Handle only hue changes
+            width="100%" // Set the width to 100% to make it full width
+          />
+        </Box>
 
         <Box
           sx={{
@@ -124,24 +141,6 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
         >
           New emojis please.
         </Button>
-        {/* HuePicker with fixed brightness and saturation */}
-        <Box
-          sx={{
-            mt: 4,
-            width: "100%",
-            maxWidth: "600px", // Optional max width for color slider
-            display: "flex", // Use flexbox to center the content
-            justifyContent: "center", // Center horizontally
-            alignItems: "center", // Center vertically if needed
-            padding: 2, // Optional padding
-          }}
-        >
-          <HuePicker
-            color={selectedColour} // Set the current color
-            onChange={handleHueChange} // Handle only hue changes
-            width="100%" // Set the width to 100% to make it full width
-          />
-        </Box>
 
         {message && (
           <Typography color="error" sx={{ mt: 2 }}>
@@ -156,7 +155,7 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
             onClick={handleSignInWithGoogle}
             sx={{ mt: 2, backgroundColor: selectedColour }}
           >
-            Save stats with google or restore account
+            Connect google
           </Button>
         )}
         <Button

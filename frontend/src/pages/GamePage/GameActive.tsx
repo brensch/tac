@@ -30,12 +30,13 @@ const GameActive: React.FC = () => {
     gameSetup,
     players,
     turns,
-    currentTurnIndex,
+    selectedTurnIndex: currentTurnIndex,
     handleLatestTurn,
     handleNextTurn,
     handlePrevTurn,
     timeRemaining,
     selectedSquare,
+    latestMoveStatus,
   } = useGameStateContext()
 
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(true) // Show rules dialog initially
@@ -49,7 +50,7 @@ const GameActive: React.FC = () => {
   if (!gameState) return null
 
   const currentTurn = gameState.turns[gameState.turns.length - 1]
-
+  console.log(currentTurn)
   const playerInCurrentGame = gameSetup?.gamePlayers.find(
     (player) => player.id === userID,
   )
@@ -59,7 +60,7 @@ const GameActive: React.FC = () => {
   return (
     <Stack spacing={2} pt={2}>
       {/* Rules Dialog - Only shown on the first turn */}
-      {gameState.turns.length - 1 === 1 &&
+      {gameState.turns.length === 1 &&
         !isRulesAccepted &&
         timeRemaining > 0 && (
           <UserRulesAccept
@@ -175,39 +176,40 @@ const GameActive: React.FC = () => {
       </TableContainer>
 
       {/* Waiting Overlay */}
-      {currentTurn && (
-        // currentTurn.turnNumber === turns.length &&
-        // currentTurn.hasMoved[userID] && (
-        <Box
-          sx={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            bgcolor: "rgba(255, 255, 255, 0.7)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
-            Waiting for
-            <br />
-            {players
-              // .filter(
-              //   (player) => !currentTurn.hasMoved[player.id], // Check if player hasn't moved
-              // )
-              .map((player, index) => (
-                <React.Fragment key={player.id}>
-                  {player.name}
-                  {index < players.length - 1 && <br />}
-                </React.Fragment>
-              ))}
-          </Typography>
-        </Box>
-      )}
+      {latestMoveStatus &&
+        latestMoveStatus.moveNumber === turns.length - 1 &&
+        latestMoveStatus.movedPlayerIDs.includes(userID) && (
+          <Box
+            sx={{
+              position: "fixed",
+              top: -20,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              bgcolor: "rgba(255, 255, 255, 0.7)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
+              Waiting for
+              <br />
+              {players
+                .filter(
+                  (player) =>
+                    !latestMoveStatus?.movedPlayerIDs?.includes(player.id), // Check if player hasn't moved
+                )
+                .map((player, index) => (
+                  <React.Fragment key={player.id}>
+                    {player.name}
+                    {index < players.length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+            </Typography>
+          </Box>
+        )}
     </Stack>
   )
 }

@@ -129,11 +129,13 @@ export async function processTurn(
     })
 
     // create the movestatus for players to write to
+    const moveNumber = gameState.turns.length // this is actually the next turn (ie no -1)
     const moveStatusRef = admin
       .firestore()
-      .collection(`sessions/${sessionID}/games/${gameID}/statuses`)
-      .doc("0")
+      .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
+      .doc(`${moveNumber}`)
     const moveStatus: MoveStatus = {
+      moveNumber: moveNumber,
       alivePlayerIDs: nextTurn.alivePlayers,
       movedPlayerIDs: [],
     }

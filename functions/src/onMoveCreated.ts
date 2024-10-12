@@ -6,8 +6,8 @@ import { MoveStatus } from "./types/Game" // Adjust the import path as necessary
 
 export const onMoveCreated = functions.firestore
   .document("sessions/{sessionID}/games/{gameID}/moveStatuses/{moveNumber}")
-  .onCreate(async (snap, context) => {
-    const moveData = snap.data() as MoveStatus
+  .onUpdate(async (snap, context) => {
+    const moveData = snap.after.data() as MoveStatus
     const { gameID, sessionID, moveNumber } = context.params
 
     logger.info(`Processing move for gameID: ${gameID}`, { moveData })

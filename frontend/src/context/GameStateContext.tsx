@@ -7,6 +7,7 @@ import {
   GameState,
   GameType,
   Human,
+  MoveStatus,
   Player,
   Session,
   Turn,
@@ -16,6 +17,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -38,13 +40,13 @@ interface GameStateContextType {
   gameState: GameState | null
   turns: Turn[]
   latestTurn: Turn | undefined
-  currentTurn: Turn | undefined
-  currentTurnIndex: number
   hasSubmittedMove: boolean
   handlePrevTurn: () => void
   handleNextTurn: () => void
   handleLatestTurn: () => void
-  setCurrentTurnIndex: React.Dispatch<React.SetStateAction<number>>
+  selectedTurn: Turn | undefined
+  selectedTurnIndex: number
+  setSelectedTurnIndex: React.Dispatch<React.SetStateAction<number>>
   selectedSquare: number | null
   setSelectedSquare: React.Dispatch<React.SetStateAction<number | null>>
   startGame: () => Promise<void>
@@ -59,6 +61,7 @@ interface GameStateContextType {
   players: Player[]
   sessionName: string
   gameSetup: GameSetup | null
+  latestMoveStatus: MoveStatus | null
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -73,14 +76,17 @@ export const GameStateProvider: React.FC<{
   const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [gameSetup, setGameSetup] = useState<GameSetup | null>(null)
+  const [latestMoveStatus, setLatestMoveStatus] = useState<MoveStatus | null>(
+    null,
+  )
   const [humans, setHumans] = useState<Human[]>([])
   const [turns, setTurns] = useState<Turn[]>([])
   const [latestTurn, setLatestTurn] = useState<Turn | undefined>(undefined)
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
-  const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(-1)
+  const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
-  const [currentTurn, setCurrentTurn] = useState<Turn | undefined>()
+  const [currentTurn, setSelectedTurn] = useState<Turn | undefined>()
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
   const [bots, setBots] = useState<Bot[]>([])
   const [gameType, setGameType] = useState<GameType>("snek")
@@ -102,6 +108,9 @@ export const GameStateProvider: React.FC<{
       const gameData = docSnapshot.data() as GameState
       setGameState(gameData)
       setTurns(gameData.turns)
+      setLatestTurn(gameData.turns[gameData.turns.length - 1])
+      setSelectedTurnIndex(gameData.turns.length - 1)
+      setSelectedTurn(gameData.turns[gameData.turns.length - 1])
     })
 
     return () => unsubscribe()
@@ -216,32 +225,43 @@ export const GameStateProvider: React.FC<{
     }
   }, [gameSetup?.gamePlayers, gameID])
 
-  // // Subscribe to turns collection
-  // useEffect(() => {
-  //   if (gameID && userID !== "") {
-  //     const turnsRef = collection(db, "games", gameID, "turns")
-  //     const turnsQuery = query(turnsRef, orderBy("turnNumber", "asc"))
+  // Subscribe to turns collection
+  useEffect(() => {
+    if (gameID && userID !== "") {
+      const turnsRef = collection(
+        db,
+        "sessions",
+        sessionName,
+        "games",
+        gameID,
+        "moveStatuses",
+      )
 
-  //     const unsubscribe = onSnapshot(turnsQuery, (querySnapshot) => {
-  //       const turnsList: Turn[] = querySnapshot.docs.map(
-  //         (doc) => doc.data() as Turn,
-  //       )
+      // Query to get the document with the highest moveNumber
+      const turnsQuery = query(
+        turnsRef,
+        orderBy("moveNumber", "desc"),
+        limit(1),
+      )
 
-  //       setTurns(turnsList)
-  //       setLatestTurn(turnsList[turnsList.length - 1])
-  //       setHasSubmittedMove(!!turnsList[turnsList.length - 1]?.hasMoved[userID])
+      const unsubscribe = onSnapshot(turnsQuery, (querySnapshot) => {
+        if (!querySnapshot.empty) {
+          const highestMoveStatus = querySnapshot.docs[0].data() as MoveStatus
 
-  //       setCurrentTurnIndex(turnsList.length - 1)
-  //     })
+          // Set the current turn index to the move number of the highest move
+          setSelectedTurnIndex(highestMoveStatus.moveNumber)
+          setLatestMoveStatus(highestMoveStatus)
+        }
+      })
 
-  //     return () => unsubscribe()
-  //   }
-  // }, [gameID, userID])
+      return () => unsubscribe()
+    }
+  }, [gameID, userID])
 
   // Manage current turn based on currentTurnIndex
   useEffect(() => {
-    setCurrentTurn(turns[currentTurnIndex])
-  }, [turns, currentTurnIndex, gameState])
+    setSelectedTurn(turns[selectedTurnIndex])
+  }, [turns, selectedTurnIndex, gameState])
 
   // Handle turn expiration
   useEffect(() => {
@@ -332,19 +352,19 @@ export const GameStateProvider: React.FC<{
 
   // Navigation handlers
   const handlePrevTurn = () => {
-    if (currentTurnIndex > 0) {
-      setCurrentTurnIndex(currentTurnIndex - 1)
+    if (selectedTurnIndex > 0) {
+      setSelectedTurnIndex(selectedTurnIndex - 1)
     }
   }
 
   const handleNextTurn = () => {
-    if (currentTurnIndex < turns.length - 1) {
-      setCurrentTurnIndex(currentTurnIndex + 1)
+    if (selectedTurnIndex < turns.length - 1) {
+      setSelectedTurnIndex(selectedTurnIndex + 1)
     }
   }
 
   const handleLatestTurn = () => {
-    setCurrentTurnIndex(turns.length - 1)
+    setSelectedTurnIndex(turns.length - 1)
   }
 
   // Function to submit a move
@@ -379,13 +399,13 @@ export const GameStateProvider: React.FC<{
         humans,
         turns,
         latestTurn,
-        currentTurn,
-        currentTurnIndex,
+        selectedTurn: currentTurn,
+        selectedTurnIndex: selectedTurnIndex,
         hasSubmittedMove,
         handlePrevTurn,
         handleNextTurn,
         handleLatestTurn,
-        setCurrentTurnIndex,
+        setSelectedTurnIndex: setSelectedTurnIndex,
         selectedSquare,
         setSelectedSquare,
         startGame,
@@ -399,6 +419,7 @@ export const GameStateProvider: React.FC<{
         players: [...humans, ...bots],
         sessionName,
         gameSetup,
+        latestMoveStatus,
       }}
     >
       {gameSetup ? (

@@ -22,6 +22,7 @@ export interface Move {
 // needs to get created when turn is created.
 // clients should write their own id to this
 export interface MoveStatus {
+  moveNumber: number
   alivePlayerIDs: string[]
   movedPlayerIDs: string[]
 }

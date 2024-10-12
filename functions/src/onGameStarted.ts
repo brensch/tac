@@ -13,51 +13,61 @@ import { FieldValue } from "firebase-admin/firestore"
 export const onGameStarted = functions.firestore
   .document("sessions/{sessionID}/setups/{gameID}")
   .onUpdate(async (change, context) => {
+    const beforeData = change.before.data() as GameSetup
     const afterData = change.after.data() as GameSetup
     const { gameID, sessionID } = context.params
 
     logger.debug(`Checking update on game: ${gameID}`)
+
+    if (beforeData.started) {
+      logger.warn("game already started")
+      return
+    }
 
     // Check if all playerIDs are in playersReady
     const allPlayersReady = afterData.gamePlayers
       .filter((gamePlayer) => gamePlayer.type === "human")
       .every((player) => afterData.playersReady.includes(player.id))
 
+    if (!allPlayersReady) {
+      logger.info(`Not all players are ready for game ${gameID}.`)
+      return
+    }
+
+    if (afterData.gamePlayers.length === 0) {
+      logger.info(`no one in game. nonsense. ${gameID}.`)
+      return
+    }
+
+    if (!afterData.startRequested) {
+      logger.info(`start not requested yet ${gameID}.`)
+      return
+    }
+
+    // If the game has started, abort
+    if (afterData.started) {
+      logger.info(`game has started ${gameID}.`)
+      return
+    }
+
+    // Instantiate the appropriate processor using the factory
+    const processor = getGameProcessor(afterData)
+
+    if (!processor) {
+      logger.error(
+        `No processor found for gameType: ${afterData.gameType} in game ${gameID}`,
+      )
+      return
+    }
+
     // Use a transaction to ensure consistency
     await admin.firestore().runTransaction(async (transaction) => {
       // If not all players are ready, exit early
-      if (!allPlayersReady) {
-        logger.info(`Not all players are ready for game ${gameID}.`)
-        return
-      }
 
-      if (afterData.gamePlayers.length === 0) {
-        logger.info(`no one in game. nonsense. ${gameID}.`)
-        return
-      }
-
-      if (!afterData.startRequested) {
-        logger.info(`start not requested yet ${gameID}.`)
-        return
-      }
-
-      // If the game has started, abort
-      if (afterData.started) {
-        logger.info(`game has started ${gameID}.`)
-        return
-      }
-
-      // Instantiate the appropriate processor using the factory
-      const processor = getGameProcessor(afterData)
-
-      if (!processor) {
-        logger.error(
-          `No processor found for gameType: ${afterData.gameType} in game ${gameID}`,
-        )
-        return
-      }
       // Initialize the game using the processor's method
       const firstTurn = processor.firstTurn()
+
+      afterData.started = true
 
       // set the game
       const gameStateRef = admin
@@ -73,12 +83,20 @@ export const onGameStarted = functions.firestore
       }
       transaction.set(gameStateRef, newGame)
 
+      // set started to true
+      const gameSetupRef = admin
+        .firestore()
+        .collection(`sessions/${sessionID}/setups`)
+        .doc(gameID)
+      transaction.update(gameSetupRef, { started: true })
+
       // set the movestatus for players to write to
       const moveStatusRef = admin
         .firestore()
-        .collection(`sessions/${sessionID}/games/${gameID}/statuses`)
+        .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
         .doc("0")
       const moveStatus: MoveStatus = {
+        moveNumber: 0,
         alivePlayerIDs: firstTurn.alivePlayers,
         movedPlayerIDs: [],
       }
