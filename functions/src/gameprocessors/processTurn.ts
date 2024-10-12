@@ -5,8 +5,9 @@ import {
   QuerySnapshot,
   DocumentData,
   Timestamp,
+  FieldValue,
 } from "firebase-admin/firestore"
-import { Turn, Move } from "@shared/types/Game"
+import { Move, GameState } from "@shared/types/Game"
 import { getGameProcessor } from "./ProcessorFactory"
 import { logger } from "../logger"
 import { createNewGame } from "../utils/createNewGame" // Adjust the path as necessary
@@ -17,28 +18,50 @@ import { createNextTurn } from "../utils/createNextTurn"
  * Processes a single turn in the game by applying moves and determining winners.
  * @param transaction Firestore transaction object.
  * @param gameID The ID of the game.
- * @param currentTurn The current turn state of the game.
  */
 export async function processTurn(
   transaction: Transaction,
   gameID: string,
-  currentTurn: Turn,
+  sessionID: string,
+  turnNumber: number,
 ): Promise<void> {
-  const currentRound = currentTurn.turnNumber
-
   try {
+    // Get the current turn for the game based on the move's turn number
+    const gameStateRef = admin
+      .firestore()
+      .collection(`sessions/${sessionID}/games`)
+      .doc(gameID)
+    const gameStateDoc = await transaction.get(gameStateRef)
+    const gameState = gameStateDoc.data() as GameState
+
+    if (gameState.turns.length === 0) {
+      logger.error("got no turns in move. problem")
+      return
+    }
+
+    const latestTurnNumber = gameState.turns.length - 1
+    if (latestTurnNumber !== turnNumber) {
+      logger.error(
+        "got asked to process previous turn",
+        latestTurnNumber,
+        turnNumber,
+      )
+      return
+    }
+    const currentTurn = gameState.turns[turnNumber]
+
     // Construct the query to fetch moves for the current round
     const movesQuery = admin
       .firestore()
-      .collection(`games/${gameID}/privateMoves`)
-      .where("moveNumber", "==", currentRound)
+      .collection(`sessions/${sessionID}/games/${gameID}/privateMoves`)
+      .where("moveNumber", "==", turnNumber)
 
     // Execute the query within the transaction
     const movesSnapshot: QuerySnapshot<DocumentData> = await transaction.get(
       movesQuery,
     )
 
-    if (currentTurn.gameOver) {
+    if (gameState.winners.length > 0) {
       logger.warn("game already finished.")
       return
     }
@@ -49,10 +72,16 @@ export async function processTurn(
     )
 
     // Log moves received in this round
-    logger.info(`Moves received in round ${currentRound}`, { movesThisRound })
+    logger.info(`Moves received in round ${turnNumber}`, { movesThisRound })
 
-    // Process only the latest move for each player
+    // Process only the latest move for each player that was made before the end time
+    const latestAllowedTime = currentTurn.endTime.toMillis()
     const latestMoves: Move[] = movesThisRound
+      .filter((move) => {
+        move.timestamp instanceof Timestamp
+          ? move.timestamp.toMillis()
+          : 0 < latestAllowedTime
+      })
       .sort((a, b) => {
         // Ensure both timestamps are valid Timestamp instances
         const aTime =
@@ -70,7 +99,7 @@ export async function processTurn(
       }, [])
 
     // Log filtered latest moves
-    logger.info(`Latest moves for round ${currentRound}`, { latestMoves })
+    logger.info(`Latest moves for round ${turnNumber}`, { latestMoves })
 
     if (!currentTurn) {
       logger.info("No current turn found for the game.", { gameID })
@@ -78,70 +107,58 @@ export async function processTurn(
     }
 
     // Instantiate the appropriate processor using the factory
-    const processor = getGameProcessor(
-      transaction,
-      gameID,
-      latestMoves,
-      currentTurn.gameType,
-      currentTurn,
-    )
+    const processor = getGameProcessor(gameState)
 
-    if (processor) {
-      // Apply the latest moves to the game board
-      await processor.applyMoves()
-      logger.info(`Moves applied for game ${gameID} in round ${currentRound}`)
+    if (!processor) {
+      logger.error(`No processor available `, { gameID })
+      throw `processor not known: ${gameState.Setup.gameType}`
+    }
+    // Apply the latest moves to the game board
+    const nextTurn = await processor.applyMoves(latestMoves)
+    logger.info(`Moves applied for game ${gameID} in round ${turnNumber}`)
 
-      // Determine if there are any winners
-      const winners = await processor.findWinners()
-      logger.info(`Winners found for game ${gameID} in round ${currentRound}`, {
+    // Determine if there are any winners
+    const winners = await processor.findWinners()
+    logger.info(`Winners found for game ${gameID} in round ${turnNumber}`, {
+      winners,
+    })
+
+    transaction.update(gameStateRef, {
+      winners,
+      turns: FieldValue.arrayUnion(nextTurn), // Append 'nextTurn' to the 'turns' array
+    })
+
+    if (winners.length > 0) {
+      // Create a new game after updating the current game with winners
+      await createNewGame(transaction, gameID)
+      // set gameover so that when nextturn gets created it has the gameover state
+      logger.info(
+        `Winners found for game ${gameID} in round ${turnNumber}. New game created.`,
+        {
+          winners,
+        },
+      )
+      // Update the game document with the winners
+      logger.info(`Winners added to game ${gameID} in round ${turnNumber}.`, {
         winners,
       })
-
-      if (winners.length > 0) {
-        // Reference to the game document
-        const gameRef = admin.firestore().collection("games").doc(gameID)
-
-        // Create a new game after updating the current game with winners
-        await createNewGame(transaction, gameID)
-        // set gameover so that when nextturn gets created it has the gameover state
-        currentTurn.gameOver = true
-        logger.info(
-          `Winners found for game ${gameID} in round ${currentRound}. New game created.`,
-          {
-            winners,
-          },
-        )
-        // Update the game document with the winners
-        await transaction.update(gameRef, { winners })
-        logger.info(
-          `Winners added to game ${gameID} in round ${currentRound}.`,
-          { winners },
-        )
-      } else {
-        logger.info(
-          `No winners yet for game ${gameID} in round ${currentRound}`,
-        )
-      }
-      // record latest moves
-      let moves: {
-        [playerID: string]: number
-      } = {}
-      latestMoves.forEach((move) => (moves[move.playerID] = move.move))
-      currentTurn.moves = moves
-      logger.info("got turn", currentTurn)
-      await createNextTurn(transaction, gameID, currentTurn)
-      logger.info(
-        `New turn created for game ${gameID} in round ${currentRound + 1}`,
-      )
     } else {
-      logger.error(
-        `No processor available for game type: ${currentTurn.gameType}`,
-        { gameID },
-      )
+      logger.info(`No winners yet for game ${gameID} in round ${turnNumber}`)
     }
+    // record latest moves
+    let moves: {
+      [playerID: string]: number
+    } = {}
+    latestMoves.forEach((move) => (moves[move.playerID] = move.move))
+    currentTurn.moves = moves
+    logger.info("got turn", currentTurn)
+    await createNextTurn(transaction, gameID, currentTurn)
+    logger.info(
+      `New turn created for game ${gameID} in round ${turnNumber + 1}`,
+    )
   } catch (error) {
     logger.error(
-      `Error processing turn ${currentRound} for game ${gameID}:`,
+      `Error processing turn ${turnNumber} for game ${gameID}:`,
       error,
     )
     throw error

@@ -1,7 +1,7 @@
 // functions/src/utils/createNewGame.ts
 
 import { Timestamp, Transaction } from "firebase-admin/firestore"
-import { GameState, GameType, Session } from "@shared/types/Game"
+import { GameSetup, GameState, GameType, Session } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 
@@ -13,57 +13,54 @@ import * as admin from "firebase-admin"
 export async function createNewGame(
   transaction: Transaction,
   sessionName: string,
+  previousSetup: GameSetup | null,
 ): Promise<void> {
   try {
-    // Reference to the current game document
-    const sessionRef = admin.firestore().collection("sessions").doc(sessionName)
-    const sessionDoc = await transaction.get(sessionRef)
-    const sessionData = sessionDoc.data() as Session
+    // const sessionDoc = await transaction.get(sessionRef)
+    // const sessionData = sessionDoc.data() as Session
 
     let gameType: GameType = "snek"
     let boardWidth = 11
     let boardHeight = 11
     let turnTime = 10
-    if (sessionData.latestGameID) {
-      const gameRef = sessionRef
-        .collection("games")
-        .doc(sessionData.latestGameID)
-      const gameDoc = await transaction.get(gameRef)
-      const gameData = gameDoc.data() as GameState
-      gameType = gameData.gameType
-      boardWidth = gameData.boardWidth
-      boardHeight = gameData.boardHeight
-      turnTime = gameData.maxTurnTime
+    if (previousSetup) {
+      // const gameRef = sessionRef
+      //   .collection("games")
+      //   .doc(sessionData.latestGameID)
+      // const gameDoc = await transaction.get(gameRef)
+      // const gameData = gameDoc.data() as GameState
+      gameType = previousSetup.gameType
+      boardWidth = previousSetup.boardWidth
+      boardHeight = previousSetup.boardHeight
+      turnTime = previousSetup.maxTurnTime
     }
 
-    // Generate a new unique game ID
-    const newGameRef = sessionRef.collection("games").doc()
-
     // Initialize a new game state
-    const newGameState: GameState = {
+    const newGameSetup: GameSetup = {
       gameType: gameType,
       gamePlayers: [], // New game starts with no players
       boardWidth: boardWidth,
       boardHeight: boardHeight,
-      winners: [], // Initialize as empty array
-      started: false, // Game has not started yet
       maxTurnTime: turnTime,
       playersReady: [], // Reset players ready
       startRequested: false,
       timeCreated: Timestamp.now(),
-      timeFinished: null,
     }
 
+    // Reference to the current session document
+    const sessionRef = admin.firestore().collection("sessions").doc(sessionName)
+    // Generate a new unique game ID
+    const newGameSetupRef = sessionRef.collection("setups").doc()
     // Set the new game document within the transaction
-    transaction.set(newGameRef, newGameState)
+    transaction.set(newGameSetupRef, newGameSetup)
 
     // Update the current game document's nextGame field to reference the new game
-    transaction.update(sessionRef, { latestGameID: newGameRef.id })
+    transaction.update(sessionRef, { latestGameID: newGameSetupRef.id })
 
     logger.info(
-      `New game created with ID ${newGameRef.id} on sesh ${sessionName}`,
+      `New game created with ID ${newGameSetupRef.id} on sesh ${sessionName}`,
       {
-        id: newGameRef.id,
+        id: newGameSetupRef.id,
         sessionName: sessionName,
       },
     )

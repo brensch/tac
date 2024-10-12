@@ -2,7 +2,7 @@
 
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
-import { GameState } from "@shared/types/Game" // Adjust the path as necessary
+import { GameSetup, GameState } from "@shared/types/Game" // Adjust the path as necessary
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 import { logger } from "./logger" // Adjust the path as necessary
 import { Timestamp } from "firebase-admin/firestore"
@@ -11,10 +11,10 @@ import { Timestamp } from "firebase-admin/firestore"
  * Firestore Trigger to start the game when all players are ready.
  */
 export const onGameStarted = functions.firestore
-  .document("sessions/{sessionID}/games/{gameID}")
+  .document("sessions/{sessionID}/setups/{gameID}")
   .onUpdate(async (change, context) => {
-    const beforeData = change.before.data() as GameState
-    const afterData = change.after.data() as GameState
+    const beforeData = change.before.data() as GameSetup
+    const afterData = change.after.data() as GameSetup
     const { gameID } = context.params
 
     logger.debug(`Checking update on game: ${gameID}`)
@@ -42,26 +42,20 @@ export const onGameStarted = functions.firestore
         return
       }
 
-      // If the game hasn't started yet, start the game
-      if (!afterData.started) {
-        // Instantiate the appropriate processor using the factory
-        const processor = getGameProcessor(
-          transaction,
-          gameID,
-          [],
-          afterData.gameType,
+      // If the game has started, abort
+      if (afterData.started) return
+      // Instantiate the appropriate processor using the factory
+      const processor = getGameProcessor(afterData)
+
+      if (processor) {
+        // Initialize the game using the processor's method
+        await processor.initializeGame(afterData)
+
+        logger.info(`Game ${gameID} has been initialized.`)
+      } else {
+        logger.error(
+          `No processor found for gameType: ${afterData.gameType} in game ${gameID}`,
         )
-
-        if (processor) {
-          // Initialize the game using the processor's method
-          await processor.initializeGame(afterData)
-
-          logger.info(`Game ${gameID} has been initialized.`)
-        } else {
-          logger.error(
-            `No processor found for gameType: ${afterData.gameType} in game ${gameID}`,
-          )
-        }
       }
     })
   })

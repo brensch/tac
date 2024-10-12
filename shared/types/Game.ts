@@ -18,30 +18,42 @@ export interface Move {
   timestamp: FieldValue | Timestamp // Server timestamp when the move was submitted
 }
 
+// this is public so that users can see who has moved and to reduce reads of who has completed their move
+// needs to get created when turn is created.
+// clients should write their own id to this
+export interface MoveStatus {
+  alivePlayerIDs: string[]
+  movedPlayerIDs: string[]
+}
+
 export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
 
 export interface Session {
-  timeCreated: Timestamp | FieldValue
   latestGameID: string | null
+
+  timeCreated: Timestamp | FieldValue
 }
 
-// Updated GameState interface with the new 'winner' structure
-export interface GameState {
-  // sessionName: string
-  // sessionIndex: number
+export interface GameSetup {
   gameType: GameType
   gamePlayers: GamePlayer[]
   boardWidth: number // The width of the board
   boardHeight: number // The height of the board
-  winners: Winner[] // Updated to an array of winner objects
-  started: boolean
-  // nextGame: string // New field for the ID of the next game
-  maxTurnTime: number // Time limit per turn in seconds
   playersReady: string[]
+  maxTurnTime: number // Time limit per turn in seconds
   startRequested: boolean
+
+  timeCreated: Timestamp | FieldValue
+}
+
+// Updated GameState interface with the new 'winner' structure
+export interface GameState {
+  Setup: GameSetup
+  winners: Winner[] // Updated to an array of winner objects
+  turns: Turn[]
+
   timeCreated: Timestamp | FieldValue
   timeFinished: Timestamp | FieldValue | null
-  turns: Turn[]
 }
 
 export interface GamePlayer {
@@ -69,18 +81,9 @@ export interface Bot extends Player {
 
 // Updated Turn interface to include 'allowedMoves', 'walls', and 'clashes'
 export interface Turn {
-  turnNumber: number
-  boardWidth: number
-  boardHeight: number
-  gameType: GameType
-  players: GamePlayer[] // This is to avoid a lookup of game for every move server-side
   playerHealth: { [playerID: string]: number } // Map of playerID to health
-  hasMoved: {
-    [playerID: string]: { moveTime: Timestamp | FieldValue }
-  } // Map of playerID to moveTime
-  turnTime: number
   startTime: Timestamp | FieldValue // When the turn started
-  endTime: Timestamp | FieldValue // When the turn ended
+  endTime: Timestamp // When the turn should end
   scores: { [playerID: string]: number } // Map of playerID to score
   alivePlayers: string[] // List of player IDs who are still alive
 
@@ -95,7 +98,6 @@ export interface Turn {
 
   // Clashes
   clashes: Clash[] // Map of playerID to positions of their dead snake
-  gameOver: boolean
   moves: { [playerID: string]: number }
 }
 
