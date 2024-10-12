@@ -1,6 +1,6 @@
 // functions/src/gameprocessors/GameProcessor.ts
 
-import { Turn, Move, Winner, GameSetup } from "@shared/types/Game"
+import { Turn, Move, GameSetup } from "@shared/types/Game"
 
 /**
  * Abstract base class for all game processors.
@@ -23,10 +23,4 @@ export abstract class GameProcessor {
    * Returns the latest turn so it can be added to the doc
    */
   abstract applyMoves(currentTurn: Turn, moves: Move[]): Turn
-
-  /**
-   * Determines if any player has met the win condition.
-   * @returns An array of Winner objects.
-   */
-  abstract findWinners(currentTurn: Turn): Winner[]
 }

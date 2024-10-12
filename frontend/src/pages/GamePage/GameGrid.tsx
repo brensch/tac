@@ -29,10 +29,11 @@ const GameGrid: React.FC = () => {
     setSelectedSquare,
     sessionName,
     gameID,
+    latestTurn,
   } = useGameStateContext()
 
   const user = useUser()
-  const winners = gameState?.winners || []
+  const winners = latestTurn?.winners || []
   const gridWidth = gameState?.setup.boardWidth || 8
   const gridHeight = gameState?.setup.boardHeight || 8
   const totalCells = gridWidth * gridHeight

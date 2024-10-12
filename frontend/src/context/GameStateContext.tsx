@@ -265,17 +265,12 @@ export const GameStateProvider: React.FC<{
 
   // Handle turn expiration
   useEffect(() => {
-    // Early return if latestTurn, currentTurn, maxTurnTime, gameID, or nextGame is not valid
-    if (
-      !latestTurn ||
-      // !currentTurn ||
-      !gameSetup?.maxTurnTime ||
-      !gameID
-      // gameState?.nextGame !== ""
-    ) {
+    // Early return if latestTurn, gameSetup, or gameID is not valid
+    if (!latestTurn || !gameSetup?.maxTurnTime || !gameID) {
+      // Clear the interval if any of the dependencies are invalid
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null // Clear interval if nextGame exists
+        intervalIdRef.current = null
       }
       return
     }
@@ -283,6 +278,8 @@ export const GameStateProvider: React.FC<{
     let intervalTime = 1000 // Initial interval time
 
     const intervalFunction = async () => {
+      console.log(latestTurn.endTime.toMillis())
+
       const now = Date.now() / 1000 // Current time in seconds
       const endTimeSeconds =
         latestTurn.endTime instanceof Timestamp ? latestTurn.endTime.seconds : 0 // End time from Firestore
@@ -297,9 +294,7 @@ export const GameStateProvider: React.FC<{
       // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(
         db,
-        `games/${gameID}/turns/${
-          gameState?.turns.length - 1
-        }/expirationRequests`,
+        `sessions/${sessionName}/games/${gameID}/expirationRequests`,
       )
 
       // No existing expiration requests, create a new one
@@ -325,14 +320,14 @@ export const GameStateProvider: React.FC<{
 
     intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
 
-    // Cleanup function: stop the timer when the current turn changes or nextGame is set
+    // Cleanup function: stop the timer when the current turn changes, nextGame is set, or gameID changes
     return () => {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
         intervalIdRef.current = null
       }
     }
-  }, [latestTurn, userID, gameState, gameID])
+  }, [latestTurn, userID, gameState, gameID, sessionName, gameSetup])
 
   // Function to start the game
   const startGame = async () => {

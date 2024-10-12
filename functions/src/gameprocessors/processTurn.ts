@@ -61,7 +61,7 @@ export async function processTurn(
       movesQuery,
     )
 
-    if (gameState.winners.length > 0) {
+    if (currentTurn.winners.length > 0) {
       logger.warn("game already finished.")
       return
     }
@@ -71,16 +71,19 @@ export async function processTurn(
       (doc) => doc.data() as Move,
     )
 
-    // Log moves received in this round
-    logger.info(`Moves received in round ${turnNumber}`, { movesThisRound })
-
     // Process only the latest move for each player that was made before the end time
     const latestAllowedTime = currentTurn.endTime.toMillis()
+    // Log moves received in this round
+    logger.info(`Moves received in round ${turnNumber}`, {
+      movesThisRound,
+      latestAllowedTime,
+    })
     const latestMoves: Move[] = movesThisRound
       .filter((move) => {
-        move.timestamp instanceof Timestamp
-          ? move.timestamp.toMillis()
-          : 0 < latestAllowedTime
+        // Ensure the move was made before the round end time
+        const moveTime =
+          move.timestamp instanceof Timestamp ? move.timestamp.toMillis() : 0
+        return moveTime <= latestAllowedTime
       })
       .sort((a, b) => {
         // Ensure both timestamps are valid Timestamp instances
@@ -115,60 +118,52 @@ export async function processTurn(
     }
     // Apply the latest moves to the game board
     const nextTurn = await processor.applyMoves(currentTurn, latestMoves)
-    logger.info(`Moves applied for game ${gameID} in round ${turnNumber}`)
-
-    // Determine if there are any winners
-    const winners = await processor.findWinners(currentTurn)
-    logger.info(`Winners found for game ${gameID} in round ${turnNumber}`, {
-      winners,
+    logger.info(`Moves applied for game ${gameID} in round ${turnNumber}`, {
+      latestMoves,
+      nextTurn,
     })
 
+    const now = Date.now() // Current time in milliseconds
+    const turnDurationMillis = gameState.setup.maxTurnTime * 1000 // Convert maxTurnTime from seconds to milliseconds
+    const endTime = new Date(now + turnDurationMillis) // Add turn time to current time
+
+    nextTurn.startTime = Timestamp.fromMillis(now)
+    nextTurn.endTime = Timestamp.fromDate(endTime) // Convert the calculated end time to Firestore Timestamp
+
     transaction.update(gameStateRef, {
-      winners,
       turns: FieldValue.arrayUnion(nextTurn), // Append 'nextTurn' to the 'turns' array
     })
 
-    // create the movestatus for players to write to
-    const moveNumber = gameState.turns.length // this is actually the next turn (ie no -1)
-    const moveStatusRef = admin
-      .firestore()
-      .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
-      .doc(`${moveNumber}`)
-    const moveStatus: MoveStatus = {
-      moveNumber: moveNumber,
-      alivePlayerIDs: nextTurn.alivePlayers,
-      movedPlayerIDs: [],
-    }
-    transaction.set(moveStatusRef, moveStatus)
-
-    if (winners.length > 0) {
-      // Create a new game after updating the current game with winners
-      await createNewGame(transaction, gameID, gameState.setup)
-      // set gameover so that when nextturn gets created it has the gameover state
-      logger.info(
-        `Winners found for game ${gameID} in round ${turnNumber}. New game created.`,
-        {
-          winners,
-        },
-      )
-      // Update the game document with the winners
-      logger.info(`Winners added to game ${gameID} in round ${turnNumber}.`, {
-        winners,
-      })
-    } else {
+    if (nextTurn.winners.length == 0) {
+      // create the movestatus for players to write to
+      const moveNumber = gameState.turns.length // this is actually the next turn (ie no -1)
+      const moveStatusRef = admin
+        .firestore()
+        .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
+        .doc(`${moveNumber}`)
+      const moveStatus: MoveStatus = {
+        moveNumber: moveNumber,
+        alivePlayerIDs: nextTurn.alivePlayers,
+        movedPlayerIDs: [],
+      }
+      transaction.set(moveStatusRef, moveStatus)
       logger.info(`No winners yet for game ${gameID} in round ${turnNumber}`)
+      return
     }
-    // // record latest moves
-    // let moves: {
-    //   [playerID: string]: number
-    // } = {}
-    // latestMoves.forEach((move) => (moves[move.playerID] = move.move))
-    // currentTurn.moves = moves
-    // logger.info("got turn", currentTurn)
-    // await createNextTurn(transaction, gameID, currentTurn)
-    // logger.info(
-    //   `New turn created for game ${gameID} in round ${turnNumber + 1}`,
-    // )
+
+    logger.info(
+      `Winners found for game ${gameID} in round ${turnNumber}. New game created.`,
+      {
+        nextTurn,
+      },
+    )
+    // Create a new game after updating the current game with winners
+    await createNewGame(transaction, sessionID, gameState.setup)
+    // set gameover so that when nextturn gets created it has the gameover state
+    // Update the game document with the winners
+    logger.info(`Winners added to game ${gameID} in round ${turnNumber}.`, {
+      nextTurn,
+    })
   } catch (error) {
     logger.error(
       `Error processing turn ${turnNumber} for game ${gameID}:`,

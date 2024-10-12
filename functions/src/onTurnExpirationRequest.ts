@@ -25,12 +25,16 @@ export const onTurnExpirationRequest = functions.firestore
       const turnNumber = gameState.turns.length - 1
       const latestTurn = gameState.turns[turnNumber]
 
-      // check if it's actually expired
-      if (latestTurn.endTime.toMillis() < new Date().getTime()) {
-        logger.warn("not expired bro", latestTurn.endTime.toMillis())
+      // Check if the turn has expired
+      if (latestTurn.endTime.toMillis() >= Date.now()) {
+        // If the turn has not yet expired, log that information and return
+        logger.warn(
+          "Turn has not expired yet",
+          latestTurn.endTime.toMillis(),
+          Date.now(),
+        )
         return
       }
-
       await processTurn(transaction, gameID, sessionID, turnNumber)
     })
   })

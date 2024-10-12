@@ -76,7 +76,6 @@ export const onGameStarted = functions.firestore
         .doc(gameID)
       const newGame: GameState = {
         setup: afterData,
-        winners: [],
         turns: [firstTurn],
         timeCreated: FieldValue.serverTimestamp(),
         timeFinished: null,

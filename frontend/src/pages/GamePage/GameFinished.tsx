@@ -24,17 +24,17 @@ interface PlayerResult {
 }
 
 const GameFinished: React.FC = () => {
-  const { gameState, players } = useGameStateContext()
+  const { gameState, players, latestTurn } = useGameStateContext()
   const navigate = useNavigate()
   const [sortedPlayers, setSortedPlayers] = useState<PlayerResult[]>([])
 
   // Ensure gameState and players are available
-  if (!gameState || !players) return null
+  if (!gameState || !players || !latestTurn) return null
 
-  const winners: Winner[] = gameState.winners || []
+  const winners: Winner[] = latestTurn.winners || []
 
   // If there are no winners, display a message accordingly
-  const unFinished = gameState.winners.length === 0
+  const unFinished = latestTurn.winners.length === 0
   if (unFinished) return null
 
   // Get the top player's emoji for the EmojiRain effect

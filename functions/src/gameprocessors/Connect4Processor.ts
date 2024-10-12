@@ -1,4 +1,4 @@
-import { GamePlayer, GameSetup, Move, Turn, Winner } from "@shared/types/Game"
+import { GameSetup, Move, Turn, Winner } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
 import { logger } from "../logger"
 import { GameProcessor } from "./GameProcessor"
@@ -7,9 +7,7 @@ import { GameProcessor } from "./GameProcessor"
  * Processor class for the Connect4 game logic.
  */
 export class Connect4Processor extends GameProcessor {
-  constructor(
-    gameSetup: GameSetup, // transaction: Transaction, // gameID: string, // latestMoves: Move[], // currentTurn?: Turn,
-  ) {
+  constructor(gameSetup: GameSetup) {
     super(gameSetup)
   }
 
@@ -18,10 +16,7 @@ export class Connect4Processor extends GameProcessor {
    * @returns The initial Turn object.
    */
   firstTurn(): Turn {
-    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
-
-    // Initialize grid as an array of strings or null
-    const grid: (string | null)[] = Array(boardWidth * boardHeight).fill(null)
+    const { gamePlayers } = this.gameSetup
 
     // Initialize playerPieces as occupied positions for each player
     const playerPieces: { [playerID: string]: number[] } = {}
@@ -29,16 +24,9 @@ export class Connect4Processor extends GameProcessor {
       playerPieces[player.id] = []
     })
 
-    // Initialize allowed moves (top row indices)
-    const allowedMoves = this.calculateAllowedMoves(
-      grid,
-      boardWidth,
-      boardHeight,
-      gamePlayers,
-    )
+    // Initialize allowed moves (positions one space above the highest existing piece in each column)
+    const allowedMoves = this.calculateAllowedMoves(playerPieces)
 
-    // cannot put server timestamps in arrays
-    // turn start always controlled by server so all g
     const now = Date.now()
 
     const firstTurn: Turn = {
@@ -54,36 +42,37 @@ export class Connect4Processor extends GameProcessor {
       hazards: [], // No hazards in Connect4
       clashes: [], // Initialize empty array for clashes
       moves: {},
+      winners: [], // Initialize empty winners array
     }
-
-    // Store grid as part of the turn for easy access
-    ;(firstTurn as any).grid = grid
 
     return firstTurn
   }
 
   /**
-   * Calculates allowed moves (columns that are not full).
+   * Calculates allowed moves (positions one space above the highest existing piece in each column).
    */
-  private calculateAllowedMoves(
-    grid: (string | null)[],
-    boardWidth: number,
-    boardHeight: number,
-    gamePlayers: GamePlayer[],
-  ): { [playerID: string]: number[] } {
+  private calculateAllowedMoves(playerPieces: {
+    [playerID: string]: number[]
+  }): { [playerID: string]: number[] } {
+    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
     const allowedMoves: { [playerID: string]: number[] } = {}
-    const topRowIndices: number[] = []
+    const occupiedPositions = Object.values(playerPieces).flat()
 
-    for (let x = 0; x < boardWidth; x++) {
-      const index = x
-      if (grid[index] === null) {
-        topRowIndices.push(index)
+    // All players have the same allowed moves in Connect4
+    const topPositions: number[] = []
+
+    for (let col = 0; col < boardWidth; col++) {
+      for (let row = boardHeight - 1; row >= 0; row--) {
+        const position = row * boardWidth + col
+        if (!occupiedPositions.includes(position)) {
+          topPositions.push(position)
+          break
+        }
       }
     }
 
-    // All players have the same allowed moves in Connect4
     gamePlayers.forEach((player) => {
-      allowedMoves[player.id] = [...topRowIndices]
+      allowedMoves[player.id] = topPositions
     })
 
     return allowedMoves
@@ -94,22 +83,21 @@ export class Connect4Processor extends GameProcessor {
    */
   applyMoves(currentTurn: Turn, moves: Move[]): Turn {
     const { playerPieces, allowedMoves, clashes } = currentTurn
-    const { boardWidth, boardHeight } = this.gameSetup
 
-    // Deep copy playerPieces
+    // Deep copy playerPieces and clashes
     const newPlayerPieces: { [playerID: string]: number[] } = {}
     Object.keys(playerPieces).forEach((playerID) => {
       newPlayerPieces[playerID] = [...playerPieces[playerID]]
     })
+    const newClashes = [...clashes]
 
     // Track latest move positions and prepare a map for column moves
     const latestMovePositions: { [playerID: string]: number } = {}
-    const moveMap: { [column: number]: string[] } = {}
+    const moveMap: { [position: number]: string[] } = {}
 
     // Process latest moves
     for (const move of moves) {
       const { playerID, move: position } = move
-      const column = position % boardWidth
 
       // Validate move
       if (!allowedMoves[playerID].includes(position)) {
@@ -119,86 +107,40 @@ export class Connect4Processor extends GameProcessor {
         continue
       }
 
-      if (!moveMap[column]) moveMap[column] = []
-      moveMap[column].push(playerID)
+      if (!moveMap[position]) moveMap[position] = []
+      moveMap[position].push(playerID)
     }
 
     // Apply moves and handle clashes
-    for (const columnStr in moveMap) {
-      const column = parseInt(columnStr)
-      const players = moveMap[column]
-
-      // Determine the target position based on the player's current pieces
-      let targetPosition = column
-      while (
-        targetPosition + boardWidth < boardWidth * boardHeight &&
-        Object.values(newPlayerPieces).every(
-          (pieces) => !pieces.includes(targetPosition + boardWidth),
-        )
-      ) {
-        targetPosition += boardWidth
-      }
-
-      // Check if the target position is occupied
-      if (
-        Object.values(newPlayerPieces).some((pieces) =>
-          pieces.includes(targetPosition),
-        )
-      ) {
-        logger.warn(
-          `Connect4: Column ${column} is full. Moves by players ${players.join(
-            ", ",
-          )} ignored.`,
-        )
-        continue
-      }
+    for (const positionStr in moveMap) {
+      const position = parseInt(positionStr)
+      const players = moveMap[position]
 
       if (players.length === 1) {
         const playerID = players[0]
 
         // Place the piece at the target position
-        newPlayerPieces[playerID].push(targetPosition)
+        newPlayerPieces[playerID].push(position)
 
         // Record the latest move position for the player
-        latestMovePositions[playerID] = targetPosition
+        latestMovePositions[playerID] = position
       } else {
         // Handle clash at the target position
         logger.warn(
-          `Connect4: Clash at position ${targetPosition} by players ${players.join(
+          `Connect4: Clash at position ${position} by players ${players.join(
             ", ",
           )}.`,
         )
-        clashes.push({
-          index: targetPosition,
+        newClashes.push({
+          index: position,
           playerIDs: players,
           reason: "Multiple players attempted to drop in the same column",
         })
       }
     }
 
-    // Update allowed moves (spaces one above the highest point in each column)
-    const newAllowedMoves: { [playerID: string]: number[] } = {}
-    Object.keys(newPlayerPieces).forEach((playerID) => {
-      newAllowedMoves[playerID] = []
-      for (let col = 0; col < boardWidth; col++) {
-        let highestPosition = col
-        while (
-          highestPosition + boardWidth < boardWidth * boardHeight &&
-          Object.values(newPlayerPieces).some((pieces) =>
-            pieces.includes(highestPosition + boardWidth),
-          )
-        ) {
-          highestPosition += boardWidth
-        }
-        if (
-          !Object.values(newPlayerPieces).some((pieces) =>
-            pieces.includes(highestPosition),
-          )
-        ) {
-          newAllowedMoves[playerID].push(highestPosition)
-        }
-      }
-    })
+    // Update allowed moves (positions one above the highest existing piece in each column)
+    const newAllowedMoves = this.calculateAllowedMoves(newPlayerPieces)
 
     const now = Date.now()
 
@@ -207,31 +149,32 @@ export class Connect4Processor extends GameProcessor {
       ...currentTurn,
       playerPieces: newPlayerPieces,
       allowedMoves: newAllowedMoves,
-      clashes,
+      clashes: newClashes,
       moves: latestMovePositions,
       startTime: Timestamp.fromMillis(now),
+      winners: [], // Will be updated after winner calculation
     }
+
+    // Calculate winners and update nextTurn
+    const winners = this.findWinners(nextTurn)
+    nextTurn.winners = winners
 
     return nextTurn
   }
 
   /**
-   * Finds winners based on the current state of the grid.
+   * Finds winners based on the current state of the playerPieces.
    * @returns An array of Winner objects.
    */
-  findWinners(currentTurn: Turn): Winner[] {
+  private findWinners(nextTurn: Turn): Winner[] {
     try {
       const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
-      const grid: (string | null)[] = (currentTurn as any).grid
-      const latestMovePositions: { [playerID: string]: number } =
-        (currentTurn as any).latestMovePositions || {}
+      const { playerPieces } = nextTurn
 
-      if (currentTurn.moves.length === 0) {
-        return currentTurn.alivePlayers.map((playerID) => ({
-          playerID,
-          score: 0,
-          winningSquares: [],
-        }))
+      let occupiedPositions = Object.values(playerPieces).flat()
+
+      if (Object.keys(nextTurn.moves).length === 0) {
+        return []
       }
 
       // Map to hold winning squares for each player
@@ -239,15 +182,14 @@ export class Connect4Processor extends GameProcessor {
 
       // Check for winners starting from their latest move positions
       for (const player of gamePlayers) {
-        const latestMovePos = latestMovePositions[player.id]
+        const latestMovePos = nextTurn.moves[player.id]
         if (latestMovePos === undefined) {
           continue
         }
         const winningSquares = this.checkWinnerAtPosition(
-          grid,
+          playerPieces[player.id],
           boardWidth,
           boardHeight,
-          player.id,
           latestMovePos,
         )
         if (winningSquares.length >= 4) {
@@ -271,57 +213,45 @@ export class Connect4Processor extends GameProcessor {
         logger.info(
           `Connect4: Multiple players have won simultaneously: ${winners.join(
             ", ",
-          )}. Converting winning moves to clashes.`,
+          )}. Converting winning lines to clashes.`,
         )
 
-        // Convert only the positions of their latest moves to clashes
+        // Convert the winning squares to clashes and remove them from playerPieces
         for (const playerID of winners) {
-          const latestMovePos = latestMovePositions[playerID]
-          if (latestMovePos === undefined) {
-            continue
-          }
+          const winningSquares = playerWinningLines[playerID]
 
-          // Avoid duplicate clashes at the same position
-          if (
-            (currentTurn.clashes || []).some(
-              (clash) => clash.index === latestMovePos,
-            )
-          ) {
-            continue
-          }
+          for (const index of winningSquares) {
+            // Avoid duplicate clashes at the same position
+            if (!nextTurn.clashes.some((clash) => clash.index === index)) {
+              nextTurn.clashes.push({
+                index: index,
+                playerIDs: winners,
+                reason:
+                  "Multiple players achieved a winning line simultaneously",
+              })
+            }
 
-          currentTurn.clashes!.push({
-            index: latestMovePos,
-            playerIDs: winners,
-            reason: "Multiple players achieved a winning line simultaneously",
-          })
-
-          // Update grid to reflect the clash
-          ;(currentTurn as any).grid[latestMovePos] = "clash"
-
-          // Remove the piece from playerPieces
-          const playerPieces = currentTurn.playerPieces[playerID]
-          const index = playerPieces.indexOf(latestMovePos)
-          if (index !== -1) {
-            playerPieces.splice(index, 1)
+            // Remove the piece from playerPieces
+            const playerPiecePositions = nextTurn.playerPieces[playerID]
+            const idx = playerPiecePositions.indexOf(index)
+            if (idx !== -1) {
+              playerPiecePositions.splice(idx, 1)
+            }
           }
         }
+
+        // Recompute occupied positions after removing pieces
+        occupiedPositions = Object.values(playerPieces).flat()
 
         // No winner declared
         return []
       }
 
-      // Check for draw (no more moves)
-      const allCellsFilled = grid.every(
-        (cell) => cell !== null && cell !== "clash",
-      )
-      if (allCellsFilled) {
+      // Check for draw (no more allowed moves)
+      const allColumnsFull = this.checkAllColumnsFull(occupiedPositions)
+      if (allColumnsFull) {
         logger.info(`Connect4: Game ended in a draw.`)
-        return gamePlayers.map((player) => ({
-          playerID: player.id,
-          score: 0,
-          winningSquares: [],
-        }))
+        return []
       }
 
       // Game continues
@@ -336,10 +266,9 @@ export class Connect4Processor extends GameProcessor {
    * Checks if the player has a winning line starting from a specific position.
    */
   private checkWinnerAtPosition(
-    grid: (string | null)[],
+    playerPositions: number[],
     boardWidth: number,
     boardHeight: number,
-    playerID: string,
     position: number,
   ): number[] {
     const directions = [
@@ -363,7 +292,7 @@ export class Connect4Processor extends GameProcessor {
         nx < boardWidth &&
         ny >= 0 &&
         ny < boardHeight &&
-        grid[ny * boardWidth + nx] === playerID
+        playerPositions.includes(ny * boardWidth + nx)
       ) {
         winningSquares.push(ny * boardWidth + nx)
         nx += dx
@@ -378,7 +307,7 @@ export class Connect4Processor extends GameProcessor {
         nx < boardWidth &&
         ny >= 0 &&
         ny < boardHeight &&
-        grid[ny * boardWidth + nx] === playerID
+        playerPositions.includes(ny * boardWidth + nx)
       ) {
         winningSquares.push(ny * boardWidth + nx)
         nx -= dx
@@ -391,5 +320,21 @@ export class Connect4Processor extends GameProcessor {
     }
 
     return []
+  }
+
+  /**
+   * Checks if all columns are full.
+   */
+  private checkAllColumnsFull(occupiedPositions: number[]): boolean {
+    const { boardWidth } = this.gameSetup
+
+    for (let col = 0; col < boardWidth; col++) {
+      const topPosition = col
+      if (!occupiedPositions.includes(topPosition)) {
+        return false
+      }
+    }
+
+    return true
   }
 }

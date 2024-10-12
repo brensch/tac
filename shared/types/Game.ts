@@ -51,7 +51,6 @@ export interface GameSetup {
 // Updated GameState interface with the new 'winner' structure
 export interface GameState {
   setup: GameSetup
-  winners: Winner[] // Updated to an array of winner objects
   turns: Turn[]
 
   timeCreated: Timestamp | FieldValue
@@ -101,6 +100,7 @@ export interface Turn {
   // Clashes
   clashes: Clash[] // Map of playerID to positions of their dead snake
   moves: { [playerID: string]: number }
+  winners: Winner[] // Updated to an array of winner objects
 }
 
 export interface Clash {
