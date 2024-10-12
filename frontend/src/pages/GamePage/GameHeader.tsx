@@ -4,7 +4,7 @@ import RulesDialog from "./RulesDialog"
 import { useGameStateContext } from "../../context/GameStateContext"
 
 const GameHeader: React.FC = () => {
-  const { gameState } = useGameStateContext()
+  const { gameState,sessionName } = useGameStateContext()
 
   const [openRulesDialog, setOpenRulesDialog] = useState(false)
 
@@ -13,7 +13,7 @@ const GameHeader: React.FC = () => {
     await navigator.share({
       title: "Tactic toes",
       text: "This game is completely unrelated to toes.",
-      url: `/session/${gameState?.sessionName}`,
+      // url: `/session/${gameState?.sessionName}`,
     })
     console.log("Content shared successfully")
   }
@@ -37,7 +37,7 @@ const GameHeader: React.FC = () => {
             whiteSpace: "nowrap",
           }}
         >
-          {gameState?.sessionName}
+          {sessionName}
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button

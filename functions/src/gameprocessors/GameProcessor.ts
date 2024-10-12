@@ -8,36 +8,31 @@ import { Turn, Move, Winner, GameState } from "@shared/types/Game"
  * Defines the required methods each processor must implement.
  */
 export abstract class GameProcessor {
-  protected transaction: Transaction
-  protected gameID: string
-  protected currentTurn?: Turn
-  protected latestMoves: Move[]
+  protected gameState: GameState
+  protected currentTurn: Turn | null
 
-  constructor(
-    transaction: Transaction,
-    gameID: string,
-    latestMoves: Move[],
-    currentTurn?: Turn,
-  ) {
-    this.transaction = transaction
-    this.gameID = gameID
-    this.currentTurn = currentTurn
-    this.latestMoves = latestMoves
+  constructor(gameState: GameState) {
+    this.gameState = gameState
+    this.currentTurn =
+      gameState.turns.length > 0
+        ? gameState.turns[gameState.turns.length - 1]
+        : null
   }
 
   /**
    * Initializes the game by setting up the board and creating the first turn.
    */
-  abstract initializeGame(gameState: GameState): Promise<void>
+  abstract initializeTurn(): Turn
 
   /**
-   * Applies the latest moves to the game board.
+   * Applies the latest moves to the gameState.
+   * Returns the latest turn so it can be added to the doc
    */
-  abstract applyMoves(): Promise<void>
+  abstract applyMoves(moves: Move[]): Turn | null
 
   /**
    * Determines if any player has met the win condition.
    * @returns An array of Winner objects.
    */
-  abstract findWinners(): Promise<Winner[]>
+  abstract findWinners(): Winner[]
 }

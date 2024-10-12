@@ -20,21 +20,28 @@ export interface Move {
 
 export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
 
+export interface Session {
+  timeCreated: Timestamp | FieldValue
+  latestGameID: string | null
+}
+
 // Updated GameState interface with the new 'winner' structure
 export interface GameState {
-  sessionName: string
-  sessionIndex: number
+  // sessionName: string
+  // sessionIndex: number
   gameType: GameType
   gamePlayers: GamePlayer[]
   boardWidth: number // The width of the board
   boardHeight: number // The height of the board
   winners: Winner[] // Updated to an array of winner objects
   started: boolean
-  nextGame: string // New field for the ID of the next game
+  // nextGame: string // New field for the ID of the next game
   maxTurnTime: number // Time limit per turn in seconds
   playersReady: string[]
   startRequested: boolean
   timeCreated: Timestamp | FieldValue
+  timeFinished: Timestamp | FieldValue | null
+  turns: Turn[]
 }
 
 export interface GamePlayer {

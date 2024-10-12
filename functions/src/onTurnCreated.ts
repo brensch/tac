@@ -6,10 +6,10 @@ import { Turn, Bot, Move } from "./types/Game" // Adjust the import path as nece
 import { FieldValue } from "firebase-admin/firestore"
 
 export const onTurnCreated = functions.firestore
-  .document("games/{gameID}/turns/{turnID}")
+  .document("sessions/{sessionID}/games/{gameID}/turns/{turnID}")
   .onCreate(async (snap, context) => {
     const turnData = snap.data() as Turn
-    const { gameID } = context.params
+    const { gameID, sessionID } = context.params
 
     logger.info(`Getting bot moves: ${gameID}`, { turnData })
 
@@ -164,7 +164,7 @@ export const onTurnCreated = functions.firestore
         // Store the move in the Firestore collection
         await admin
           .firestore()
-          .collection(`games/${gameID}/privateMoves`)
+          .collection(`sessions/${sessionID}/games/${gameID}/privateMoves`)
           .add(newMove)
 
         logger.info(`Successfully recorded move for bot ${bot.id}`, {

@@ -1,75 +1,74 @@
 // functions/src/utils/createNewGame.ts
 
 import { Timestamp, Transaction } from "firebase-admin/firestore"
-import { GameState } from "@shared/types/Game"
+import { GameState, GameType, Session } from "@shared/types/Game"
 import { logger } from "../logger"
 import * as admin from "firebase-admin"
 
 /**
  * Creates a new game after determining the winner(s).
  * @param transaction Firestore transaction object.
- * @param gameID The ID of the current game.
+//  * @param gameID The ID of the current game.
  */
 export async function createNewGame(
   transaction: Transaction,
-  gameID: string,
+  sessionName: string,
 ): Promise<void> {
   try {
     // Reference to the current game document
-    const gameRef = admin.firestore().collection("games").doc(gameID)
-    const gameDoc = await transaction.get(gameRef)
+    const sessionRef = admin.firestore().collection("sessions").doc(sessionName)
+    const sessionDoc = await transaction.get(sessionRef)
+    const sessionData = sessionDoc.data() as Session
 
-    if (!gameDoc.exists) {
-      logger.error("Game not found for creating a new game.", { gameID })
-      return
-    }
-
-    const gameData = gameDoc.data() as GameState
-
-    // Prevent creating a new game if one is already in progress
-    if (gameData.winners.length > 0 || gameData.nextGame !== "") {
-      logger.warn("New game already created.", { gameID })
-      return
+    let gameType: GameType = "snek"
+    let boardWidth = 11
+    let boardHeight = 11
+    let turnTime = 10
+    if (sessionData.latestGameID) {
+      const gameRef = sessionRef
+        .collection("games")
+        .doc(sessionData.latestGameID)
+      const gameDoc = await transaction.get(gameRef)
+      const gameData = gameDoc.data() as GameState
+      gameType = gameData.gameType
+      boardWidth = gameData.boardWidth
+      boardHeight = gameData.boardHeight
+      turnTime = gameData.maxTurnTime
     }
 
     // Generate a new unique game ID
-    const newGameRef = admin.firestore().collection("games").doc()
-
-    // Increment the session index for the new game
-    const newSessionIndex = gameData.sessionIndex + 1
+    const newGameRef = sessionRef.collection("games").doc()
 
     // Initialize a new game state
     const newGameState: GameState = {
-      sessionName: gameData.sessionName,
-      sessionIndex: newSessionIndex,
-      gameType: gameData.gameType,
+      gameType: gameType,
       gamePlayers: [], // New game starts with no players
-      boardWidth: gameData.boardWidth,
-      boardHeight: gameData.boardHeight,
+      boardWidth: boardWidth,
+      boardHeight: boardHeight,
       winners: [], // Initialize as empty array
       started: false, // Game has not started yet
-      nextGame: "", // No next game yet
-      maxTurnTime: gameData.maxTurnTime,
+      maxTurnTime: turnTime,
       playersReady: [], // Reset players ready
       startRequested: false,
       timeCreated: Timestamp.now(),
+      timeFinished: null,
     }
 
     // Set the new game document within the transaction
     transaction.set(newGameRef, newGameState)
 
     // Update the current game document's nextGame field to reference the new game
-    transaction.update(gameRef, { nextGame: newGameRef.id })
+    transaction.update(sessionRef, { latestGameID: newGameRef.id })
 
     logger.info(
-      `New game created with ID ${newGameRef.id} linked from game ${gameID}`,
+      `New game created with ID ${newGameRef.id} on sesh ${sessionName}`,
       {
         id: newGameRef.id,
-        linkedFromGameID: gameID,
+        sessionName: sessionName,
       },
     )
   } catch (error) {
-    logger.error(`Error creating new game for game ${gameID}:`, error)
+    logger.error(`Error creating new game for session ${sessionName}:`, error)
     throw error
   }
 }

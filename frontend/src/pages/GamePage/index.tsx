@@ -1,19 +1,22 @@
 import React from "react"
-import { useParams } from "react-router-dom"
-
 import { GameStateProvider } from "../../context/GameStateContext"
 import GameActive from "./GameActive"
 import GameHeader from "./GameHeader"
 import GameSetup from "./GameSetup"
 import GameFinished from "./GameFinished"
 
-const GamePage: React.FC = () => {
-  const { gameID } = useParams<{ gameID: string }>()
+// Define the props for the component
+interface GamePageProps {
+  gameID: string
+  sessionName: string
+}
 
-  if (!gameID) return
+const GamePage: React.FC<GamePageProps> = ({ gameID, sessionName }) => {
+  // If no gameID is passed, do nothing
+  if (!gameID) return null
 
   return (
-    <GameStateProvider key={gameID} gameID={gameID}>
+    <GameStateProvider key={gameID} gameID={gameID} sessionName={sessionName}>
       <GameHeader />
       <GameFinished />
       <GameSetup />

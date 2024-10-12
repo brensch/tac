@@ -55,6 +55,7 @@ interface GameStateContextType {
   gameType: GameType
   setGameType: React.Dispatch<React.SetStateAction<GameType>>
   players: Player[]
+  sessionName: string
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -64,7 +65,8 @@ const GameStateContext = createContext<GameStateContextType | undefined>(
 export const GameStateProvider: React.FC<{
   children: React.ReactNode
   gameID: string
-}> = ({ children, gameID }) => {
+  sessionName: string
+}> = ({ children, gameID, sessionName }) => {
   const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [humans, setHumans] = useState<Human[]>([])
@@ -88,7 +90,7 @@ export const GameStateProvider: React.FC<{
   // Subscribe to game document
   useEffect(() => {
     if (gameID && userID !== "") {
-      const gameDocRef = doc(db, "games", gameID)
+      const gameDocRef = doc(db, `sessions/${sessionName}/games`, gameID)
       const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
         if (!docSnapshot.exists()) {
           setError("Game not found.")
@@ -228,8 +230,8 @@ export const GameStateProvider: React.FC<{
       !latestTurn ||
       !currentTurn ||
       !gameState?.maxTurnTime ||
-      !gameID ||
-      gameState?.nextGame !== ""
+      !gameID
+      // gameState?.nextGame !== ""
     ) {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
@@ -375,6 +377,7 @@ export const GameStateProvider: React.FC<{
         gameType,
         setGameType,
         players: [...humans, ...bots],
+        sessionName,
       }}
     >
       {gameState ? (

@@ -6,10 +6,10 @@ import { processTurn } from "./gameprocessors/processTurn"
 import { Timestamp } from "firebase-admin/firestore"
 
 export const onMoveCreated = functions.firestore
-  .document("games/{gameID}/privateMoves/{moveID}")
+  .document("sessions/{sessionID}/games/{gameID}/privateMoves/{moveID}")
   .onCreate(async (snap, context) => {
     const moveData = snap.data() as Move
-    const { gameID } = context.params
+    const { gameID, sessionID } = context.params
 
     logger.info(`Processing move for gameID: ${gameID}`, { moveData })
 
@@ -17,7 +17,7 @@ export const onMoveCreated = functions.firestore
       // Get the current turn for the game based on the move's turn number
       const currentTurnRef = admin
         .firestore()
-        .collection(`games/${gameID}/turns`)
+        .collection(`sessions/${sessionID}/games/${gameID}/turns`)
         .doc(moveData.moveNumber.toString())
 
       const currentTurnDoc = await transaction.get(currentTurnRef)

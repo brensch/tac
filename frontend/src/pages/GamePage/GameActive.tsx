@@ -70,7 +70,7 @@ const GameActive: React.FC = () => {
         )}
 
       {/* Alert if player joined late */}
-      {!playerInCurrentGame && !gameState.nextGame && (
+      {!playerInCurrentGame && (
         <Alert severity="warning">
           This game started before you joined. Watch until the next game starts.
         </Alert>

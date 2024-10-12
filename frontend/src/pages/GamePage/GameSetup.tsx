@@ -30,15 +30,23 @@ import { GamePlayer, GameType } from "@shared/types/Game"
 import { getRulesComponent } from "./RulesDialog"
 
 const GameSetup: React.FC = () => {
-  const { gameID } = useParams<{ gameID: string }>()
   const { userID } = useUser()
-  const { gameState, players, bots, gameType, setGameType } =
-    useGameStateContext()
+  const {
+    gameState,
+    players,
+    bots,
+    gameType,
+    setGameType,
+    sessionName,
+    gameID,
+  } = useGameStateContext()
 
   const [boardWidth, setBoardWidth] = useState<string>("8")
   const [boardHeight, setBoardHeight] = useState<string>("8")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
+
+  const gameDocRef = doc(db, "sessions", sessionName, "games", gameID)
 
   // Update local state when gameState changes
   useEffect(() => {
@@ -52,49 +60,37 @@ const GameSetup: React.FC = () => {
 
   // Start game
   const handleReady = async () => {
-    if (gameState && gameID) {
-      const gameDocRef = doc(db, "games", gameID)
-      await updateDoc(gameDocRef, {
-        playersReady: arrayUnion(userID), // Add the current userID to playersReady array
-      })
-    }
+    await updateDoc(gameDocRef, {
+      playersReady: arrayUnion(userID), // Add the current userID to playersReady array
+    })
   }
 
   const handleAddBot = async (botID: string) => {
-    if (gameState && gameID) {
-      const gameDocRef = doc(db, "games", gameID)
-      const bot: GamePlayer = {
-        id: botID,
-        type: "bot",
-      }
-      await updateDoc(gameDocRef, {
-        gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
-      })
+    const bot: GamePlayer = {
+      id: botID,
+      type: "bot",
     }
+    await updateDoc(gameDocRef, {
+      gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
+    })
   }
 
   // Start game
   const handleStart = async () => {
-    if (gameState && gameID) {
-      const gameDocRef = doc(db, "games", gameID)
-      await updateDoc(gameDocRef, {
-        startRequested: true, // Add the current userID to playersReady array
-      })
-    }
+    await updateDoc(gameDocRef, {
+      startRequested: true, // Add the current userID to playersReady array
+    })
   }
 
   // Kick a player by removing their playerID from the playerIDs field
   const handleKick = async (playerID: string, type: "bot" | "human") => {
-    if (gameState && gameID) {
-      const gameDocRef = doc(db, "games", gameID)
-      const player: GamePlayer = {
-        id: playerID,
-        type: type,
-      }
-      await updateDoc(gameDocRef, {
-        gamePlayers: arrayRemove(player), // Remove the specified playerID from playerIDs array
-      })
+    const player: GamePlayer = {
+      id: playerID,
+      type: type,
     }
+    await updateDoc(gameDocRef, {
+      gamePlayers: arrayRemove(player), // Remove the specified playerID from playerIDs array
+    })
   }
 
   // Handle board width change
@@ -115,9 +111,8 @@ const GameSetup: React.FC = () => {
 
   // Update Firestore when the input loses focus
   const handleBoardWidthBlur = async () => {
-    if (gameID && !gameState?.started) {
+    if (!gameState?.started) {
       const newBoardWidth = parseInt(boardWidth, 10)
-      const gameDocRef = doc(db, "games", gameID)
 
       if (!isNaN(newBoardWidth) && newBoardWidth >= 5 && newBoardWidth <= 20) {
         await updateDoc(gameDocRef, {
@@ -132,9 +127,8 @@ const GameSetup: React.FC = () => {
 
   // Update Firestore when the input loses focus
   const handleBoardHeightBlur = async () => {
-    if (gameID && !gameState?.started) {
+    if (!gameState?.started) {
       const newBoardHeight = parseInt(boardHeight, 10)
-      const gameDocRef = doc(db, "games", gameID)
 
       if (
         !isNaN(newBoardHeight) &&
@@ -160,8 +154,7 @@ const GameSetup: React.FC = () => {
     setGameType(selectedGameType)
 
     // Update Firestore when game type is selected
-    if (gameID && !gameState?.started) {
-      const gameDocRef = doc(db, "games", gameID)
+    if (!gameState?.started) {
       await updateDoc(gameDocRef, { gameType: selectedGameType })
     }
   }
@@ -174,9 +167,8 @@ const GameSetup: React.FC = () => {
   }
 
   const handleSecondsPerTurnBlur = async () => {
-    if (gameID && !gameState?.started) {
+    if (!gameState?.started) {
       const newMaxTurnTime = parseInt(secondsPerTurn, 10)
-      const gameDocRef = doc(db, "games", gameID)
 
       if (!isNaN(newMaxTurnTime) && newMaxTurnTime > 0) {
         await updateDoc(gameDocRef, {
@@ -202,7 +194,6 @@ const GameSetup: React.FC = () => {
 
   return (
     <Stack spacing={2} pt={2}>
-      <Typography variant="h5">New Game</Typography>
       <Box sx={{ display: "flex", gap: 2 }}>
         <TextField
           label="Board Width"

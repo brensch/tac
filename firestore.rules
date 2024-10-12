@@ -2,11 +2,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    match /sessions/{sessionID} {
+      allow create: if request.auth.uid != null;
+      allow update, delete: if false;
+      allow read: if true;
+    }
+
     // Moves Collection
     // This section handles the creation of move documents in the `/privateMoves/` subcollection.
     // - Allows creation if the request is from a Cloud Function or if it comes from an authenticated user.
     // - Ensures the playerID matches the authenticated user's ID and verifies other necessary fields.
-    match /games/{gameID}/privateMoves/{moveID} {
+    match /sessions/{sessionID}/games/{gameID}/privateMoves/{moveID} {
       allow create: if (request.auth.token.firebase != null && 
                         request.auth.token.firebase.sign_in_provider == "firebase") || (
         request.auth.uid != null &&
@@ -24,7 +30,7 @@ service cloud.firestore {
     // This section handles the turn documents under the `/turns/` subcollection.
     // - Write access is restricted to Cloud Functions.
     // - Read access is allowed to everyone.
-    match /games/{gameID}/turns/{turnNumber} {
+    match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber} {
       allow write: if request.auth.token.firebase != null && 
                         request.auth.token.firebase.sign_in_provider == "firebase"; // Only Cloud Functions can write.
       allow read: if true; // Anyone can read.
@@ -33,16 +39,15 @@ service cloud.firestore {
     // Expiration Requests Subcollection within Turns
     // This allows creating and reading expiration request documents.
     // - Used for handling turn expiration logic.
-    match /games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
+    match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
       allow read, write: if true; // Anyone can read and write to expiration requests.
     }
 
-// Games Collection
-    match /games/{gameID} {
+    // Games Collection
+    match /sessions/{sessionID}/games/{gameID} {
       allow read: if true; // Allow all users to read the game document.
 
       allow create: if request.auth != null && (
-        request.resource.data.sessionName is string &&
         request.resource.data.gameType in ["connect4", "longboi", "tactictoes", "snek"] &&
         request.resource.data.sessionIndex == 0 &&
         request.resource.data.timeCreated == request.time &&
@@ -52,7 +57,6 @@ service cloud.firestore {
         request.resource.data.boardHeight is int && request.resource.data.boardHeight >= 5 &&
         request.resource.data.winners is list && request.resource.data.winners.size() == 0 &&
         request.resource.data.started == false &&
-        request.resource.data.nextGame == "" &&
         request.resource.data.maxTurnTime is int && request.resource.data.maxTurnTime > 0
       );
 
@@ -78,12 +82,9 @@ service cloud.firestore {
           request.resource.data.boardWidth >= 5 &&
           request.resource.data.boardHeight >= 5 &&
           request.resource.data.gamePlayers == resource.data.gamePlayers && // Ensure gamePlayers haven't changed
-          request.resource.data.sessionName == resource.data.sessionName &&
-          request.resource.data.sessionIndex == resource.data.sessionIndex &&
           request.resource.data.winners.size() == resource.data.winners.size() &&
           request.resource.data.winners == resource.data.winners &&
-          request.resource.data.started == resource.data.started &&
-          request.resource.data.nextGame == resource.data.nextGame
+          request.resource.data.started == resource.data.started
         )
         ||
         // Allow adding own UID to playersReady before the game starts
@@ -108,12 +109,7 @@ service cloud.firestore {
     // - Write access is allowed if the user is authenticated and owns the document or if it's created by a Cloud Function.
     // - Read access is allowed to all users.
     match /users/{userID} {
-      allow write: if request.auth.uid == userID || (
-        request.auth.token.firebase != null && 
-        request.auth.token.firebase.sign_in_provider == "firebase" &&
-        request.resource.data is map && 
-        request.resource.data.name is string && 
-        request.resource.data.createdAt == request.time); // Only authenticated users or Cloud Functions can write.
+      allow write: if request.auth.uid == userID;
       allow read: if true; // Anyone can read user documents.
     }
 
@@ -121,7 +117,7 @@ service cloud.firestore {
     // Allows creating and reading turn expiration requests.
     // - Only authenticated users can create expiration requests.
     // - Anyone can read the expiration requests.
-    match /games/{gameID}/turnExpirationRequests/{requestID} {
+    match /sessions/{sessionID}/games/{gameID}/turnExpirationRequests/{requestID} {
       allow create: if request.auth != null; // Authenticated users can create expiration requests.
       allow read: if true; // Anyone can read expiration requests.
     }

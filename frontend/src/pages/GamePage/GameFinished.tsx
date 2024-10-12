@@ -52,7 +52,7 @@ const GameFinished: React.FC = () => {
   const winners: Winner[] = gameState.winners || []
 
   // If there are no winners, display a message accordingly
-  const unFinished = gameState.nextGame === ""
+  const unFinished = gameState.winners.length === 0
   if (unFinished) return null
 
   // Get the top player's emoji for the EmojiRain effect
@@ -129,7 +129,7 @@ const GameFinished: React.FC = () => {
           </Table>
         </TableContainer>
 
-        {/* "Play Again?" Button */}
+        {/* "Play Again?" Button
         {gameState.nextGame !== "" && (
           <Button
             sx={{ my: 2, bgcolor: "green" }}
@@ -139,7 +139,7 @@ const GameFinished: React.FC = () => {
           >
             Play Again?
           </Button>
-        )}
+        )} */}
       </Box>
 
       {/* Emoji Rain Effect for Top Player */}

@@ -18,53 +18,51 @@ import { FirstMoveTimeoutSeconds } from "../timings"
  */
 export class Connect4Processor extends GameProcessor {
   constructor(
-    transaction: Transaction,
-    gameID: string,
-    latestMoves: Move[],
-    currentTurn?: Turn,
+    gameState: GameState, // transaction: Transaction, // gameID: string, // latestMoves: Move[], // currentTurn?: Turn,
   ) {
-    super(transaction, gameID, latestMoves, currentTurn)
+    super(gameState)
   }
 
-  /**
-   * Initializes the Connect4 game by setting up the initial turn.
-   * @param gameState The current state of the game.
-   */
-  async initializeGame(gameState: GameState): Promise<void> {
-    try {
-      const initialTurn = this.initializeTurn(gameState)
+  // /**
+  //  * Initializes the Connect4 game by setting up the initial turn.
+  //  * @param gameState The current state of the game.
+  //  */
+  // async initializeGame(): Turn {
+  //   try {
+  //     const initialTurn = this.initializeTurn(gameState)
 
-      // Construct DocumentReference for the first turn
-      const turnRef = admin
-        .firestore()
-        .collection(`games/${this.gameID}/turns`)
-        .doc("1")
+  //     // Construct DocumentReference for the first turn
+  //     const turnRef = admin
+  //       .firestore()
+  //       .collection(`games/${this.gameID}/turns`)
+  //       .doc("1")
 
-      // Set turn and update game within transaction
-      this.transaction.set(turnRef, initialTurn)
+  //     // Set turn and update game within transaction
+  //     this.transaction.set(turnRef, initialTurn)
 
-      // Reference to the game document
-      const gameRef = admin.firestore().collection("games").doc(this.gameID)
+  //     // Reference to the game document
+  //     const gameRef = admin.firestore().collection("games").doc(this.gameID)
 
-      // Update the game document to mark it as started
-      this.transaction.update(gameRef, { started: true })
+  //     // Update the game document to mark it as started
+  //     this.transaction.update(gameRef, { started: true })
 
-      logger.info(
-        `Connect4: Turn 1 created and game ${this.gameID} has started.`,
-      )
-    } catch (error) {
-      logger.error(`Connect4: Error initializing game ${this.gameID}:`, error)
-      throw error
-    }
-  }
+  //     logger.info(
+  //       `Connect4: Turn 1 created and game ${this.gameID} has started.`,
+  //     )
+  //   } catch (error) {
+  //     logger.error(`Connect4: Error initializing game ${this.gameID}:`, error)
+  //     throw error
+  //   }
+  // }
 
   /**
    * Initializes the first turn for Connect4.
    * @param gameState The current state of the game.
    * @returns The initial Turn object.
    */
-  private initializeTurn(gameState: GameState): Turn {
-    const { boardWidth, boardHeight, gamePlayers } = gameState
+  initializeTurn(): Turn {
+    const { boardWidth, boardHeight, gamePlayers, gameType, maxTurnTime } =
+      this.gameState
     const now = Date.now()
 
     // Initialize grid as an array of strings or null
@@ -88,11 +86,11 @@ export class Connect4Processor extends GameProcessor {
       turnNumber: 1,
       boardWidth: boardWidth,
       boardHeight: boardHeight,
-      gameType: gameState.gameType,
+      gameType: gameType,
       players: gamePlayers, // Use gamePlayers instead of playerIDs
       playerHealth: {}, // Not used in Connect4
       hasMoved: {},
-      turnTime: gameState.maxTurnTime,
+      turnTime: maxTurnTime,
       startTime: Timestamp.fromMillis(now),
       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
       scores: {}, // Not used at the start
@@ -143,132 +141,120 @@ export class Connect4Processor extends GameProcessor {
   /**
    * Applies the latest moves to the Connect4 game.
    */
-  async applyMoves(): Promise<void> {
-    if (!this.currentTurn) return
-    try {
-      const { boardWidth, boardHeight, playerPieces } = this.currentTurn
+  applyMoves(moves: Move[]): Turn | null {
+    if (!this.currentTurn) return null
+    const { boardWidth, boardHeight, playerPieces } = this.currentTurn
 
-      // Retrieve grid from the current turn
-      const grid: (string | null)[] = (this.currentTurn as any).grid
+    // Deep copy grid and playerPieces
+    const newPlayerPieces: { [playerID: string]: number[] } = {}
+    Object.keys(playerPieces).forEach((playerID) => {
+      newPlayerPieces[playerID] = [...playerPieces[playerID]]
+    })
 
-      // Deep copy grid and playerPieces
-      const newGrid = [...grid]
-      const newPlayerPieces: { [playerID: string]: number[] } = {}
-      Object.keys(playerPieces).forEach((playerID) => {
-        newPlayerPieces[playerID] = [...playerPieces[playerID]]
-      })
+    // Clashes array
+    const clashes: Clash[] = this.currentTurn.clashes
 
-      // Clashes array
-      const clashes: Clash[] = this.currentTurn.clashes
-        ? [...this.currentTurn.clashes]
-        : []
+    // Map to track moves to columns
+    const moveMap: { [column: number]: string[] } = {}
 
-      // Map to track moves to columns
-      const moveMap: { [column: number]: string[] } = {}
+    // Map to track the final positions of moves for each player
+    const latestMovePositions: { [playerID: string]: number } = {}
 
-      // Map to track the final positions of moves for each player
-      const latestMovePositions: { [playerID: string]: number } = {}
+    // Process latest moves
+    for (const move of moves) {
+      const { playerID, move: position } = move
 
-      // Process latest moves
-      for (const move of this.latestMoves) {
-        const { playerID, move: position } = move
-
-        // Validate move
-        const allowedMoves = this.currentTurn.allowedMoves[playerID]
-        if (!allowedMoves.includes(position)) {
-          logger.warn(
-            `Connect4: Invalid move by ${playerID} to position ${position}.`,
-          )
-          continue
-        }
-
-        if (!moveMap[position]) {
-          moveMap[position] = []
-        }
-        moveMap[position].push(playerID)
+      // Validate move
+      const allowedMoves = this.currentTurn.allowedMoves[playerID]
+      if (!allowedMoves.includes(position)) {
+        logger.warn(
+          `Connect4: Invalid move by ${playerID} to position ${position}.`,
+        )
+        continue
       }
 
-      // Process moves and handle clashes
-      for (const columnStr in moveMap) {
-        const column = parseInt(columnStr)
-        const players = moveMap[column]
-
-        // Determine the target position (lowest available position in the column)
-        let targetPosition = column
-        while (
-          targetPosition + boardWidth < boardWidth * boardHeight &&
-          newGrid[targetPosition + boardWidth] === null
-        ) {
-          targetPosition += boardWidth
-        }
-
-        if (
-          newGrid[targetPosition] !== null &&
-          newGrid[targetPosition] !== "clash"
-        ) {
-          // Column is full
-          logger.warn(
-            `Connect4: Column ${column} is full. Moves by players ${players.join(
-              ", ",
-            )} ignored.`,
-          )
-          continue
-        }
-
-        if (players.length === 1) {
-          const playerID = players[0]
-
-          // Place the piece at the target position
-          newGrid[targetPosition] = playerID
-
-          // Update the player's occupied positions
-          newPlayerPieces[playerID].push(targetPosition)
-
-          // Record the latest move position for the player
-          latestMovePositions[playerID] = targetPosition
-        } else {
-          // Clash occurs at targetPosition
-          logger.warn(
-            `Connect4: Clash at position ${targetPosition} by players ${players.join(
-              ", ",
-            )}.`,
-          )
-
-          // Record the clash
-          clashes.push({
-            index: targetPosition,
-            playerIDs: players,
-            reason: "Multiple players attempted to drop in the same column",
-          })
-
-          // Mark the grid position as a clash
-          newGrid[targetPosition] = "clash"
-        }
+      if (!moveMap[position]) {
+        moveMap[position] = []
       }
-
-      // Update allowed moves
-      const newAllowedMoves = this.calculateAllowedMoves(
-        newGrid,
-        boardWidth,
-        boardHeight,
-        this.currentTurn.players, // Use gamePlayers instead of playerIDs
-      )
-
-      // Update the current turn
-      ;(this.currentTurn as any).grid = newGrid
-      this.currentTurn.allowedMoves = newAllowedMoves
-      this.currentTurn.playerPieces = newPlayerPieces
-      this.currentTurn.clashes = clashes
-
-      // Store the latest move positions for use in findWinners
-      ;(this.currentTurn as any).latestMovePositions = latestMovePositions
-    } catch (error) {
-      logger.error(
-        `Connect4: Error applying moves for game ${this.gameID}:`,
-        error,
-      )
-      throw error
+      moveMap[position].push(playerID)
     }
+
+    // Process moves and handle clashes
+    for (const columnStr in moveMap) {
+      const column = parseInt(columnStr)
+      const players = moveMap[column]
+
+      // Determine the target position (lowest available position in the column)
+      let targetPosition = column
+      while (
+        targetPosition + boardWidth < boardWidth * boardHeight &&
+        newGrid[targetPosition + boardWidth] === null
+      ) {
+        targetPosition += boardWidth
+      }
+
+      if (
+        newGrid[targetPosition] !== null &&
+        newGrid[targetPosition] !== "clash"
+      ) {
+        // Column is full
+        logger.warn(
+          `Connect4: Column ${column} is full. Moves by players ${players.join(
+            ", ",
+          )} ignored.`,
+        )
+        continue
+      }
+
+      if (players.length === 1) {
+        const playerID = players[0]
+
+        // Place the piece at the target position
+        newGrid[targetPosition] = playerID
+
+        // Update the player's occupied positions
+        newPlayerPieces[playerID].push(targetPosition)
+
+        // Record the latest move position for the player
+        latestMovePositions[playerID] = targetPosition
+      } else {
+        // Clash occurs at targetPosition
+        logger.warn(
+          `Connect4: Clash at position ${targetPosition} by players ${players.join(
+            ", ",
+          )}.`,
+        )
+
+        // Record the clash
+        clashes.push({
+          index: targetPosition,
+          playerIDs: players,
+          reason: "Multiple players attempted to drop in the same column",
+        })
+
+        // Mark the grid position as a clash
+        newGrid[targetPosition] = "clash"
+      }
+    }
+
+    // Update allowed moves
+    const newAllowedMoves = this.calculateAllowedMoves(
+      newGrid,
+      boardWidth,
+      boardHeight,
+      currentTurn.players, // Use gamePlayers instead of playerIDs
+    )
+
+    // Update the current turn
+    ;(currentTurn as any).grid = newGrid
+    currentTurn.allowedMoves = newAllowedMoves
+    currentTurn.playerPieces = newPlayerPieces
+    currentTurn.clashes = clashes
+
+    // Store the latest move positions for use in findWinners
+    ;(currentTurn as any).latestMovePositions = latestMovePositions
+
+    return currentTurn
   }
 
   /**

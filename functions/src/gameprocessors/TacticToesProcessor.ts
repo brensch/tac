@@ -10,46 +10,46 @@ import { FirstMoveTimeoutSeconds } from "../timings"
  * Processor class for the TacticToes game logic.
  */
 export class TacticToesProcessor extends GameProcessor {
-  constructor(
-    transaction: Transaction,
-    gameID: string,
-    latestMoves: Move[],
-    currentTurn?: Turn,
-  ) {
-    super(transaction, gameID, latestMoves, currentTurn)
-  }
+  // constructor(
+  //   // transaction: Transaction,
+  //   // gameID: string,
+  //   // latestMoves: Move[],
+  //   // currentTurn?: Turn,
+  // ) {
+  //   // super(transaction, gameID, latestMoves, currentTurn)
+  // }
 
-  /**
-   * Initializes the TacticToes game by setting up the initial turn.
-   * @param gameState The current state of the game.
-   */
-  async initializeGame(gameState: GameState): Promise<void> {
-    try {
-      const initialTurn = this.initializeTurn(gameState)
+  // /**
+  //  * Initializes the TacticToes game by setting up the initial turn.
+  //  * @param gameState The current state of the game.
+  //  */
+  // async initializeGame(gameState: GameState): Promise<void> {
+  //   try {
+  //     const initialTurn = this.initializeTurn(gameState)
 
-      // Construct DocumentReference for the first turn
-      const turnRef = admin
-        .firestore()
-        .collection(`games/${this.gameID}/turns`)
-        .doc("1")
+  //     // Construct DocumentReference for the first turn
+  //     const turnRef = admin
+  //       .firestore()
+  //       .collection(`games/${this.gameID}/turns`)
+  //       .doc("1")
 
-      // Set turn and update game within transaction
-      this.transaction.set(turnRef, initialTurn)
+  //     // Set turn and update game within transaction
+  //     this.transaction.set(turnRef, initialTurn)
 
-      // Reference to the game document
-      const gameRef = admin.firestore().collection("games").doc(this.gameID)
+  //     // Reference to the game document
+  //     const gameRef = admin.firestore().collection("games").doc(this.gameID)
 
-      // Update the game document to mark it as started
-      this.transaction.update(gameRef, { started: true })
+  //     // Update the game document to mark it as started
+  //     this.transaction.update(gameRef, { started: true })
 
-      logger.info(
-        `TacticToes: Turn 1 created and game ${this.gameID} has started.`,
-      )
-    } catch (error) {
-      logger.error(`TacticToes: Error initializing game ${this.gameID}:`, error)
-      throw error
-    }
-  }
+  //     logger.info(
+  //       `TacticToes: Turn 1 created and game ${this.gameID} has started.`,
+  //     )
+  //   } catch (error) {
+  //     logger.error(`TacticToes: Error initializing game ${this.gameID}:`, error)
+  //     throw error
+  //   }
+  // }
 
   /**
    * Initializes the first turn for TacticToes.

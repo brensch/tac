@@ -11,7 +11,7 @@ import { Timestamp } from "firebase-admin/firestore"
  * Firestore Trigger to start the game when all players are ready.
  */
 export const onGameStarted = functions.firestore
-  .document("games/{gameID}")
+  .document("sessions/{sessionID}/games/{gameID}")
   .onUpdate(async (change, context) => {
     const beforeData = change.before.data() as GameState
     const afterData = change.after.data() as GameState
@@ -26,23 +26,6 @@ export const onGameStarted = functions.firestore
 
     // Use a transaction to ensure consistency
     await admin.firestore().runTransaction(async (transaction) => {
-      const gameRef = admin.firestore().collection("games").doc(gameID)
-
-      // Check if the first player became ready (playersReady length changed from 0 to 1)
-      if (
-        beforeData.playersReady.length === 0 &&
-        afterData.playersReady.length > 0
-      ) {
-        // Set firstPlayerReadyTime to now if the first player is ready
-        transaction.update(gameRef, {
-          firstPlayerReadyTime: Timestamp.now(),
-        })
-
-        logger.info(
-          `First player ready for game ${gameID}, firstPlayerReadyTime set.`,
-        )
-      }
-
       // If not all players are ready, exit early
       if (!allPlayersReady) {
         logger.info(`Not all players are ready for game ${gameID}.`)

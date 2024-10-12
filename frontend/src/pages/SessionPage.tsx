@@ -1,61 +1,64 @@
 import React, { useEffect, useState } from "react"
 import { Box, Stack, Typography } from "@mui/material"
 import { useNavigate, useParams } from "react-router-dom"
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-} from "firebase/firestore"
+import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore"
 import { db } from "../firebaseConfig"
+import { GameState, Session } from "@shared/types/Game"
+import GamePage from "./GamePage"
 
 const Sessionpage: React.FC = () => {
   const { sessionName } = useParams<{ sessionName: string }>()
+  const [session, setSession] = useState<Session | null>(null)
   const navigate = useNavigate()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchGame = async () => {
-      try {
-        // Query Firestore for the latest GameState with the provided sessionName
-        const gamesRef = collection(db, "games")
-        const q = query(
-          gamesRef,
-          where("sessionName", "==", sessionName),
-          orderBy("sessionIndex", "desc"),
-          limit(1),
-        )
-
-        const querySnapshot = await getDocs(q)
-        if (!querySnapshot.empty) {
-          const gameDoc = querySnapshot.docs[0]
-          const gameID = gameDoc.id
-          navigate(`/game/${gameID}`)
-        } else {
-          setErrorMessage("Session does not exist.")
-        }
-      } catch (error) {
-        console.error("Error fetching game:", error)
-        setErrorMessage("Error fetching session data.")
+    const createAndSubscribeToSession = async () => {
+      if (!sessionName) {
+        setErrorMessage("Invalid session name.")
+        return
       }
+
+      const sessionDocRef = doc(db, "sessions", sessionName)
+
+      try {
+        // Attempt to create the session document if it doesn't exist
+        const newSession: Session = {
+          latestGameID: null,
+          timeCreated: serverTimestamp(),
+        }
+
+        await setDoc(sessionDocRef, newSession, { merge: true })
+      } catch (error) {
+        // If there's an error creating the session, just log it and continue
+        console.log("Error creating session or session already exists: ", error)
+      }
+
+      // Listen to real-time updates for the session document
+      const unsubscribe = onSnapshot(sessionDocRef, (docSnapshot) => {
+        if (!docSnapshot.exists()) return
+
+        console.log("Session data:", docSnapshot.data())
+        setSession(docSnapshot.data() as Session)
+        // Handle session updates (e.g., update state or navigate)
+      })
+
+      // Cleanup the subscription on unmount
+      return () => unsubscribe()
     }
 
-    fetchGame()
+    createAndSubscribeToSession()
   }, [navigate, sessionName])
 
-  return (
-    <Stack
-      spacing={2}
-      direction="column"
-      alignItems="center"
-      justifyContent="center"
-      sx={{ height: "100vh" }}
-    >
-      {errorMessage ? (
-        <Typography>{errorMessage}</Typography>
-      ) : (
+  if (!session || !session.latestGameID || !sessionName) {
+    return (
+      <Stack
+        spacing={2}
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        sx={{ height: "100vh" }}
+      >
         <Box
           sx={{
             display: "flex",
@@ -64,11 +67,13 @@ const Sessionpage: React.FC = () => {
             height: "100vh", // Full viewport height
           }}
         >
-          <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+          <Box sx={{ fontSize: "10rem" }}>😎</Box>
         </Box>
-      )}
-    </Stack>
-  )
+      </Stack>
+    )
+  }
+
+  return <GamePage gameID={session.latestGameID} sessionName={sessionName} />
 }
 
 export default Sessionpage

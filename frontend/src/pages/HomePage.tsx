@@ -1,133 +1,119 @@
 import React, { useState } from "react"
-import { Button, Stack, TextField, Typography } from "@mui/material"
-import { useNavigate } from "react-router-dom"
 import {
-  addDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  serverTimestamp,
-} from "firebase/firestore"
-import { db } from "../firebaseConfig"
-import { GameState } from "@shared/types/Game"
+  Box,
+  IconButton,
+  InputAdornment,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material"
+import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
   const [sessionName, setSessionName] = useState("")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { colour } = useUser()
 
-  const handleNewGame = async () => {
-    try {
-      // Check if a game with the same sessionName already exists
-      const gameCollRef = collection(db, "games")
-      const gameQuery = query(
-        gameCollRef,
-        where("sessionName", "==", sessionName),
-      )
-      const querySnapshot = await getDocs(gameQuery)
-
-      if (!querySnapshot.empty) {
-        // If a game with the same sessionName exists, show the error message
-        setErrorMessage("Session already exists. Join instead?")
-        return
-      }
-
-      // Initialize the game with the user's ID
-      const newGame = initializeGame(sessionName)
-
-      console.log(newGame)
-
-      // Add the game to Firestore
-      const gameDocRef = await addDoc(gameCollRef, newGame)
-
-      // Navigate to the new game page using the generated document ID
-      navigate(`/game/${gameDocRef.id}`)
-    } catch (e) {
-      console.error("Error creating game: ", e)
-    }
-  }
-
-  const handleJoin = () => {
-    if (sessionName.trim()) {
-      navigate(`/session/${sessionName}`)
-    }
+  const handleNewGame = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault() // Prevent the form from submitting the traditional way
+    e.stopPropagation() // Stop propagation of the event
+    navigate(`/session/${sessionName}`)
   }
 
   return (
-    <Stack spacing={2} alignItems="left">
+    <Stack alignItems="left">
       <Typography pt={2} variant="h4" align="left" gutterBottom>
         Games entirely unrelated to toes*
       </Typography>
 
-      <TextField
-        fullWidth
-        value={sessionName}
-        // label="Session Name"
-        placeholder="Type your session name"
-        onChange={(e) => {
-          // Convert to lowercase and remove non-letter characters
-          const lowercaseValue = e.target.value
-            .toLowerCase()
-            .replace(/[^a-z]/g, "")
-          setSessionName(lowercaseValue)
-          setErrorMessage(null) // Clear error message on input change
-        }}
-        sx={{
-          pt: 10,
-          "& .MuiOutlinedInput-root": {
-            backgroundColor: colour, // Set background color to orange
-            "& fieldset": {
-              borderColor: "black", // Default border color
+      <Typography pt={10} variant="body2" align="left" gutterBottom>
+        Pick a word for your session. If you want to play with someone, use the
+        same word.
+      </Typography>
+      <form onSubmit={handleNewGame} style={{ width: "100%" }}>
+        <TextField
+          fullWidth
+          value={sessionName}
+          placeholder="Session name"
+          onChange={(e) => {
+            // Convert to lowercase and remove non-letter characters
+            const lowercaseValue = e.target.value
+              .toLowerCase()
+              .replace(/[^a-z]/g, "")
+            setSessionName(lowercaseValue)
+          }}
+          sx={{
+            pt: 3,
+            "& .MuiInputBase-root": {
+              height: "70px", // Adjust height here
+              backgroundColor: colour,
             },
-            "&:hover fieldset": {
-              borderColor: "black", // Border color when hovered
+            "& .MuiInputBase-input": {
+              fontSize: "28px", // Increase the font size here
             },
-            "&.Mui-focused fieldset": {
-              borderColor: "black", // Border color when focused
+          }}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <IconButton
+                  type="submit"
+                  sx={{
+                    color: "black",
+                    fontSize: "32px",
+                  }}
+                >
+                  🚀
+                </IconButton>
+              ),
             },
-            "& input": {
-              backgroundColor: colour, // Ensure the input area has the same background
-            },
-          },
-        }}
-      />
-      {errorMessage && (
+          }}
+        />
+      </form>
+      {/* {errorMessage && (
         <Typography color="error" variant="body2">
           {errorMessage}
         </Typography>
-      )}
+      )} */}
 
-      {/* Stack for the buttons in a row, taking full width */}
-      <Stack
-        direction="row"
-        spacing={2}
-        justifyContent="center"
-        alignItems="center"
+      {/* <Button
+        sx={{
+          background: colour,
+          mt: 2,
+        }}
+        onClick={handleNewGame}
       >
-        <Button
-          sx={{ flexGrow: 1 }}
-          onClick={handleNewGame}
-          disabled={sessionName === ""}
-        >
-          Start session
-        </Button>
-        <Button
-          sx={{ flexGrow: 1 }}
-          onClick={handleJoin}
-          disabled={sessionName === ""}
-        >
-          Join session
-        </Button>
-      </Stack>
-      <Typography pt={5} variant="body2" align="left" gutterBottom>
-        Create a new session name using a memorable word, or type in the word
-        your friend is yelling at you to join them.
-      </Typography>
+        Start session
+      </Button>
+      <Button
+        sx={{ flexGrow: 1, background: joinSessionColor, mt: 2 }}
+        onClick={handleJoin}
+      >
+        Join session
+      </Button> */}
 
-      <Typography pt={2} variant="body2" align="left" gutterBottom>
+      <Typography
+        pt={2}
+        variant="body2"
+        sx={{
+          border: "1px solid",
+          borderImage:
+            "linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1",
+          borderRadius: 0,
+          mt: 15,
+          px: 2,
+          py: 1,
+          display: "flex", // Ensures the emoji and text are inline
+          alignItems: "center", // Vertically centers the text and emoji
+        }}
+      >
+        <Box
+          role="img"
+          aria-label="dancing emoji"
+          sx={{ mr: 2, fontSize: "30px" }}
+        >
+          🕺
+        </Box>
         Ugly colour? Uninspired emoji? Edit it in the top right.
       </Typography>
       <Typography
@@ -159,26 +145,3 @@ const HomePage: React.FC = () => {
 }
 
 export default HomePage
-
-// Function to initialize a new game
-const initializeGame = (
-  sessionName: string,
-  boardWidth: number = 8,
-  boardHeight: number = 8,
-): GameState => {
-  return {
-    sessionName: sessionName,
-    gameType: "snek",
-    sessionIndex: 0,
-    playersReady: [],
-    boardWidth: boardWidth,
-    boardHeight: boardHeight,
-    winners: [], // Initialize as empty array
-    started: false,
-    nextGame: "",
-    maxTurnTime: 10, // Default time limit per turn in seconds
-    startRequested: false,
-    timeCreated: serverTimestamp(),
-    gamePlayers: [],
-  }
-}
