@@ -1,68 +1,24 @@
-import { GameProcessor } from "./GameProcessor"
-import {
-  Winner,
-  Turn,
-  Move,
-  GameState,
-  Clash,
-  GamePlayer,
-} from "@shared/types/Game"
-import { logger } from "../logger"
-import * as admin from "firebase-admin"
-import { FieldValue, Transaction } from "firebase-admin/firestore"
+import { GamePlayer, GameSetup, Move, Turn, Winner } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
-import { FirstMoveTimeoutSeconds } from "../timings"
+import { logger } from "../logger"
+import { GameProcessor } from "./GameProcessor"
 
 /**
  * Processor class for the Connect4 game logic.
  */
 export class Connect4Processor extends GameProcessor {
   constructor(
-    gameState: GameState, // transaction: Transaction, // gameID: string, // latestMoves: Move[], // currentTurn?: Turn,
+    gameSetup: GameSetup, // transaction: Transaction, // gameID: string, // latestMoves: Move[], // currentTurn?: Turn,
   ) {
-    super(gameState)
+    super(gameSetup)
   }
-
-  // /**
-  //  * Initializes the Connect4 game by setting up the initial turn.
-  //  * @param gameState The current state of the game.
-  //  */
-  // async initializeGame(): Turn {
-  //   try {
-  //     const initialTurn = this.initializeTurn(gameState)
-
-  //     // Construct DocumentReference for the first turn
-  //     const turnRef = admin
-  //       .firestore()
-  //       .collection(`games/${this.gameID}/turns`)
-  //       .doc("1")
-
-  //     // Set turn and update game within transaction
-  //     this.transaction.set(turnRef, initialTurn)
-
-  //     // Reference to the game document
-  //     const gameRef = admin.firestore().collection("games").doc(this.gameID)
-
-  //     // Update the game document to mark it as started
-  //     this.transaction.update(gameRef, { started: true })
-
-  //     logger.info(
-  //       `Connect4: Turn 1 created and game ${this.gameID} has started.`,
-  //     )
-  //   } catch (error) {
-  //     logger.error(`Connect4: Error initializing game ${this.gameID}:`, error)
-  //     throw error
-  //   }
-  // }
 
   /**
    * Initializes the first turn for Connect4.
-   * @param gameState The current state of the game.
    * @returns The initial Turn object.
    */
-  initializeTurn(): Turn {
-    const { boardWidth, boardHeight, gamePlayers } = this.gameState.Setup
-    const now = Date.now()
+  firstTurn(): Turn {
+    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
 
     // Initialize grid as an array of strings or null
     const grid: (string | null)[] = Array(boardWidth * boardHeight).fill(null)
@@ -81,9 +37,14 @@ export class Connect4Processor extends GameProcessor {
       gamePlayers,
     )
 
+    // cannot put server timestamps in arrays
+    // turn start always controlled by server so all g
+    const now = Date.now()
+
     const firstTurn: Turn = {
       playerHealth: {}, // Not used in Connect4
-      startTime: FieldValue.serverTimestamp(),
+      startTime: Timestamp.fromMillis(now),
+      endTime: Timestamp.fromMillis(now + 60 * 1000), // Add 60 seconds to the current time
       scores: {}, // Not used at the start
       alivePlayers: gamePlayers.map((player) => player.id), // Use player IDs
       allowedMoves: allowedMoves,
@@ -131,11 +92,9 @@ export class Connect4Processor extends GameProcessor {
   /**
    * Applies the latest moves to the Connect4 game and creates the nextTurn object.
    */
-  applyMoves(moves: Move[]): Turn | null {
-    if (!this.currentTurn) return null
-
-    const { playerPieces, allowedMoves, clashes } = this.currentTurn
-    const { boardWidth, boardHeight } = this.gameState
+  applyMoves(currentTurn: Turn, moves: Move[]): Turn {
+    const { playerPieces, allowedMoves, clashes } = currentTurn
+    const { boardWidth, boardHeight } = this.gameSetup
 
     // Deep copy playerPieces
     const newPlayerPieces: { [playerID: string]: number[] } = {}
@@ -241,14 +200,16 @@ export class Connect4Processor extends GameProcessor {
       }
     })
 
+    const now = Date.now()
+
     // Create the nextTurn object
     const nextTurn: Turn = {
-      ...this.currentTurn,
+      ...currentTurn,
       playerPieces: newPlayerPieces,
       allowedMoves: newAllowedMoves,
       clashes,
       moves: latestMovePositions,
-      startTime: FieldValue.serverTimestamp(),
+      startTime: Timestamp.fromMillis(now),
     }
 
     return nextTurn
@@ -258,16 +219,15 @@ export class Connect4Processor extends GameProcessor {
    * Finds winners based on the current state of the grid.
    * @returns An array of Winner objects.
    */
-  findWinners(): Winner[] {
-    if (!this.currentTurn) return []
+  findWinners(currentTurn: Turn): Winner[] {
     try {
-      const { boardWidth, boardHeight, gamePlayers } = this.gameState
-      const grid: (string | null)[] = (this.currentTurn as any).grid
+      const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
+      const grid: (string | null)[] = (currentTurn as any).grid
       const latestMovePositions: { [playerID: string]: number } =
-        (this.currentTurn as any).latestMovePositions || {}
+        (currentTurn as any).latestMovePositions || {}
 
-      if (this.currentTurn.moves.length === 0) {
-        return this.currentTurn.alivePlayers.map((playerID) => ({
+      if (currentTurn.moves.length === 0) {
+        return currentTurn.alivePlayers.map((playerID) => ({
           playerID,
           score: 0,
           winningSquares: [],
@@ -323,24 +283,24 @@ export class Connect4Processor extends GameProcessor {
 
           // Avoid duplicate clashes at the same position
           if (
-            (this.currentTurn.clashes || []).some(
+            (currentTurn.clashes || []).some(
               (clash) => clash.index === latestMovePos,
             )
           ) {
             continue
           }
 
-          this.currentTurn.clashes!.push({
+          currentTurn.clashes!.push({
             index: latestMovePos,
             playerIDs: winners,
             reason: "Multiple players achieved a winning line simultaneously",
           })
 
           // Update grid to reflect the clash
-          ;(this.currentTurn as any).grid[latestMovePos] = "clash"
+          ;(currentTurn as any).grid[latestMovePos] = "clash"
 
           // Remove the piece from playerPieces
-          const playerPieces = this.currentTurn.playerPieces[playerID]
+          const playerPieces = currentTurn.playerPieces[playerID]
           const index = playerPieces.indexOf(latestMovePos)
           if (index !== -1) {
             playerPieces.splice(index, 1)
@@ -367,10 +327,7 @@ export class Connect4Processor extends GameProcessor {
       // Game continues
       return []
     } catch (error) {
-      logger.error(
-        `Connect4: Error finding winners for game ${this.gameID}:`,
-        error,
-      )
+      logger.error(`Connect4: Error finding winners for game `, error)
       throw error
     }
   }

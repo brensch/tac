@@ -7,12 +7,12 @@ import {
   Timestamp,
   FieldValue,
 } from "firebase-admin/firestore"
-import { Move, GameState } from "@shared/types/Game"
+import { Move, GameState, MoveStatus } from "@shared/types/Game"
 import { getGameProcessor } from "./ProcessorFactory"
 import { logger } from "../logger"
 import { createNewGame } from "../utils/createNewGame" // Adjust the path as necessary
 import * as admin from "firebase-admin"
-import { createNextTurn } from "../utils/createNextTurn"
+// import { createNextTurn } from "../utils/createNextTurn"
 
 /**
  * Processes a single turn in the game by applying moves and determining winners.
@@ -107,18 +107,18 @@ export async function processTurn(
     }
 
     // Instantiate the appropriate processor using the factory
-    const processor = getGameProcessor(gameState)
+    const processor = getGameProcessor(gameState.setup)
 
     if (!processor) {
       logger.error(`No processor available `, { gameID })
-      throw `processor not known: ${gameState.Setup.gameType}`
+      throw `processor not known: ${gameState.setup.gameType}`
     }
     // Apply the latest moves to the game board
-    const nextTurn = await processor.applyMoves(latestMoves)
+    const nextTurn = await processor.applyMoves(currentTurn, latestMoves)
     logger.info(`Moves applied for game ${gameID} in round ${turnNumber}`)
 
     // Determine if there are any winners
-    const winners = await processor.findWinners()
+    const winners = await processor.findWinners(currentTurn)
     logger.info(`Winners found for game ${gameID} in round ${turnNumber}`, {
       winners,
     })
@@ -128,9 +128,20 @@ export async function processTurn(
       turns: FieldValue.arrayUnion(nextTurn), // Append 'nextTurn' to the 'turns' array
     })
 
+    // create the movestatus for players to write to
+    const moveStatusRef = admin
+      .firestore()
+      .collection(`sessions/${sessionID}/games/${gameID}/statuses`)
+      .doc("0")
+    const moveStatus: MoveStatus = {
+      alivePlayerIDs: nextTurn.alivePlayers,
+      movedPlayerIDs: [],
+    }
+    transaction.set(moveStatusRef, moveStatus)
+
     if (winners.length > 0) {
       // Create a new game after updating the current game with winners
-      await createNewGame(transaction, gameID)
+      await createNewGame(transaction, gameID, gameState.setup)
       // set gameover so that when nextturn gets created it has the gameover state
       logger.info(
         `Winners found for game ${gameID} in round ${turnNumber}. New game created.`,
@@ -145,17 +156,17 @@ export async function processTurn(
     } else {
       logger.info(`No winners yet for game ${gameID} in round ${turnNumber}`)
     }
-    // record latest moves
-    let moves: {
-      [playerID: string]: number
-    } = {}
-    latestMoves.forEach((move) => (moves[move.playerID] = move.move))
-    currentTurn.moves = moves
-    logger.info("got turn", currentTurn)
-    await createNextTurn(transaction, gameID, currentTurn)
-    logger.info(
-      `New turn created for game ${gameID} in round ${turnNumber + 1}`,
-    )
+    // // record latest moves
+    // let moves: {
+    //   [playerID: string]: number
+    // } = {}
+    // latestMoves.forEach((move) => (moves[move.playerID] = move.move))
+    // currentTurn.moves = moves
+    // logger.info("got turn", currentTurn)
+    // await createNextTurn(transaction, gameID, currentTurn)
+    // logger.info(
+    //   `New turn created for game ${gameID} in round ${turnNumber + 1}`,
+    // )
   } catch (error) {
     logger.error(
       `Error processing turn ${turnNumber} for game ${gameID}:`,

@@ -1,9 +1,9 @@
 // functions/src/utils/createNewGame.ts
 
-import { Timestamp, Transaction } from "firebase-admin/firestore"
-import { GameSetup, GameState, GameType, Session } from "@shared/types/Game"
-import { logger } from "../logger"
+import { GameSetup, GameType } from "@shared/types/Game"
 import * as admin from "firebase-admin"
+import { Timestamp, Transaction } from "firebase-admin/firestore"
+import { logger } from "../logger"
 
 /**
  * Creates a new game after determining the winner(s).
@@ -16,19 +16,11 @@ export async function createNewGame(
   previousSetup: GameSetup | null,
 ): Promise<void> {
   try {
-    // const sessionDoc = await transaction.get(sessionRef)
-    // const sessionData = sessionDoc.data() as Session
-
     let gameType: GameType = "snek"
     let boardWidth = 11
     let boardHeight = 11
     let turnTime = 10
     if (previousSetup) {
-      // const gameRef = sessionRef
-      //   .collection("games")
-      //   .doc(sessionData.latestGameID)
-      // const gameDoc = await transaction.get(gameRef)
-      // const gameData = gameDoc.data() as GameState
       gameType = previousSetup.gameType
       boardWidth = previousSetup.boardWidth
       boardHeight = previousSetup.boardHeight
@@ -45,6 +37,7 @@ export async function createNewGame(
       playersReady: [], // Reset players ready
       startRequested: false,
       timeCreated: Timestamp.now(),
+      started: false,
     }
 
     // Reference to the current session document

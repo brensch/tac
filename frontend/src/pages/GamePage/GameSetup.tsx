@@ -32,13 +32,14 @@ import { getRulesComponent } from "./RulesDialog"
 const GameSetup: React.FC = () => {
   const { userID } = useUser()
   const {
-    gameState,
+    gameSetup,
     players,
     bots,
     gameType,
     setGameType,
     sessionName,
     gameID,
+    gameState,
   } = useGameStateContext()
 
   const [boardWidth, setBoardWidth] = useState<string>("8")
@@ -46,17 +47,17 @@ const GameSetup: React.FC = () => {
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
 
-  const gameDocRef = doc(db, "sessions", sessionName, "games", gameID)
+  const gameDocRef = doc(db, "sessions", sessionName, "setups", gameID)
 
-  // Update local state when gameState changes
+  // Update local state when gameSetup changes
   useEffect(() => {
-    if (gameState) {
-      setBoardWidth(`${gameState.boardWidth}`)
-      setBoardHeight(`${gameState.boardHeight}`)
-      if (gameState.gameType) setGameType(gameState.gameType)
-      setSecondsPerTurn(`${gameState.maxTurnTime}`)
+    if (gameSetup) {
+      setBoardWidth(`${gameSetup.boardWidth}`)
+      setBoardHeight(`${gameSetup.boardHeight}`)
+      if (gameSetup.gameType) setGameType(gameSetup.gameType)
+      setSecondsPerTurn(`${gameSetup.maxTurnTime}`)
     }
-  }, [gameState])
+  }, [gameSetup])
 
   // Start game
   const handleReady = async () => {
@@ -111,7 +112,7 @@ const GameSetup: React.FC = () => {
 
   // Update Firestore when the input loses focus
   const handleBoardWidthBlur = async () => {
-    if (!gameState?.started) {
+    if (!gameSetup?.started) {
       const newBoardWidth = parseInt(boardWidth, 10)
 
       if (!isNaN(newBoardWidth) && newBoardWidth >= 5 && newBoardWidth <= 20) {
@@ -127,7 +128,7 @@ const GameSetup: React.FC = () => {
 
   // Update Firestore when the input loses focus
   const handleBoardHeightBlur = async () => {
-    if (!gameState?.started) {
+    if (!gameSetup?.started) {
       const newBoardHeight = parseInt(boardHeight, 10)
 
       if (
@@ -154,7 +155,7 @@ const GameSetup: React.FC = () => {
     setGameType(selectedGameType)
 
     // Update Firestore when game type is selected
-    if (!gameState?.started) {
+    if (!gameSetup?.started) {
       await updateDoc(gameDocRef, { gameType: selectedGameType })
     }
   }
@@ -167,7 +168,7 @@ const GameSetup: React.FC = () => {
   }
 
   const handleSecondsPerTurnBlur = async () => {
-    if (!gameState?.started) {
+    if (!gameSetup?.started) {
       const newMaxTurnTime = parseInt(secondsPerTurn, 10)
 
       if (!isNaN(newMaxTurnTime) && newMaxTurnTime > 0) {
@@ -185,12 +186,12 @@ const GameSetup: React.FC = () => {
   }
 
   useEffect(() => {
-    setRulesComponent(() => getRulesComponent(gameState?.gameType))
-  }, [gameState?.gameType])
+    setRulesComponent(() => getRulesComponent(gameSetup?.gameType))
+  }, [gameSetup?.gameType])
 
-  if (!gameState || gameState.started) return null
+  if (gameState || !gameSetup) return null
 
-  const { started, playersReady } = gameState
+  const { started, playersReady } = gameSetup
 
   return (
     <Stack spacing={2} pt={2}>
@@ -213,7 +214,7 @@ const GameSetup: React.FC = () => {
           disabled={started}
           fullWidth
         />
-        {gameState.boardWidth < 5 && (
+        {gameSetup.boardWidth < 5 && (
           <Typography color="error">Board needs to be bigger than 4</Typography>
         )}
 
@@ -300,31 +301,31 @@ const GameSetup: React.FC = () => {
         </Paper>
       )}
       {/* Ready Section */}
-      {!gameState.gamePlayers
+      {!gameSetup.gamePlayers
         .filter((gamePlayer) => gamePlayer.type === "human")
         .map((human) => human.id)
-        .every((player) => gameState.playersReady.includes(player)) ? (
+        .every((player) => gameSetup.playersReady.includes(player)) ? (
         <Button
           variant="contained"
           disabled={
             started ||
-            gameState.boardWidth < 5 ||
-            gameState.boardWidth > 20 ||
+            gameSetup.boardWidth < 5 ||
+            gameSetup.boardWidth > 20 ||
             parseInt(secondsPerTurn) <= 0 ||
-            gameState.playersReady.includes(userID)
+            gameSetup.playersReady.includes(userID)
           }
           onClick={handleReady}
           fullWidth
         >
           <Typography variant="body2">
-            {gameState.playersReady.includes(userID)
+            {gameSetup.playersReady.includes(userID)
               ? `Waiting for others`
               : "Ready?"}
           </Typography>
         </Button>
       ) : (
         <Button
-          disabled={gameState.startRequested}
+          disabled={gameSetup.startRequested}
           variant="contained"
           onClick={handleStart}
           fullWidth
@@ -343,7 +344,7 @@ const GameSetup: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {gameState.gamePlayers.map((gamePlayer) => {
+            {gameSetup.gamePlayers.map((gamePlayer) => {
               const player = players.find(
                 (player) => player.id === gamePlayer.id,
               )

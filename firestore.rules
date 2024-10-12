@@ -1,132 +1,135 @@
 rules_version = '2'; 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    match /sessions/{sessionID} {
-      allow create: if request.auth.uid != null;
-      allow update, delete: if false;
-      allow read: if true;
+    match /{document=**} {
+      // Allow anyone to read and write any document
+      allow read, write: if true;
     }
+    // match /sessions/{sessionID} {
+    //   allow create: if request.auth.uid != null;
+    //   allow update, delete: if false;
+    //   allow read: if true;
+    // }
 
-    // Moves Collection
-    // This section handles the creation of move documents in the `/privateMoves/` subcollection.
-    // - Allows creation if the request is from a Cloud Function or if it comes from an authenticated user.
-    // - Ensures the playerID matches the authenticated user's ID and verifies other necessary fields.
-    match /sessions/{sessionID}/games/{gameID}/privateMoves/{moveID} {
-      allow create: if (request.auth.token.firebase != null && 
-                        request.auth.token.firebase.sign_in_provider == "firebase") || (
-        request.auth.uid != null &&
-        request.resource.data.playerID == request.auth.uid &&
-        request.resource.data.timestamp == request.time &&
-        request.resource.data.moveNumber is int &&
-        request.resource.data.move is int &&
-        request.resource.data.gameID == gameID
-      );
-      allow update, delete: if false; // Disallow updates or deletes for moves.
-      allow read: if request.auth.uid == resource.data.playerID; // Allow reading moves only if the player owns them.
-    }
+  //   // Moves Collection
+  //   // This section handles the creation of move documents in the `/privateMoves/` subcollection.
+  //   // - Allows creation if the request is from a Cloud Function or if it comes from an authenticated user.
+  //   // - Ensures the playerID matches the authenticated user's ID and verifies other necessary fields.
+  //   match /sessions/{sessionID}/games/{gameID}/privateMoves/{moveID} {
+  //     allow create: if (request.auth.token.firebase != null && 
+  //                       request.auth.token.firebase.sign_in_provider == "firebase") || (
+  //       request.auth.uid != null &&
+  //       request.resource.data.playerID == request.auth.uid &&
+  //       request.resource.data.timestamp == request.time &&
+  //       request.resource.data.moveNumber is int &&
+  //       request.resource.data.move is int &&
+  //       request.resource.data.gameID == gameID
+  //     );
+  //     allow update, delete: if false; // Disallow updates or deletes for moves.
+  //     allow read: if request.auth.uid == resource.data.playerID; // Allow reading moves only if the player owns them.
+  //   }
 
-    // Turns Collection
-    // This section handles the turn documents under the `/turns/` subcollection.
-    // - Write access is restricted to Cloud Functions.
-    // - Read access is allowed to everyone.
-    match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber} {
-      allow write: if request.auth.token.firebase != null && 
-                        request.auth.token.firebase.sign_in_provider == "firebase"; // Only Cloud Functions can write.
-      allow read: if true; // Anyone can read.
-    }
+  //   // Turns Collection
+  //   // This section handles the turn documents under the `/turns/` subcollection.
+  //   // - Write access is restricted to Cloud Functions.
+  //   // - Read access is allowed to everyone.
+  //   match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber} {
+  //     allow write: if request.auth.token.firebase != null && 
+  //                       request.auth.token.firebase.sign_in_provider == "firebase"; // Only Cloud Functions can write.
+  //     allow read: if true; // Anyone can read.
+  //   }
 
-    // Expiration Requests Subcollection within Turns
-    // This allows creating and reading expiration request documents.
-    // - Used for handling turn expiration logic.
-    match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
-      allow read, write: if true; // Anyone can read and write to expiration requests.
-    }
+  //   // Expiration Requests Subcollection within Turns
+  //   // This allows creating and reading expiration request documents.
+  //   // - Used for handling turn expiration logic.
+  //   match /sessions/{sessionID}/games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID} {
+  //     allow read, write: if true; // Anyone can read and write to expiration requests.
+  //   }
 
-    // Games Collection
-    match /sessions/{sessionID}/games/{gameID} {
-      allow read: if true; // Allow all users to read the game document.
+  //   // Games Collection
+  //   match /sessions/{sessionID}/games/{gameID} {
+  //     allow read: if true; // Allow all users to read the game document.
 
-      allow create: if request.auth != null && (
-        request.resource.data.gameType in ["connect4", "longboi", "tactictoes", "snek"] &&
-        request.resource.data.sessionIndex == 0 &&
-        request.resource.data.timeCreated == request.time &&
-        request.resource.data.gamePlayers is list && request.resource.data.gamePlayers.size() == 0 && // Empty gamePlayers list
-        request.resource.data.playersReady is list && request.resource.data.playersReady.size() == 0 &&
-        request.resource.data.boardWidth is int && request.resource.data.boardWidth >= 5 &&
-        request.resource.data.boardHeight is int && request.resource.data.boardHeight >= 5 &&
-        request.resource.data.winners is list && request.resource.data.winners.size() == 0 &&
-        request.resource.data.started == false &&
-        request.resource.data.maxTurnTime is int && request.resource.data.maxTurnTime > 0
-      );
+  //     allow create: if request.auth != null && (
+  //       request.resource.data.gameType in ["connect4", "longboi", "tactictoes", "snek"] &&
+  //       request.resource.data.sessionIndex == 0 &&
+  //       request.resource.data.timeCreated == request.time &&
+  //       request.resource.data.gamePlayers is list && request.resource.data.gamePlayers.size() == 0 && // Empty gamePlayers list
+  //       request.resource.data.playersReady is list && request.resource.data.playersReady.size() == 0 &&
+  //       request.resource.data.boardWidth is int && request.resource.data.boardWidth >= 5 &&
+  //       request.resource.data.boardHeight is int && request.resource.data.boardHeight >= 5 &&
+  //       request.resource.data.winners is list && request.resource.data.winners.size() == 0 &&
+  //       request.resource.data.started == false &&
+  //       request.resource.data.maxTurnTime is int && request.resource.data.maxTurnTime > 0
+  //     );
 
-      allow update: if request.auth != null && (
-        // Allow adding a player (human or bot) before the game starts
-        (
-          !resource.data.started && // Game hasn't started yet
-          request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() + 1 && // One more player added
-          request.resource.data.gamePlayers.hasAll(resource.data.gamePlayers) && // All previous players are still in the list
-          !resource.data.gamePlayers.hasAny([request.auth.uid]) // The current user wasn't already in the game
-        )
-        ||
-        // Allow removing a player (kicking a player) by any authenticated user
-        (
-          request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() - 1 && // One player removed
-          resource.data.gamePlayers.hasAll(request.resource.data.gamePlayers) // All remaining players are still in the list
-        )
-        ||
-        // Allow updating game settings (maxTurnTime, boardWidth, boardHeight) before the game starts
-        (
-          !resource.data.started &&
-          request.resource.data.maxTurnTime > 0 &&
-          request.resource.data.boardWidth >= 5 &&
-          request.resource.data.boardHeight >= 5 &&
-          request.resource.data.gamePlayers == resource.data.gamePlayers && // Ensure gamePlayers haven't changed
-          request.resource.data.winners.size() == resource.data.winners.size() &&
-          request.resource.data.winners == resource.data.winners &&
-          request.resource.data.started == resource.data.started
-        )
-        ||
-        // Allow adding own UID to playersReady before the game starts
-        (
-          !resource.data.started &&
-          request.resource.data.playersReady.size() == resource.data.playersReady.size() + 1 &&
-          request.resource.data.playersReady.hasAll(resource.data.playersReady) &&
-          request.resource.data.playersReady.hasAny([request.auth.uid]) &&
-          !resource.data.playersReady.hasAny([request.auth.uid])
-        )
-      ) &&
-      (
-        // Ensure 'winners' array is unchanged or empty
-        request.resource.data.winners == resource.data.winners
-      );
-    }
+  //     allow update: if request.auth != null && (
+  //       // Allow adding a player (human or bot) before the game starts
+  //       (
+  //         !resource.data.started && // Game hasn't started yet
+  //         request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() + 1 && // One more player added
+  //         request.resource.data.gamePlayers.hasAll(resource.data.gamePlayers) && // All previous players are still in the list
+  //         !resource.data.gamePlayers.hasAny([request.auth.uid]) // The current user wasn't already in the game
+  //       )
+  //       ||
+  //       // Allow removing a player (kicking a player) by any authenticated user
+  //       (
+  //         request.resource.data.gamePlayers.size() == resource.data.gamePlayers.size() - 1 && // One player removed
+  //         resource.data.gamePlayers.hasAll(request.resource.data.gamePlayers) // All remaining players are still in the list
+  //       )
+  //       ||
+  //       // Allow updating game settings (maxTurnTime, boardWidth, boardHeight) before the game starts
+  //       (
+  //         !resource.data.started &&
+  //         request.resource.data.maxTurnTime > 0 &&
+  //         request.resource.data.boardWidth >= 5 &&
+  //         request.resource.data.boardHeight >= 5 &&
+  //         request.resource.data.gamePlayers == resource.data.gamePlayers && // Ensure gamePlayers haven't changed
+  //         request.resource.data.winners.size() == resource.data.winners.size() &&
+  //         request.resource.data.winners == resource.data.winners &&
+  //         request.resource.data.started == resource.data.started
+  //       )
+  //       ||
+  //       // Allow adding own UID to playersReady before the game starts
+  //       (
+  //         !resource.data.started &&
+  //         request.resource.data.playersReady.size() == resource.data.playersReady.size() + 1 &&
+  //         request.resource.data.playersReady.hasAll(resource.data.playersReady) &&
+  //         request.resource.data.playersReady.hasAny([request.auth.uid]) &&
+  //         !resource.data.playersReady.hasAny([request.auth.uid])
+  //       )
+  //     ) &&
+  //     (
+  //       // Ensure 'winners' array is unchanged or empty
+  //       request.resource.data.winners == resource.data.winners
+  //     );
+  //   }
   
 
 
-    // Users Collection
-    // This governs access to the user document.
-    // - Write access is allowed if the user is authenticated and owns the document or if it's created by a Cloud Function.
-    // - Read access is allowed to all users.
-    match /users/{userID} {
-      allow write: if request.auth.uid == userID;
-      allow read: if true; // Anyone can read user documents.
-    }
+  //   // Users Collection
+  //   // This governs access to the user document.
+  //   // - Write access is allowed if the user is authenticated and owns the document or if it's created by a Cloud Function.
+  //   // - Read access is allowed to all users.
+  //   match /users/{userID} {
+  //     allow write: if request.auth.uid == userID;
+  //     allow read: if true; // Anyone can read user documents.
+  //   }
 
-    // Turn Expiration Requests Subcollection
-    // Allows creating and reading turn expiration requests.
-    // - Only authenticated users can create expiration requests.
-    // - Anyone can read the expiration requests.
-    match /sessions/{sessionID}/games/{gameID}/turnExpirationRequests/{requestID} {
-      allow create: if request.auth != null; // Authenticated users can create expiration requests.
-      allow read: if true; // Anyone can read expiration requests.
-    }
+  //   // Turn Expiration Requests Subcollection
+  //   // Allows creating and reading turn expiration requests.
+  //   // - Only authenticated users can create expiration requests.
+  //   // - Anyone can read the expiration requests.
+  //   match /sessions/{sessionID}/games/{gameID}/turnExpirationRequests/{requestID} {
+  //     allow create: if request.auth != null; // Authenticated users can create expiration requests.
+  //     allow read: if true; // Anyone can read expiration requests.
+  //   }
 
-    // Bots Collection
-    // Allow anyone to read the bots collection, no write access.
-    match /bots/{botID} {
-      allow read: if true; // Anyone can read the bots.
-      allow write: if false; // No one is allowed to write directly to bots.
-    }
+  //   // Bots Collection
+  //   // Allow anyone to read the bots collection, no write access.
+  //   match /bots/{botID} {
+  //     allow read: if true; // Anyone can read the bots.
+  //     allow write: if false; // No one is allowed to write directly to bots.
+  //   }
   }
 }

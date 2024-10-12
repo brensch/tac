@@ -2,10 +2,10 @@
 
 import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
-import { GameSetup, GameState } from "@shared/types/Game" // Adjust the path as necessary
+import { GameSetup, GameState, MoveStatus } from "@shared/types/Game" // Adjust the path as necessary
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 import { logger } from "./logger" // Adjust the path as necessary
-import { Timestamp } from "firebase-admin/firestore"
+import { FieldValue } from "firebase-admin/firestore"
 
 /**
  * Firestore Trigger to start the game when all players are ready.
@@ -13,9 +13,8 @@ import { Timestamp } from "firebase-admin/firestore"
 export const onGameStarted = functions.firestore
   .document("sessions/{sessionID}/setups/{gameID}")
   .onUpdate(async (change, context) => {
-    const beforeData = change.before.data() as GameSetup
     const afterData = change.after.data() as GameSetup
-    const { gameID } = context.params
+    const { gameID, sessionID } = context.params
 
     logger.debug(`Checking update on game: ${gameID}`)
 
@@ -43,19 +42,48 @@ export const onGameStarted = functions.firestore
       }
 
       // If the game has started, abort
-      if (afterData.started) return
+      if (afterData.started) {
+        logger.info(`game has started ${gameID}.`)
+        return
+      }
+
       // Instantiate the appropriate processor using the factory
       const processor = getGameProcessor(afterData)
 
-      if (processor) {
-        // Initialize the game using the processor's method
-        await processor.initializeGame(afterData)
-
-        logger.info(`Game ${gameID} has been initialized.`)
-      } else {
+      if (!processor) {
         logger.error(
           `No processor found for gameType: ${afterData.gameType} in game ${gameID}`,
         )
+        return
       }
+      // Initialize the game using the processor's method
+      const firstTurn = processor.firstTurn()
+
+      // set the game
+      const gameStateRef = admin
+        .firestore()
+        .collection(`sessions/${sessionID}/games`)
+        .doc(gameID)
+      const newGame: GameState = {
+        setup: afterData,
+        winners: [],
+        turns: [firstTurn],
+        timeCreated: FieldValue.serverTimestamp(),
+        timeFinished: null,
+      }
+      transaction.set(gameStateRef, newGame)
+
+      // set the movestatus for players to write to
+      const moveStatusRef = admin
+        .firestore()
+        .collection(`sessions/${sessionID}/games/${gameID}/statuses`)
+        .doc("0")
+      const moveStatus: MoveStatus = {
+        alivePlayerIDs: firstTurn.alivePlayers,
+        movedPlayerIDs: [],
+      }
+      transaction.set(moveStatusRef, moveStatus)
+
+      logger.info(`Game ${gameID} has been initialized.`)
     })
   })

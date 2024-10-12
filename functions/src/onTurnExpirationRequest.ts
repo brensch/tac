@@ -1,79 +1,36 @@
-import * as functions from "firebase-functions"
 import * as admin from "firebase-admin"
-import { Timestamp } from "firebase-admin/firestore"
-
+import * as functions from "firebase-functions"
 import * as logger from "firebase-functions/logger"
-import { Turn } from "./types/Game"
 import { processTurn } from "./gameprocessors/processTurn"
+import { GameState } from "./types/Game"
 
 // Firestore trigger for when a client indicates that a turn might have expired
 export const onTurnExpirationRequest = functions.firestore
   .document(
-    "games/{gameID}/turns/{turnNumber}/expirationRequests/{expirationID}",
+    "sessions/{sessionID}/games/{gameID}/expirationRequests/{expirationID}",
   )
   .onCreate(async (snap, context) => {
-    const { gameID, turnNumber } = context.params
-
-    logger.info(
-      `Processing turn expiration request for gameID: ${gameID}, turnNumber: ${turnNumber}`,
-    )
+    const { gameID, sessionID } = context.params
+    logger.info(`Processing turn expiration request for gameID: ${gameID}`)
 
     await admin.firestore().runTransaction(async (transaction) => {
       // Query to get the latest turn (highest turnNumber)
-      const latestTurnQuery = admin
+      const gameStateRef = admin
         .firestore()
-        .collection(`games/${gameID}/turns`)
-        .orderBy("turnNumber", "desc")
-        .limit(1)
+        .doc(`sessions/${sessionID}/games/${gameID}`)
 
-      const latestTurnSnapshot = await transaction.get(latestTurnQuery)
+      const gameStateDoc = await transaction.get(gameStateRef)
+      const gameState = gameStateDoc.data() as GameState
 
-      if (latestTurnSnapshot.empty) {
-        logger.error("No turns found for the game.")
+      const turnNumber = gameState.turns.length - 1
+      const latestTurn = gameState.turns[turnNumber]
+
+      // check if it's actually expired
+      if (latestTurn.endTime.toMillis() < new Date().getTime()) {
+        logger.warn("not expired bro", latestTurn.endTime.toMillis())
         return
       }
 
-      const latestTurnDoc = latestTurnSnapshot.docs[0]
-      const latestTurn = latestTurnDoc.data() as Turn
-
-      // Check if the current turnNumber matches the latest turnNumber
-      if (Number(turnNumber) !== latestTurn.turnNumber) {
-        logger.warn(
-          `Turn ${turnNumber} is not the latest turn. Latest turn is ${latestTurn.turnNumber}.`,
-        )
-        return
-      }
-
-      const currentTurnRef = admin
-        .firestore()
-        .collection(`games/${gameID}/turns`)
-        .doc(turnNumber.toString())
-
-      const currentTurnDoc = await transaction.get(currentTurnRef)
-      if (!currentTurnDoc.exists) {
-        logger.error("Current Turn document does not exist.", { turnNumber })
-        return
-      }
-
-      const currentTurn = currentTurnDoc.data() as Turn
-      const now = Timestamp.now()
-
-      const endTime =
-        currentTurn.endTime instanceof Timestamp
-          ? currentTurn.endTime.toMillis()
-          : 0
-
-      // Check if the turn has expired
-      if (now.toMillis() > endTime) {
-        logger.info(`Client reported ${turnNumber} has expired. Processing...`)
-
-        // Process the expired turn inside the transaction
-        await processTurn(transaction, gameID, currentTurn)
-      } else {
-        logger.info(`Turn ${turnNumber} has not expired yet.`, {
-          now: now.toMillis(),
-          end: endTime,
-        })
-      }
+      await processTurn(transaction, gameID, sessionID, turnNumber)
     })
   })

@@ -28,24 +28,6 @@ const GameFinished: React.FC = () => {
   const navigate = useNavigate()
   const [sortedPlayers, setSortedPlayers] = useState<PlayerResult[]>([])
 
-  useEffect(() => {
-    // Build a list of all players with their scores
-    const playersWithScores = players.map((player) => {
-      const winner = winners.find((w) => w.playerID === player.id)
-      return {
-        playerID: player.id,
-        name: player.name,
-        emoji: player.emoji,
-        score: winner ? winner.score : 0,
-      }
-    })
-
-    // Sort the players by score in descending order
-    const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
-
-    setSortedPlayers(sortedPlayers)
-  }, [players])
-
   // Ensure gameState and players are available
   if (!gameState || !players) return null
 
@@ -61,6 +43,26 @@ const GameFinished: React.FC = () => {
   const draw =
     sortedPlayers.length > 1 &&
     sortedPlayers[0].score === sortedPlayers[1].score
+
+  useEffect(() => {
+    // Build a list of all players with their scores
+    const playersWithScores = players.map((player) => {
+      console.log(players)
+      console.log(winners)
+      const winner = winners.find((w) => w.playerID === player.id)
+      return {
+        playerID: player.id,
+        name: player.name,
+        emoji: player.emoji,
+        score: winner ? winner.score : 0,
+      }
+    })
+
+    // Sort the players by score in descending order
+    const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
+
+    setSortedPlayers(sortedPlayers)
+  }, [players])
 
   return (
     <>

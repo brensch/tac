@@ -42,13 +42,14 @@ export interface GameSetup {
   playersReady: string[]
   maxTurnTime: number // Time limit per turn in seconds
   startRequested: boolean
+  started: boolean //set true when gamestate created to avoid double handling
 
   timeCreated: Timestamp | FieldValue
 }
 
 // Updated GameState interface with the new 'winner' structure
 export interface GameState {
-  Setup: GameSetup
+  setup: GameSetup
   winners: Winner[] // Updated to an array of winner objects
   turns: Turn[]
 
@@ -82,7 +83,7 @@ export interface Bot extends Player {
 // Updated Turn interface to include 'allowedMoves', 'walls', and 'clashes'
 export interface Turn {
   playerHealth: { [playerID: string]: number } // Map of playerID to health
-  startTime: Timestamp | FieldValue // When the turn started
+  startTime: Timestamp // When the turn started
   endTime: Timestamp // When the turn should end
   scores: { [playerID: string]: number } // Map of playerID to score
   alivePlayers: string[] // List of player IDs who are still alive

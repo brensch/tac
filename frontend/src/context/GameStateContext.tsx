@@ -3,10 +3,12 @@
 import { Box } from "@mui/material"
 import {
   Bot,
+  GameSetup,
   GameState,
   GameType,
   Human,
   Player,
+  Session,
   Turn,
 } from "@shared/types/Game"
 import {
@@ -56,6 +58,7 @@ interface GameStateContextType {
   setGameType: React.Dispatch<React.SetStateAction<GameType>>
   players: Player[]
   sessionName: string
+  gameSetup: GameSetup | null
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -69,6 +72,7 @@ export const GameStateProvider: React.FC<{
 }> = ({ children, gameID, sessionName }) => {
   const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
+  const [gameSetup, setGameSetup] = useState<GameSetup | null>(null)
   const [humans, setHumans] = useState<Human[]>([])
   const [turns, setTurns] = useState<Turn[]>([])
   const [latestTurn, setLatestTurn] = useState<Turn | undefined>(undefined)
@@ -89,48 +93,64 @@ export const GameStateProvider: React.FC<{
 
   // Subscribe to game document
   useEffect(() => {
-    if (gameID && userID !== "") {
-      const gameDocRef = doc(db, `sessions/${sessionName}/games`, gameID)
-      const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
-        if (!docSnapshot.exists()) {
-          setError("Game not found.")
-          return
-        }
-        const gameData = docSnapshot.data() as GameState
-        setGameState(gameData)
+    const gameDocRef = doc(db, `sessions/${sessionName}/games`, gameID)
+    const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
+      if (!docSnapshot.exists()) {
+        setError("Game not found.")
+        return
+      }
+      const gameData = docSnapshot.data() as GameState
+      setGameState(gameData)
+      setTurns(gameData.turns)
+    })
 
-        // Add user to the game if not already in it and game hasn't started
-        const userExists = gameData.gamePlayers.find(
-          (player) => player.id === userID,
-        )
-        if (!gameData.started && !userExists) {
-          try {
-            const newGamePlayer = {
-              id: userID, // userID or bot ID
-              type: "human", // or "bot", depending on the player
-            }
-            // Update the gamePlayers array with arrayUnion to add the new player
-            await updateDoc(gameDocRef, {
-              gamePlayers: arrayUnion(newGamePlayer), // Use arrayUnion with the full GamePlayer object
-            })
-          } catch (err) {
-            console.error("Error adding user to the game:", err)
-            setError("Failed to join the game.")
+    return () => unsubscribe()
+  }, [gameID, sessionName])
+
+  // Subscribe to game document
+  useEffect(() => {
+    if (!gameID || userID === "") return
+
+    const gameDocRef = doc(db, `sessions/${sessionName}/setups`, gameID)
+    const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
+      if (!docSnapshot.exists()) {
+        setError("Game not found.")
+        return
+      }
+      const gameData = docSnapshot.data() as GameSetup
+      setGameSetup(gameData)
+
+      // Add user to the game if not already in it and game hasn't started
+      const userExists = gameData.gamePlayers.find(
+        (player) => player.id === userID,
+      )
+      if (!gameData.started && !userExists) {
+        try {
+          const newGamePlayer = {
+            id: userID, // userID or bot ID
+            type: "human", // or "bot", depending on the player
           }
+          // Update the gamePlayers array with arrayUnion to add the new player
+          await updateDoc(gameDocRef, {
+            gamePlayers: arrayUnion(newGamePlayer), // Use arrayUnion with the full GamePlayer object
+          })
+        } catch (err) {
+          console.error("Error adding user to the game:", err)
+          setError("Failed to join the game.")
         }
-      })
+      }
+    })
 
-      return () => unsubscribe()
-    }
+    return () => unsubscribe()
   }, [gameID, userID])
 
   // Subscribe to the "bots" collection and filter by 'gameType'
   useEffect(() => {
-    if (!gameState?.gameType) return // Ensure gameType is available
+    if (!gameSetup?.gameType) return // Ensure gameType is available
 
     const botsQuery = query(
       collection(db, "bots"),
-      where("capabilities", "array-contains", gameState.gameType), // Query bots where 'capabilities' contains 'gameType'
+      where("capabilities", "array-contains", gameSetup.gameType), // Query bots where 'capabilities' contains 'gameType'
     )
 
     const unsubscribe = onSnapshot(botsQuery, (snapshot) => {
@@ -139,13 +159,13 @@ export const GameStateProvider: React.FC<{
     })
 
     return () => unsubscribe() // Cleanup on component unmount
-  }, [gameState?.gameType]) // Rerun if gameType changes
+  }, [gameSetup?.gameType]) // Rerun if gameType changes
 
   // Subscribe to player documents
   useEffect(() => {
-    if (!gameState?.gamePlayers) return
+    if (!gameSetup?.gamePlayers) return
 
-    const newPlayerIDs = gameState.gamePlayers
+    const newPlayerIDs = gameSetup.gamePlayers
       .filter((player) => player.type === "human")
       .map((player) => player.id)
     const unsubscribes: Record<string, () => void> = {} // Track unsubscribes by playerID
@@ -194,42 +214,42 @@ export const GameStateProvider: React.FC<{
     return () => {
       Object.values(unsubscribes).forEach((unsubscribe) => unsubscribe())
     }
-  }, [gameState?.gamePlayers, gameID])
+  }, [gameSetup?.gamePlayers, gameID])
 
-  // Subscribe to turns collection
-  useEffect(() => {
-    if (gameID && userID !== "") {
-      const turnsRef = collection(db, "games", gameID, "turns")
-      const turnsQuery = query(turnsRef, orderBy("turnNumber", "asc"))
+  // // Subscribe to turns collection
+  // useEffect(() => {
+  //   if (gameID && userID !== "") {
+  //     const turnsRef = collection(db, "games", gameID, "turns")
+  //     const turnsQuery = query(turnsRef, orderBy("turnNumber", "asc"))
 
-      const unsubscribe = onSnapshot(turnsQuery, (querySnapshot) => {
-        const turnsList: Turn[] = querySnapshot.docs.map(
-          (doc) => doc.data() as Turn,
-        )
+  //     const unsubscribe = onSnapshot(turnsQuery, (querySnapshot) => {
+  //       const turnsList: Turn[] = querySnapshot.docs.map(
+  //         (doc) => doc.data() as Turn,
+  //       )
 
-        setTurns(turnsList)
-        setLatestTurn(turnsList[turnsList.length - 1])
-        setHasSubmittedMove(!!turnsList[turnsList.length - 1]?.hasMoved[userID])
+  //       setTurns(turnsList)
+  //       setLatestTurn(turnsList[turnsList.length - 1])
+  //       setHasSubmittedMove(!!turnsList[turnsList.length - 1]?.hasMoved[userID])
 
-        setCurrentTurnIndex(turnsList.length - 1)
-      })
+  //       setCurrentTurnIndex(turnsList.length - 1)
+  //     })
 
-      return () => unsubscribe()
-    }
-  }, [gameID, userID])
+  //     return () => unsubscribe()
+  //   }
+  // }, [gameID, userID])
 
   // Manage current turn based on currentTurnIndex
   useEffect(() => {
     setCurrentTurn(turns[currentTurnIndex])
-  }, [turns, currentTurnIndex])
+  }, [turns, currentTurnIndex, gameState])
 
   // Handle turn expiration
   useEffect(() => {
     // Early return if latestTurn, currentTurn, maxTurnTime, gameID, or nextGame is not valid
     if (
       !latestTurn ||
-      !currentTurn ||
-      !gameState?.maxTurnTime ||
+      // !currentTurn ||
+      !gameSetup?.maxTurnTime ||
       !gameID
       // gameState?.nextGame !== ""
     ) {
@@ -250,14 +270,16 @@ export const GameStateProvider: React.FC<{
 
       setTimeRemaining(remaining) // Update your local state for the timer display
 
-      if (remaining > -1) {
+      if (remaining > -1 || !gameState) {
         return // If there's still time remaining, continue the interval
       }
 
       // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(
         db,
-        `games/${gameID}/turns/${latestTurn.turnNumber}/expirationRequests`,
+        `games/${gameID}/turns/${
+          gameState?.turns.length - 1
+        }/expirationRequests`,
       )
 
       // No existing expiration requests, create a new one
@@ -266,9 +288,7 @@ export const GameStateProvider: React.FC<{
         playerID: userID,
       })
 
-      console.log(
-        `Turn expiration request created for gameID: ${gameID}, turn ${latestTurn.turnNumber}`,
-      )
+      console.log(`Turn expiration request created for gameID: ${gameID}, `)
 
       // Slow down the interval after expiration to reduce resource usage
       if (intervalIdRef.current) {
@@ -292,11 +312,11 @@ export const GameStateProvider: React.FC<{
         intervalIdRef.current = null
       }
     }
-  }, [latestTurn, userID, currentTurn, gameState, gameID])
+  }, [latestTurn, userID, gameState, gameID])
 
   // Function to start the game
   const startGame = async () => {
-    if (gameID && gameState && !gameState.started) {
+    if (gameID && gameState && !gameSetup?.started) {
       const gameDocRef = doc(db, "games", gameID)
       try {
         await updateDoc(gameDocRef, {
@@ -335,7 +355,7 @@ export const GameStateProvider: React.FC<{
     }
 
     const moveRef = collection(db, `games/${gameID}/privateMoves`)
-    const moveNumber = latestTurn.turnNumber
+    const moveNumber = gameState.turns.length - 1
 
     try {
       await addDoc(moveRef, {
@@ -378,9 +398,10 @@ export const GameStateProvider: React.FC<{
         setGameType,
         players: [...humans, ...bots],
         sessionName,
+        gameSetup,
       }}
     >
-      {gameState ? (
+      {gameSetup ? (
         children
       ) : (
         <Box
@@ -391,7 +412,7 @@ export const GameStateProvider: React.FC<{
             height: "100vh", // Full viewport height
           }}
         >
-          <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+          <Box sx={{ fontSize: "10rem" }}>🦍</Box>{" "}
         </Box>
       )}{" "}
     </GameStateContext.Provider>

@@ -14,6 +14,7 @@ const CORNER_BORDER_COLOR = "white" // Adjust if different colors are needed
 const GameGrid: React.FC = () => {
   const {
     gameState,
+    gameSetup,
     players,
     hasSubmittedMove,
     currentTurn,
@@ -24,8 +25,8 @@ const GameGrid: React.FC = () => {
 
   const user = useUser()
   const winners = gameState?.winners || []
-  const gridWidth = gameState?.boardWidth || 8
-  const gridHeight = gameState?.boardHeight || 8
+  const gridWidth = gameState?.setup.boardWidth || 8
+  const gridHeight = gameState?.setup.boardHeight || 8
   const totalCells = gridWidth * gridHeight
   const winningSquaresSet = new Set(
     winners.flatMap((winner) => winner.winningSquares),
@@ -81,7 +82,7 @@ const GameGrid: React.FC = () => {
   } = {}
 
   if (currentTurn && gameState) {
-    const { gameType, moves, playerPieces, allowedMoves, clashes } = currentTurn
+    const { moves, playerPieces, allowedMoves, clashes } = currentTurn
 
     // Map clashes to positions
     if (clashes) {
@@ -103,7 +104,7 @@ const GameGrid: React.FC = () => {
       })
     }
 
-    if (gameType === "snek") {
+    if (gameState.setup.gameType === "snek") {
       // Snek-specific rendering
       const { food, hazards, walls } = currentTurn
 
@@ -536,7 +537,7 @@ const GameGrid: React.FC = () => {
     if (!currentTurn || !gameState) return
     console.log(index)
 
-    if (gameState.started && !hasSubmittedMove) {
+    if (gameSetup?.started && !hasSubmittedMove) {
       const allowedMoves = currentTurn.allowedMoves[user.userID] || []
       if (allowedMoves.includes(index)) {
         setSelectedSquare(index)
@@ -544,8 +545,8 @@ const GameGrid: React.FC = () => {
     }
 
     const clash = clashesAtPosition[index]
-    if (clash) {
-      const playersInvolved: GamePlayer[] = gameState.gamePlayers.filter(
+    if (clash && gameSetup) {
+      const playersInvolved: GamePlayer[] = gameSetup?.gamePlayers.filter(
         (player) => clash.playerIDs.includes(player.id),
       )
 
@@ -559,7 +560,7 @@ const GameGrid: React.FC = () => {
 
     if (gameState && user.userID && gameID) {
       const moveRef = collection(db, `games/${gameID}/privateMoves`)
-      const moveNumber = currentTurn.turnNumber
+      const moveNumber = gameState.turns.length - 1
 
       await addDoc(moveRef, {
         gameID,

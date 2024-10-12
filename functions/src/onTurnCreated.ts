@@ -1,19 +1,23 @@
+import axios from "axios"
+import * as admin from "firebase-admin"
+import { FieldValue } from "firebase-admin/firestore"
 import * as functions from "firebase-functions"
 import * as logger from "firebase-functions/logger"
-import * as admin from "firebase-admin"
-import axios from "axios"
-import { Turn, Bot, Move } from "./types/Game" // Adjust the import path as necessary
-import { FieldValue } from "firebase-admin/firestore"
+import { Bot, GameState, Move } from "./types/Game" // Adjust the import path as necessary
 
 export const onTurnCreated = functions.firestore
-  .document("sessions/{sessionID}/games/{gameID}/turns/{turnID}")
+  .document("sessions/{sessionID}/games/{gameID}")
   .onCreate(async (snap, context) => {
-    const turnData = snap.data() as Turn
+    const gameData = snap.data() as GameState
     const { gameID, sessionID } = context.params
 
-    logger.info(`Getting bot moves: ${gameID}`, { turnData })
+    logger.info(`Getting bot moves: ${gameID}`, { gameData })
 
-    const botsInTurn = turnData.players.filter(
+    if (gameData.turns.length === 0) return
+
+    const turnData = gameData.turns[gameData.turns.length - 1]
+
+    const botsInTurn = gameData.setup.gamePlayers.filter(
       (player) =>
         turnData.alivePlayers.includes(player.id) && player.type === "bot",
     )
@@ -41,12 +45,17 @@ export const onTurnCreated = functions.firestore
 
     // Adjusts a position based on the new reduced board and flips the y-axis
     const adjustPosition = (x: number, y: number): { x: number; y: number } => {
-      return { x: x - 1, y: turnData.boardHeight - y - 2 } // Shift x inward and flip y-axis
+      return { x: x - 1, y: gameData.setup.boardHeight - y - 2 } // Shift x inward and flip y-axis
     }
 
     // Prepare the Battlesnake API request for each bot
     const requests = botsToQuery.map(async (bot) => {
       // Build the request body based on Battlesnake API format, excluding the perimeter and flipping the y-axis
+      const youBody = turnData.playerPieces[bot.id].map((pos) => {
+        const x = pos % gameData.setup.boardWidth
+        const y = Math.floor(pos / gameData.setup.boardWidth)
+        return adjustPosition(x, y) // Adjust the position inward and flip y-axis
+      })
       const botRequestBody = {
         game: {
           id: gameID,
@@ -63,24 +72,24 @@ export const onTurnCreated = functions.firestore
           source: "league", // Source of the game
           timeout: 1000, // Timeout per move
         },
-        turn: turnData.turnNumber,
+        turn: gameData.turns.length - 1,
         board: {
-          height: turnData.boardHeight - 2, // Reduce the height by 2
-          width: turnData.boardWidth - 2, // Reduce the width by 2
+          height: gameData.setup.boardHeight - 2, // Reduce the height by 2
+          width: gameData.setup.boardWidth - 2, // Reduce the width by 2
           food: turnData.food?.map((pos) => {
-            const x = pos % turnData.boardWidth
-            const y = Math.floor(pos / turnData.boardWidth)
+            const x = pos % gameData.setup.boardWidth
+            const y = Math.floor(pos / gameData.setup.boardWidth)
             return adjustPosition(x, y) // Adjust the position inward and flip y-axis
           }),
           hazards: turnData.hazards.map((pos) => {
-            const x = pos % turnData.boardWidth
-            const y = Math.floor(pos / turnData.boardWidth)
+            const x = pos % gameData.setup.boardWidth
+            const y = Math.floor(pos / gameData.setup.boardWidth)
             return adjustPosition(x, y) // Adjust the position inward and flip y-axis
           }),
-          snakes: turnData.players.map((player) => {
+          snakes: gameData.setup.gamePlayers.map((player) => {
             const body = turnData.playerPieces[player.id].map((pos) => {
-              const x = pos % turnData.boardWidth
-              const y = Math.floor(pos / turnData.boardWidth)
+              const x = pos % gameData.setup.boardWidth
+              const y = Math.floor(pos / gameData.setup.boardWidth)
               return adjustPosition(x, y) // Adjust the position inward and flip y-axis
             })
 
@@ -105,20 +114,8 @@ export const onTurnCreated = functions.firestore
           id: bot.id,
           name: bot.id, // You can adjust the name here based on your needs
           health: turnData.playerHealth[bot.id],
-          body: turnData.playerPieces[bot.id].map((pos) => {
-            const x = pos % turnData.boardWidth
-            const y = Math.floor(pos / turnData.boardWidth)
-            return adjustPosition(x, y) // Adjust the position inward and flip y-axis
-          }),
-          head: {
-            x: (turnData.playerPieces[bot.id][0] % turnData.boardWidth) - 1,
-            y:
-              turnData.boardHeight -
-              Math.floor(
-                turnData.playerPieces[bot.id][0] / turnData.boardWidth,
-              ) -
-              2,
-          },
+          body: youBody,
+          head: { ...youBody[0] },
           length: turnData.playerPieces[bot.id].length,
           latency: "111", // Placeholder latency value, replace if you track latency
           shout: "", // Placeholder for shout, adjust if needed
@@ -148,14 +145,14 @@ export const onTurnCreated = functions.firestore
         const moveIndex = convertDirectionToMoveIndex(
           moveDirection,
           turnData.playerPieces[bot.id][0], // Head position
-          turnData.boardWidth,
-          turnData.boardHeight,
+          gameData.setup.boardWidth,
+          gameData.setup.boardHeight,
         )
 
         // Create a new Move object
         const newMove: Move = {
           gameID: gameID,
-          moveNumber: turnData.turnNumber,
+          moveNumber: gameData.turns.length, // +1 because it's the next one
           playerID: bot.id,
           move: moveIndex,
           timestamp: FieldValue.serverTimestamp(),
