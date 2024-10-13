@@ -1,12 +1,5 @@
 import React, { useState } from "react"
-import {
-  Box,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material"
+import { Box, IconButton, Stack, TextField, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 

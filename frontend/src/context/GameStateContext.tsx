@@ -33,6 +33,7 @@ import React, {
   useRef,
   useState,
 } from "react"
+import EmojiCycler from "../components/EmojiCycler"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
 
@@ -62,6 +63,7 @@ interface GameStateContextType {
   sessionName: string
   gameSetup: GameSetup | null
   latestMoveStatus: MoveStatus | null
+  session: Session | null
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -76,6 +78,7 @@ export const GameStateProvider: React.FC<{
   const { userID } = useUser()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [gameSetup, setGameSetup] = useState<GameSetup | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [latestMoveStatus, setLatestMoveStatus] = useState<MoveStatus | null>(
     null,
   )
@@ -111,6 +114,21 @@ export const GameStateProvider: React.FC<{
       setLatestTurn(gameData.turns[gameData.turns.length - 1])
       setSelectedTurnIndex(gameData.turns.length - 1)
       setSelectedTurn(gameData.turns[gameData.turns.length - 1])
+    })
+
+    return () => unsubscribe()
+  }, [gameID, sessionName])
+
+  // Subscribe to session document
+  useEffect(() => {
+    const sessionDocRef = doc(db, `sessions/${sessionName}`)
+    const unsubscribe = onSnapshot(sessionDocRef, async (docSnapshot) => {
+      if (!docSnapshot.exists()) {
+        setError("Game not found.")
+        return
+      }
+      const session = docSnapshot.data() as Session
+      setSession(session)
     })
 
     return () => unsubscribe()
@@ -266,7 +284,13 @@ export const GameStateProvider: React.FC<{
   // Handle turn expiration
   useEffect(() => {
     // Early return if latestTurn, gameSetup, or gameID is not valid
-    if (!latestTurn || !gameSetup?.maxTurnTime || !gameID) {
+    // also return if we have winners since no longer need to count
+    if (
+      !latestTurn ||
+      !gameSetup?.maxTurnTime ||
+      !gameID ||
+      latestTurn.winners.length > 0
+    ) {
       // Clear the interval if any of the dependencies are invalid
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
@@ -415,6 +439,7 @@ export const GameStateProvider: React.FC<{
         sessionName,
         gameSetup,
         latestMoveStatus,
+        session,
       }}
     >
       {gameSetup ? (
@@ -428,7 +453,7 @@ export const GameStateProvider: React.FC<{
             height: "100vh", // Full viewport height
           }}
         >
-          <Box sx={{ fontSize: "10rem" }}>🦍</Box>{" "}
+          <EmojiCycler />
         </Box>
       )}{" "}
     </GameStateContext.Provider>

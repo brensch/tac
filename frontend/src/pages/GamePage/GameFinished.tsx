@@ -15,6 +15,7 @@ import { useGameStateContext } from "../../context/GameStateContext"
 import EmojiRain from "./EmojiRain"
 import { useNavigate } from "react-router-dom"
 import { Winner } from "@shared/types/Game"
+import { useUser } from "../../context/UserContext"
 
 interface PlayerResult {
   playerID: string
@@ -24,31 +25,17 @@ interface PlayerResult {
 }
 
 const GameFinished: React.FC = () => {
-  const { gameState, players, latestTurn } = useGameStateContext()
+  const { gameState, players, latestTurn, sessionName, session } =
+    useGameStateContext()
+  const { colour } = useUser()
   const navigate = useNavigate()
   const [sortedPlayers, setSortedPlayers] = useState<PlayerResult[]>([])
-
-  // Ensure gameState and players are available
-  if (!gameState || !players || !latestTurn) return null
-
-  const winners: Winner[] = latestTurn.winners || []
-
-  // If there are no winners, display a message accordingly
-  const unFinished = latestTurn.winners.length === 0
-  if (unFinished) return null
-
-  // Get the top player's emoji for the EmojiRain effect
-  const topPlayer: PlayerResult | null =
-    sortedPlayers.length > 0 ? sortedPlayers[0] : null
-  const draw =
-    sortedPlayers.length > 1 &&
-    sortedPlayers[0].score === sortedPlayers[1].score
-
   useEffect(() => {
+    if (!latestTurn) return
+    const winners: Winner[] = latestTurn.winners || []
     // Build a list of all players with their scores
     const playersWithScores = players.map((player) => {
       console.log(players)
-      console.log(winners)
       const winner = winners.find((w) => w.playerID === player.id)
       return {
         playerID: player.id,
@@ -63,6 +50,19 @@ const GameFinished: React.FC = () => {
 
     setSortedPlayers(sortedPlayers)
   }, [players])
+  // Ensure gameState and players are available
+  if (!gameState || !players || !latestTurn) return null
+
+  // Get the top player's emoji for the EmojiRain effect
+  const topPlayer: PlayerResult | null =
+    sortedPlayers.length > 0 ? sortedPlayers[0] : null
+  const draw =
+    sortedPlayers.length > 1 &&
+    sortedPlayers[0].score === sortedPlayers[1].score
+
+  // If there are no winners, display a message accordingly
+  const unFinished = latestTurn.winners.length === 0
+  if (unFinished) return null
 
   return (
     <>
@@ -97,7 +97,6 @@ const GameFinished: React.FC = () => {
             </Typography>
           </>
         )}
-
         {/* Table of Players and Scores */}
         <TableContainer
           component={Paper}
@@ -130,18 +129,17 @@ const GameFinished: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-
-        {/* "Play Again?" Button
-        {gameState.nextGame !== "" && (
-          <Button
-            sx={{ my: 2, bgcolor: "green" }}
-            variant="contained"
-            fullWidth
-            onClick={() => navigate(`/game/${gameState.nextGame}`)}
-          >
-            Play Again?
-          </Button>
-        )} */}
+        {/* "Play Again?" Button */}
+        <Button
+          sx={{ my: 2, bgcolor: colour }}
+          variant="contained"
+          fullWidth
+          onClick={() =>
+            navigate(`/session/${sessionName}/${session?.latestGameID}`)
+          }
+        >
+          That was fun. Again.
+        </Button>
       </Box>
 
       {/* Emoji Rain Effect for Top Player */}

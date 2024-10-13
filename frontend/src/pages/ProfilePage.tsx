@@ -161,7 +161,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             onClick={handleLinkGoogleAccount}
             sx={{ mt: 2, backgroundColor: selectedColour }} // Google blue color
           >
-            Save stats by linking account
+            Connect google
           </Button>
         )}
         <Button

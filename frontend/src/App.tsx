@@ -95,8 +95,11 @@ const AppContent: React.FC = () => {
         <Box width="100%">
           <Routes>
             <Route path="/" element={<HomePage />} />
-            {/* <Route path="/game/:gameID" element={<GamePage />} /> */}
             <Route path="/session/:sessionName" element={<Sessionpage />} />
+            <Route
+              path="/session/:sessionName/:gameID"
+              element={<GamePage />}
+            />
           </Routes>
         </Box>
       </Container>

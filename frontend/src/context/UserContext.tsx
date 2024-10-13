@@ -6,6 +6,7 @@ import { auth } from "../firebaseConfig"
 import SignupPage from "../pages/SignupPage"
 import { Container, Box } from "@mui/material"
 import { Human } from "@shared/types/Game"
+import EmojiCycler from "../components/EmojiCycler"
 
 interface UserContextType {
   userID: string
@@ -108,7 +109,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
               height: "100vh", // Full viewport height
             }}
           >
-            <Box sx={{ fontSize: "10rem" }}>😎</Box>{" "}
+            <EmojiCycler />
           </Box>
         </Box>
       </Container>

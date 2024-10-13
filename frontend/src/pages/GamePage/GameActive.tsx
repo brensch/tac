@@ -1,7 +1,6 @@
 // src/components/GameActive.tsx
 
-import { Timestamp } from "firebase/firestore"
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 import { useUser } from "../../context/UserContext"
 
 import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
@@ -30,7 +29,7 @@ const GameActive: React.FC = () => {
     gameSetup,
     players,
     turns,
-    selectedTurnIndex: currentTurnIndex,
+    selectedTurnIndex,
     handleLatestTurn,
     handleNextTurn,
     handlePrevTurn,
@@ -79,31 +78,13 @@ const GameActive: React.FC = () => {
       )}
 
       <Typography>
-        Turn {gameState.turns.length - 1}.{" "}
-        {Math.max(0, timeRemaining).toFixed(0)} seconds left.
+        Turn {gameState.turns.length}.{" "}
+        {currentTurn.winners.length === 0
+          ? `${Math.max(0, timeRemaining).toFixed(0)} seconds left.`
+          : "Game over"}
       </Typography>
 
-      {/* {!gameState.nextGame && (
-        <Button
-          disabled={
-            clicked ||
-            hasSubmittedMove ||
-            !!currentTurn?.hasMoved[userID] ||
-            !playerInCurrentGame ||
-            selectedSquare === null ||
-            turns.length !== currentTurn?.turnNumber ||
-            (latestTurn?.allowedMoves[userID] &&
-              !latestTurn?.allowedMoves[userID].includes(selectedSquare))
-          }
-          variant="contained"
-          onClick={handleMoveSubmit}
-          fullWidth
-        >
-          Submit Move ({Math.max(0, timeRemaining).toFixed(0)}s, round{" "}
-          {latestTurn?.turnNumber})
-        </Button>
-      )} */}
-      {gameState.turns.length - 1 == 1 && selectedSquare === null && (
+      {gameState.turns.length == 1 && selectedSquare === null && (
         <Typography>Tap a square to submit your move.</Typography>
       )}
 
@@ -112,21 +93,21 @@ const GameActive: React.FC = () => {
 
       {/* Navigation controls */}
       <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-        <IconButton onClick={handlePrevTurn} disabled={currentTurnIndex <= 0}>
+        <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
           <ArrowBack />
         </IconButton>
         <Typography variant="body2" sx={{ marginX: 2 }}>
-          {currentTurn ? currentTurnIndex + 1 : "Loading..."} of {turns.length}
+          {currentTurn ? selectedTurnIndex + 1 : "Loading..."} of {turns.length}
         </Typography>
         <IconButton
           onClick={handleNextTurn}
-          disabled={currentTurnIndex >= turns.length - 1}
+          disabled={selectedTurnIndex >= turns.length - 1}
         >
           <ArrowForward />
         </IconButton>
         <IconButton
           onClick={handleLatestTurn}
-          disabled={currentTurnIndex >= turns.length - 1}
+          disabled={selectedTurnIndex >= turns.length - 1}
         >
           <LastPage />
         </IconButton>
@@ -138,7 +119,7 @@ const GameActive: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Players</TableCell>
-              <TableCell align="right">Time Taken</TableCell>
+              <TableCell align="right">Moved</TableCell>
               <TableCell align="right">Score</TableCell>
             </TableRow>
           </TableHead>
@@ -155,15 +136,9 @@ const GameActive: React.FC = () => {
                     {player.name} {player.emoji}
                   </TableCell>
                   <TableCell align="right">
-                    {/* {moveTime instanceof Timestamp
-                      ? `${Math.round(
-                          (moveTime.seconds || 0) -
-                            (currentTurn.startTime instanceof Timestamp
-                              ? currentTurn.startTime.seconds
-                              : 0),
-                        )}s`
-                      : "Haven't moved"} */}
-                    TOIDO
+                    {latestMoveStatus?.movedPlayerIDs.includes(player.id)
+                      ? "yeah"
+                      : "nah"}
                   </TableCell>
                   <TableCell align="right">
                     {currentTurn.scores[player.id]}

@@ -2,7 +2,6 @@
 
 import { arrayRemove, arrayUnion, doc, updateDoc } from "firebase/firestore"
 import React, { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
 import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"
 
@@ -25,12 +24,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material"
-import { useGameStateContext } from "../../context/GameStateContext"
 import { GamePlayer, GameType } from "@shared/types/Game"
+import { useGameStateContext } from "../../context/GameStateContext"
 import { getRulesComponent } from "./RulesDialog"
 
 const GameSetup: React.FC = () => {
-  const { userID } = useUser()
+  const { userID, colour } = useUser()
   const {
     gameSetup,
     players,
@@ -48,6 +47,10 @@ const GameSetup: React.FC = () => {
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
 
   const gameDocRef = doc(db, "sessions", sessionName, "setups", gameID)
+  // Inject the shake animation styles once the component mounts
+  React.useEffect(() => {
+    addStyles()
+  }, [])
 
   // Update local state when gameSetup changes
   useEffect(() => {
@@ -306,7 +309,6 @@ const GameSetup: React.FC = () => {
         .map((human) => human.id)
         .every((player) => gameSetup.playersReady.includes(player)) ? (
         <Button
-          variant="contained"
           disabled={
             started ||
             gameSetup.boardWidth < 5 ||
@@ -315,6 +317,7 @@ const GameSetup: React.FC = () => {
             gameSetup.playersReady.includes(userID)
           }
           onClick={handleReady}
+          sx={{ backgroundColor: colour }}
           fullWidth
         >
           <Typography variant="body2">
@@ -326,8 +329,9 @@ const GameSetup: React.FC = () => {
       ) : (
         <Button
           disabled={gameSetup.startRequested}
-          variant="contained"
           onClick={handleStart}
+          sx={{ backgroundColor: colour }}
+          className="shake"
           fullWidth
         >
           <Typography variant="body2">Start game</Typography>
@@ -382,3 +386,32 @@ const GameSetup: React.FC = () => {
 }
 
 export default GameSetup
+
+// Function to insert keyframe and class rules separately
+const addStyles = () => {
+  const styleSheet = document.styleSheets[0]
+
+  // Insert the keyframes animation
+  styleSheet.insertRule(
+    `
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+  `,
+    styleSheet.cssRules.length,
+  )
+
+  // Insert the shake class rule with infinite iterations
+  styleSheet.insertRule(
+    `
+    .shake {
+      animation: shake 0.5s ease infinite;
+    }
+  `,
+    styleSheet.cssRules.length,
+  )
+}

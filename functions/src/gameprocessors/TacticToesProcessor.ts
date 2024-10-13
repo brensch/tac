@@ -1,423 +1,342 @@
-// import { GameProcessor } from "./GameProcessor"
-// import { Winner, Turn, Move, GameState, Clash } from "@shared/types/Game"
-// import { logger } from "../logger"
-// import * as admin from "firebase-admin"
-// import { Transaction } from "firebase-admin/firestore"
-// import { Timestamp } from "firebase-admin/firestore"
-// import { FirstMoveTimeoutSeconds } from "../timings"
+import { GameProcessor } from "./GameProcessor"
+import { Winner, Turn, Move, GameSetup, Clash } from "@shared/types/Game"
+import { logger } from "../logger"
+import { Timestamp } from "firebase-admin/firestore"
 
-// /**
-//  * Processor class for the TacticToes game logic.
-//  */
-// export class TacticToesProcessor extends GameProcessor {
-//   // constructor(
-//   //   // transaction: Transaction,
-//   //   // gameID: string,
-//   //   // latestMoves: Move[],
-//   //   // currentTurn?: Turn,
-//   // ) {
-//   //   // super(transaction, gameID, latestMoves, currentTurn)
-//   // }
+/**
+ * Processor class for the TacticToes game logic.
+ */
+export class TacticToesProcessor extends GameProcessor {
+  constructor(gameSetup: GameSetup) {
+    super(gameSetup)
+  }
 
-//   // /**
-//   //  * Initializes the TacticToes game by setting up the initial turn.
-//   //  * @param gameState The current state of the game.
-//   //  */
-//   // async initializeGame(gameState: GameState): Promise<void> {
-//   //   try {
-//   //     const initialTurn = this.initializeTurn(gameState)
+  /**
+   * Initializes the first turn for TacticToes.
+   * @returns The initial Turn object.
+   */
+  firstTurn(): Turn {
+    const { boardWidth, boardHeight, gamePlayers, maxTurnTime } = this.gameSetup
+    const now = Date.now()
 
-//   //     // Construct DocumentReference for the first turn
-//   //     const turnRef = admin
-//   //       .firestore()
-//   //       .collection(`games/${this.gameID}/turns`)
-//   //       .doc("1")
+    // Initialize playerPieces as occupied positions for each player
+    const playerPieces: { [playerID: string]: number[] } = {}
+    gamePlayers.forEach((player) => {
+      playerPieces[player.id] = []
+    })
 
-//   //     // Set turn and update game within transaction
-//   //     this.transaction.set(turnRef, initialTurn)
+    // Initialize allowed moves (all positions on the board)
+    const totalCells = boardWidth * boardHeight
+    const allPositions = Array.from({ length: totalCells }, (_, index) => index)
+    const allowedMoves: { [playerID: string]: number[] } = {}
+    gamePlayers.forEach((player) => {
+      allowedMoves[player.id] = [...allPositions]
+    })
 
-//   //     // Reference to the game document
-//   //     const gameRef = admin.firestore().collection("games").doc(this.gameID)
+    const firstTurn: Turn = {
+      playerHealth: {}, // Not applicable in TacticToes
+      startTime: Timestamp.fromMillis(now),
+      endTime: Timestamp.fromMillis(now + maxTurnTime * 1000),
+      scores: {}, // Not applicable at the start
+      alivePlayers: gamePlayers.map((p) => p.id),
+      allowedMoves: allowedMoves,
+      walls: [], // No walls in TacticToes
+      playerPieces: playerPieces,
+      food: [], // No food in TacticToes
+      hazards: [], // No hazards in TacticToes
+      clashes: [],
+      moves: {},
+      winners: [],
+    }
 
-//   //     // Update the game document to mark it as started
-//   //     this.transaction.update(gameRef, { started: true })
+    return firstTurn
+  }
 
-//   //     logger.info(
-//   //       `TacticToes: Turn 1 created and game ${this.gameID} has started.`,
-//   //     )
-//   //   } catch (error) {
-//   //     logger.error(`TacticToes: Error initializing game ${this.gameID}:`, error)
-//   //     throw error
-//   //   }
-//   // }
+  /**
+   * Applies the latest moves to the TacticToes game.
+   */
+  applyMoves(currentTurn: Turn, moves: Move[]): Turn {
+    try {
+      const { boardWidth, boardHeight } = this.gameSetup
+      const {
+        playerPieces,
+        allowedMoves,
+        clashes: existingClashes,
+      } = currentTurn
 
-//   /**
-//    * Initializes the first turn for TacticToes.
-//    * @param gameState The current state of the game.
-//    * @returns The initial Turn object.
-//    */
-//   private initializeTurn(gameState: GameState): Turn {
-//     const { boardWidth, boardHeight, gamePlayers } = gameState
-//     const now = Date.now()
+      // Deep copy playerPieces
+      const newPlayerPieces: { [playerID: string]: number[] } = {}
+      Object.keys(playerPieces).forEach((playerID) => {
+        newPlayerPieces[playerID] = [...playerPieces[playerID]]
+      })
 
-//     // Initialize playerPieces as occupied positions for each player
-//     const playerPieces: { [playerID: string]: number[] } = {}
-//     gamePlayers.forEach((player) => {
-//       playerPieces[player.id] = []
-//     })
+      // Clashes array, start with existing clashes
+      const clashes: Clash[] = existingClashes ? [...existingClashes] : []
 
-//     // Initialize allowed moves (all positions on the board)
-//     const totalCells = boardWidth * boardHeight
-//     const allPositions = Array.from({ length: totalCells }, (_, index) => index)
-//     const allowedMoves: { [playerID: string]: number[] } = {}
-//     gamePlayers.forEach((player) => {
-//       allowedMoves[player.id] = [...allPositions]
-//     })
+      // Set of occupied positions (claimed positions and clashes)
+      const occupiedPositions = new Set<number>()
+      Object.values(newPlayerPieces).forEach((positions) => {
+        positions.forEach((pos) => occupiedPositions.add(pos))
+      })
+      clashes.forEach((clash) => {
+        occupiedPositions.add(clash.index)
+      })
 
-//     const firstTurn: Turn = {
-//       turnNumber: 1,
-//       boardWidth: boardWidth,
-//       boardHeight: boardHeight,
-//       gameType: gameState.gameType,
-//       players: gamePlayers,
-//       playerHealth: {}, // Not applicable in TacticToes
-//       hasMoved: {},
-//       turnTime: gameState.maxTurnTime,
-//       startTime: Timestamp.fromMillis(now),
-//       endTime: Timestamp.fromMillis(now + FirstMoveTimeoutSeconds * 1000),
-//       scores: {}, // Not applicable at the start
-//       alivePlayers: [...gamePlayers.map((p) => p.id)],
-//       allowedMoves: allowedMoves,
-//       walls: [], // No walls in TacticToes
-//       playerPieces: playerPieces, // Players' occupied positions
-//       food: [], // No food in TacticToes
-//       hazards: [], // No hazards in TacticToes
-//       clashes: [], // Initialize empty array for clashes
-//       gameOver: false,
-//       moves: {},
-//     }
+      // Map to track moves to positions
+      const moveMap: { [position: number]: string[] } = {}
 
-//     return firstTurn
-//   }
+      // Process latest moves
+      for (const move of moves) {
+        const { playerID, move: position } = move
 
-//   /**
-//    * Applies the latest moves to the TacticToes game.
-//    */
-//   async applyMoves(): Promise<void> {
-//     if (!this.currentTurn) return
-//     try {
-//       const {
-//         boardWidth,
-//         boardHeight,
-//         playerPieces,
-//         allowedMoves,
-//         clashes: existingClashes,
-//       } = this.currentTurn
+        // Validate move
+        const allowedMovesForPlayer = allowedMoves[playerID]
+        if (!allowedMovesForPlayer.includes(position)) {
+          logger.warn(
+            `TacticToes: Invalid move by ${playerID} to position ${position}.`,
+          )
+          continue
+        }
 
-//       // Deep copy playerPieces
-//       const newPlayerPieces: { [playerID: string]: number[] } = {}
-//       Object.keys(playerPieces).forEach((playerID) => {
-//         newPlayerPieces[playerID] = [...playerPieces[playerID]]
-//       })
+        if (!moveMap[position]) {
+          moveMap[position] = []
+        }
+        moveMap[position].push(playerID)
+      }
 
-//       // Clashes array, start with existing clashes
-//       const clashes: Clash[] = existingClashes ? [...existingClashes] : []
+      // Process moves and handle clashes
+      const newMoves: { [playerID: string]: number } = {}
+      for (const positionStr in moveMap) {
+        const position = parseInt(positionStr)
+        const players = moveMap[position]
 
-//       // Set of occupied positions (claimed positions and clashes)
-//       const occupiedPositions = new Set<number>()
-//       Object.values(newPlayerPieces).forEach((positions) => {
-//         positions.forEach((pos) => occupiedPositions.add(pos))
-//       })
-//       clashes.forEach((clash) => {
-//         occupiedPositions.add(clash.index)
-//       })
+        if (occupiedPositions.has(position)) {
+          // Position already occupied
+          logger.warn(
+            `TacticToes: Position ${position} already occupied. Moves by players ${players.join(
+              ", ",
+            )} ignored.`,
+          )
+          continue
+        }
 
-//       // Map to track moves to positions
-//       const moveMap: { [position: number]: string[] } = {}
+        if (players.length === 1) {
+          const playerID = players[0]
 
-//       // Process latest moves
-//       for (const move of this.latestMoves) {
-//         const { playerID, move: position } = move
+          // Claim the position
+          newPlayerPieces[playerID].push(position)
+          newMoves[playerID] = position
 
-//         // Validate move
-//         const allowedMovesForPlayer = allowedMoves[playerID]
-//         if (!allowedMovesForPlayer.includes(position)) {
-//           logger.warn(
-//             `TacticToes: Invalid move by ${playerID} to position ${position}.`,
-//           )
-//           continue
-//         }
+          // Add to occupied positions
+          occupiedPositions.add(position)
+        } else {
+          // Clash occurs at position
+          logger.warn(
+            `TacticToes: Clash at position ${position} by players ${players.join(
+              ", ",
+            )}.`,
+          )
 
-//         if (!moveMap[position]) {
-//           moveMap[position] = []
-//         }
-//         moveMap[position].push(playerID)
-//       }
+          // Record the clash
+          clashes.push({
+            index: position,
+            playerIDs: players,
+            reason: "Multiple players attempted to claim the same position",
+          })
 
-//       // Process moves and handle clashes
-//       for (const positionStr in moveMap) {
-//         const position = parseInt(positionStr)
-//         const players = moveMap[position]
+          // Add to occupied positions
+          occupiedPositions.add(position)
+        }
+      }
 
-//         if (occupiedPositions.has(position)) {
-//           // Position already occupied
-//           logger.warn(
-//             `TacticToes: Position ${position} already occupied. Moves by players ${players.join(
-//               ", ",
-//             )} ignored.`,
-//           )
-//           continue
-//         }
+      // Update allowed moves
+      const totalCells = boardWidth * boardHeight
+      const allPositions = Array.from(
+        { length: totalCells },
+        (_, index) => index,
+      )
+      const freePositions = allPositions.filter(
+        (pos) => !occupiedPositions.has(pos),
+      )
+      const newAllowedMoves: { [playerID: string]: number[] } = {}
+      this.gameSetup.gamePlayers.forEach((player) => {
+        newAllowedMoves[player.id] = [...freePositions]
+      })
 
-//         if (players.length === 1) {
-//           const playerID = players[0]
+      // Calculate winners
+      const winners = this.findWinners(newPlayerPieces, newMoves)
 
-//           // Claim the position
-//           newPlayerPieces[playerID].push(position)
+      // Handle simultaneous wins
+      if (winners.length > 1) {
+        winners.forEach((winner) => {
+          const lastMove = newMoves[winner.playerID]
+          if (lastMove !== undefined) {
+            // Remove the last move from playerPieces
+            const index = newPlayerPieces[winner.playerID].indexOf(lastMove)
+            if (index !== -1) {
+              newPlayerPieces[winner.playerID].splice(index, 1)
+            }
+            // Add clash for the last move
+            clashes.push({
+              index: lastMove,
+              playerIDs: winners.map((w) => w.playerID),
+              reason: "Multiple players achieved a winning line simultaneously",
+            })
+          }
+        })
+      }
 
-//           // Add to occupied positions
-//           occupiedPositions.add(position)
-//         } else {
-//           // Clash occurs at position
-//           logger.warn(
-//             `TacticToes: Clash at position ${position} by players ${players.join(
-//               ", ",
-//             )}.`,
-//           )
+      // Create the new turn
+      const now = Date.now()
+      const newTurn: Turn = {
+        ...currentTurn,
+        playerPieces: newPlayerPieces,
+        allowedMoves: newAllowedMoves,
+        clashes: clashes,
+        moves: newMoves,
+        winners: winners.length === 1 ? winners : [],
+        startTime: Timestamp.fromMillis(now),
+        endTime: Timestamp.fromMillis(now + this.gameSetup.maxTurnTime * 1000),
+      }
 
-//           // Record the clash
-//           clashes.push({
-//             index: position,
-//             playerIDs: players,
-//             reason: "Multiple players attempted to claim the same position",
-//           })
+      return newTurn
+    } catch (error) {
+      logger.error(`TacticToes: Error applying moves:`, error)
+      throw error
+    }
+  }
 
-//           // Add to occupied positions
-//           occupiedPositions.add(position)
-//         }
-//       }
+  /**
+   * Finds winners based on the current state of the board.
+   * @returns An array of Winner objects.
+   */
+  private findWinners(
+    playerPieces: { [playerID: string]: number[] },
+    lastMoves: { [playerID: string]: number },
+  ): Winner[] {
+    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
 
-//       // Update allowed moves
-//       const totalCells = boardWidth * boardHeight
-//       const allPositions = Array.from(
-//         { length: totalCells },
-//         (_, index) => index,
-//       )
-//       const freePositions = allPositions.filter(
-//         (pos) => !occupiedPositions.has(pos),
-//       )
-//       const newAllowedMoves: { [playerID: string]: number[] } = {}
-//       this.currentTurn.players.forEach((player) => {
-//         newAllowedMoves[player.id] = [...freePositions]
-//       })
+    // Collect winning lines for each player
+    const winningLinesMap: { [playerID: string]: number[][] } = {}
+    const playersWithWinningLines: string[] = []
 
-//       // Update the current turn
-//       this.currentTurn.allowedMoves = newAllowedMoves
-//       this.currentTurn.playerPieces = newPlayerPieces
-//       this.currentTurn.clashes = clashes
-//     } catch (error) {
-//       logger.error(
-//         `TacticToes: Error applying moves for game ${this.gameID}:`,
-//         error,
-//       )
-//       throw error
-//     }
-//   }
+    // Winning lines (rows, columns, diagonals)
+    const lines = this.getAllPossibleLines(boardWidth, boardHeight)
 
-//   /**
-//    * Finds winners based on the current state of the board.
-//    * @returns An array of Winner objects.
-//    */
-//   async findWinners(): Promise<Winner[]> {
-//     if (!this.currentTurn) return []
-//     try {
-//       const { boardWidth, boardHeight, players, playerPieces } =
-//         this.currentTurn
+    for (const player of gamePlayers) {
+      const playerPositions = new Set(playerPieces[player.id])
+      const winningLines: number[][] = []
 
-//       if (this.latestMoves.length === 0) {
-//         return this.currentTurn.alivePlayers.map((player) => ({
-//           playerID: player,
-//           score: 0,
-//           winningSquares: [],
-//         }))
-//       }
+      for (const line of lines) {
+        const consecutiveCount = this.getMaxConsecutiveCount(
+          line,
+          playerPositions,
+        )
+        if (consecutiveCount >= 4) {
+          winningLines.push(line)
+        }
+      }
 
-//       // Collect winning lines for each player
-//       const winningLinesMap: { [playerID: string]: number[][] } = {}
-//       const allWinningSquares = new Set<number>()
-//       const playersWithWinningLines: string[] = []
+      if (winningLines.length > 0) {
+        winningLinesMap[player.id] = winningLines
+        playersWithWinningLines.push(player.id)
+      }
+    }
 
-//       // Winning lines (rows, columns, diagonals)
-//       const lines = this.getAllPossibleLines(boardWidth, boardHeight)
+    if (playersWithWinningLines.length >= 1) {
+      return playersWithWinningLines.map((playerID) => ({
+        playerID: playerID,
+        score: 1,
+        winningSquares: [lastMoves[playerID]], // Only include the last move
+      }))
+    }
 
-//       for (const player of players) {
-//         const playerPositions = new Set(playerPieces[player.id])
-//         const winningLines: number[][] = []
+    // Check for draw (no more moves)
+    const totalCells = boardWidth * boardHeight
+    const totalOccupied = Object.values(playerPieces).reduce(
+      (sum, positions) => sum + positions.length,
+      0,
+    )
+    if (totalOccupied >= totalCells) {
+      logger.info(`TacticToes: Game ended in a draw.`)
+      return gamePlayers.map((player) => ({
+        playerID: player.id,
+        score: 0,
+        winningSquares: [],
+      }))
+    }
 
-//         for (const line of lines) {
-//           const consecutiveCount = this.getMaxConsecutiveCount(
-//             line,
-//             playerPositions,
-//           )
-//           if (consecutiveCount >= 4) {
-//             winningLines.push(line)
-//             line.forEach((pos) => allWinningSquares.add(pos))
-//           }
-//         }
+    // Game continues
+    return []
+  }
 
-//         if (winningLines.length > 0) {
-//           winningLinesMap[player.id] = winningLines
-//           playersWithWinningLines.push(player.id)
-//         }
-//       }
+  /**
+   * Helper method to get all possible lines (rows, columns, diagonals) of length 4 or more.
+   */
+  private getAllPossibleLines(
+    boardWidth: number,
+    boardHeight: number,
+  ): number[][] {
+    const lines: number[][] = []
 
-//       if (playersWithWinningLines.length === 1) {
-//         // Single winner
-//         const winnerID = playersWithWinningLines[0]
-//         const winningSquares = Array.from(
-//           new Set(winningLinesMap[winnerID].flat()),
-//         )
-//         const winner: Winner = {
-//           playerID: winnerID,
-//           score: 1,
-//           winningSquares,
-//         }
-//         logger.info(`TacticToes: Player ${winnerID} has won the game.`)
-//         return [winner]
-//       } else if (playersWithWinningLines.length > 1) {
-//         // Multiple winners: Convert winning moves to clashes
-//         const clashes = this.currentTurn.clashes || []
-//         const involvedPlayers = playersWithWinningLines
+    // Directions: horizontal, vertical, diagonal /
+    const directions = [
+      { dx: 1, dy: 0 }, // Horizontal
+      { dx: 0, dy: 1 }, // Vertical
+      { dx: 1, dy: 1 }, // Diagonal down-right
+      { dx: 1, dy: -1 }, // Diagonal up-right
+    ]
 
-//         // For each winning square, create a clash
-//         this.latestMoves
-//           .filter((move) => playersWithWinningLines.includes(move.playerID))
-//           .forEach((position) => {
-//             // Remove the position from playerPieces
-//             for (const playerID of involvedPlayers) {
-//               if (!this.currentTurn) continue
-//               const index = this.currentTurn.playerPieces[playerID].indexOf(
-//                 position.move,
-//               )
-//               if (index !== -1) {
-//                 this.currentTurn.playerPieces[playerID].splice(index, 1)
-//               }
-//             }
+    for (let y = 0; y < boardHeight; y++) {
+      for (let x = 0; x < boardWidth; x++) {
+        for (const { dx, dy } of directions) {
+          const line: number[] = []
+          let nx = x
+          let ny = y
 
-//             // Add to clashes if not already present
-//             if (!clashes.some((clash) => clash.index === position.move)) {
-//               clashes.push({
-//                 index: position.move,
-//                 playerIDs: involvedPlayers,
-//                 reason: `Clash due to multiple players achieving a winning line`,
-//               })
-//             }
-//           })
+          while (
+            nx >= 0 &&
+            nx < boardWidth &&
+            ny >= 0 &&
+            ny < boardHeight &&
+            line.length < 4
+          ) {
+            line.push(ny * boardWidth + nx)
+            nx += dx
+            ny += dy
+          }
 
-//         // Update the turn's clashes
-//         this.currentTurn.clashes = clashes
+          if (line.length >= 4) {
+            lines.push(line)
+          }
+        }
+      }
+    }
 
-//         // No winners, game continues or ends in a draw if no moves left
-//         logger.info(
-//           `TacticToes: Multiple players achieved a winning line simultaneously. Winning moves have become clashes.`,
-//         )
-//         return []
-//       }
+    return lines
+  }
 
-//       // Check for draw (no more moves)
-//       const totalCells = boardWidth * boardHeight
-//       const totalOccupied =
-//         Object.values(this.currentTurn.playerPieces).reduce(
-//           (sum, positions) => sum + positions.length,
-//           0,
-//         ) + (this.currentTurn.clashes?.length || 0)
-//       if (totalOccupied >= totalCells) {
-//         logger.info(`TacticToes: Game ended in a draw.`)
-//         return players.map((player) => ({
-//           playerID: player.id,
-//           score: 0,
-//           winningSquares: [],
-//         }))
-//       }
+  /**
+   * Helper method to get the maximum consecutive count in a line for a player's positions.
+   */
+  private getMaxConsecutiveCount(
+    line: number[],
+    playerPositions: Set<number>,
+  ): number {
+    let maxCount = 0
+    let currentCount = 0
 
-//       // Game continues
-//       return []
-//     } catch (error) {
-//       logger.error(
-//         `TacticToes: Error finding winners for game ${this.gameID}:`,
-//         error,
-//       )
-//       throw error
-//     }
-//   }
+    for (const pos of line) {
+      if (playerPositions.has(pos)) {
+        currentCount++
+        if (currentCount > maxCount) {
+          maxCount = currentCount
+        }
+      } else {
+        currentCount = 0
+      }
+    }
 
-//   /**
-//    * Helper method to get all possible lines (rows, columns, diagonals) of length 4 or more.
-//    */
-//   private getAllPossibleLines(
-//     boardWidth: number,
-//     boardHeight: number,
-//   ): number[][] {
-//     const lines: number[][] = []
-
-//     // Directions: horizontal, vertical, diagonal /
-//     const directions = [
-//       { dx: 1, dy: 0 }, // Horizontal
-//       { dx: 0, dy: 1 }, // Vertical
-//       { dx: 1, dy: 1 }, // Diagonal down-right
-//       { dx: 1, dy: -1 }, // Diagonal up-right
-//     ]
-
-//     for (let y = 0; y < boardHeight; y++) {
-//       for (let x = 0; x < boardWidth; x++) {
-//         for (const { dx, dy } of directions) {
-//           const line: number[] = []
-//           let nx = x
-//           let ny = y
-
-//           while (
-//             nx >= 0 &&
-//             nx < boardWidth &&
-//             ny >= 0 &&
-//             ny < boardHeight &&
-//             line.length < 4
-//           ) {
-//             line.push(ny * boardWidth + nx)
-//             nx += dx
-//             ny += dy
-//           }
-
-//           if (line.length >= 4) {
-//             lines.push(line)
-//           }
-//         }
-//       }
-//     }
-
-//     return lines
-//   }
-
-//   /**
-//    * Helper method to get the maximum consecutive count in a line for a player's positions.
-//    */
-//   private getMaxConsecutiveCount(
-//     line: number[],
-//     playerPositions: Set<number>,
-//   ): number {
-//     let maxCount = 0
-//     let currentCount = 0
-
-//     for (const pos of line) {
-//       if (playerPositions.has(pos)) {
-//         currentCount++
-//         if (currentCount > maxCount) {
-//           maxCount = currentCount
-//         }
-//       } else {
-//         currentCount = 0
-//       }
-//     }
-
-//     return maxCount
-//   }
-// }
+    return maxCount
+  }
+}

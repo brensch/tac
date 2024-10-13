@@ -1,26 +1,25 @@
-import React, { useEffect, useState } from "react"
-import { Box, Stack, Typography } from "@mui/material"
-import { useNavigate, useParams } from "react-router-dom"
+import { Box, Stack } from "@mui/material"
+import { Session } from "@shared/types/Game"
 import {
   doc,
   onSnapshot,
-  serverTimestamp,
   runTransaction,
+  serverTimestamp,
 } from "firebase/firestore"
+import React, { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import EmojiCycler from "../components/EmojiCycler"
 import { db } from "../firebaseConfig"
-import { GameState, Session } from "@shared/types/Game"
-import GamePage from "./GamePage"
 
 const Sessionpage: React.FC = () => {
   const { sessionName } = useParams<{ sessionName: string }>()
   const [session, setSession] = useState<Session | null>(null)
   const navigate = useNavigate()
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log("Setting up session subscription")
     const createAndSubscribeToSession = async () => {
       if (!sessionName) {
-        setErrorMessage("Invalid session name.")
         return
       }
 
@@ -44,7 +43,6 @@ const Sessionpage: React.FC = () => {
           }
         })
       } catch (error) {
-        // If there's an error creating the session, log it
         console.log("Error creating session or transaction failed: ", error)
       }
 
@@ -52,8 +50,8 @@ const Sessionpage: React.FC = () => {
       const unsubscribe = onSnapshot(sessionDocRef, (docSnapshot) => {
         if (!docSnapshot.exists()) return
 
-        console.log("Session data:", docSnapshot.data())
-        setSession(docSnapshot.data() as Session)
+        const sessionData = docSnapshot.data() as Session
+        setSession(sessionData)
       })
 
       // Cleanup the subscription on unmount
@@ -61,9 +59,13 @@ const Sessionpage: React.FC = () => {
     }
 
     createAndSubscribeToSession()
-  }, [navigate, sessionName])
+  }, [sessionName]) // Removed currentGameID from dependencies
 
-  if (!session || !session.latestGameID || !sessionName) {
+  if (session?.latestGameID) {
+    navigate(`/session/${sessionName}/${session.latestGameID}`)
+  }
+
+  if (!session || !sessionName) {
     return (
       <Stack
         spacing={2}
@@ -80,14 +82,13 @@ const Sessionpage: React.FC = () => {
             height: "100vh", // Full viewport height
           }}
         >
-          <Box sx={{ fontSize: "10rem" }}>😎</Box>
+          <EmojiCycler />
         </Box>
       </Stack>
     )
   }
-  console.log("yo")
 
-  return <GamePage gameID={session.latestGameID} sessionName={sessionName} />
+  return null
 }
 
 export default Sessionpage
