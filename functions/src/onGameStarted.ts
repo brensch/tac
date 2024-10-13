@@ -5,7 +5,7 @@ import * as admin from "firebase-admin"
 import { GameSetup, GameState, MoveStatus } from "@shared/types/Game" // Adjust the path as necessary
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 import { logger } from "./logger" // Adjust the path as necessary
-import { FieldValue } from "firebase-admin/firestore"
+import { FieldValue, Timestamp } from "firebase-admin/firestore"
 
 /**
  * Firestore Trigger to start the game when all players are ready.
@@ -66,6 +66,11 @@ export const onGameStarted = functions.firestore
 
       // Initialize the game using the processor's method
       const firstTurn = processor.firstTurn()
+      const now = Date.now() // Current time in milliseconds
+      const startTurnDurationMillis = 60 * 1000 // Convert maxTurnTime from seconds to milliseconds
+      const endTime = new Date(now + startTurnDurationMillis) // Add turn time to current time
+      firstTurn.startTime = Timestamp.fromMillis(now)
+      firstTurn.endTime = Timestamp.fromDate(endTime)
 
       afterData.started = true
 

@@ -334,7 +334,7 @@ export class SnekProcessor extends GameProcessor {
       })
 
       // Determine winner if game is over
-      const winners: Winner[] = []
+      let winners: Winner[] = []
       if (newAlivePlayers.length === 1) {
         const winnerID = newAlivePlayers[0]
         winners.push({
@@ -342,6 +342,27 @@ export class SnekProcessor extends GameProcessor {
           score: newScores[winnerID],
           winningSquares: newSnakes[winnerID],
         })
+      } else if (newAlivePlayers.length === 0) {
+        // If all snakes died, everyone is a winner with score 0
+        winners = this.gameSetup.gamePlayers.map((player) => ({
+          playerID: player.id,
+          score: 0,
+          winningSquares: [],
+        }))
+        logger.info(
+          "Snek: All snakes died simultaneously. Game ended in a draw.",
+        )
+      } else if (Object.keys(newSnakes).length === 1) {
+        // If only one snake remains, it's the winner
+        const winnerID = Object.keys(newSnakes)[0]
+        winners = [
+          {
+            playerID: winnerID,
+            score: newSnakes[winnerID].length,
+            winningSquares: newSnakes[winnerID],
+          },
+        ]
+        logger.info(`Snek: Player ${winnerID} has won the game.`)
       }
 
       // Create the new turn

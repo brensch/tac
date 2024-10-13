@@ -11,7 +11,6 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   SelectChangeEvent,
   Stack,
@@ -74,6 +73,8 @@ const GameSetup: React.FC = () => {
       id: botID,
       type: "bot",
     }
+
+    console.log(bot)
     await updateDoc(gameDocRef, {
       gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
     })
@@ -196,6 +197,9 @@ const GameSetup: React.FC = () => {
 
   const { started, playersReady } = gameSetup
 
+  console.log(bots)
+  console.log(gameSetup.playersReady)
+
   return (
     <Stack spacing={2} pt={2}>
       <Box sx={{ display: "flex", gap: 2 }}>
@@ -273,35 +277,37 @@ const GameSetup: React.FC = () => {
           {RulesComponent && <RulesComponent />}
         </Box>
       </FormControl>
-      {/* Bots List */}
+      Bots List
       {bots.length > 0 && (
-        <Paper
-          sx={{
-            border: "1px solid #000", // Black border
-            borderRadius: 0, // Square edges
-            boxShadow: "none", // Remove shadow
-            padding: "16px", // Consistent padding
-          }}
-        >
-          <Typography variant="body2" sx={{ mb: 2 }}>
+        <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
+          <InputLabel shrink sx={{ backgroundColor: "white", px: 1 }}>
             Available Bots
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-            {bots.map((bot) => (
-              <Button
-                key={bot.name}
-                variant="contained"
-                sx={{
-                  backgroundColor: bot.colour,
-                  color: "#fff",
-                }}
-                onClick={() => handleAddBot(bot.id)}
-              >
-                {bot.emoji} {bot.name}
-              </Button>
-            ))}
+          </InputLabel>
+          <Box
+            sx={{
+              border: "1px solid black",
+              padding: 2,
+              borderRadius: "0px",
+              minHeight: "56px",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+              {bots.map((bot) => (
+                <Button
+                  key={bot.name}
+                  sx={{
+                    backgroundColor: bot.colour,
+                  }}
+                  onClick={() => handleAddBot(bot.id)}
+                >
+                  {bot.emoji} {bot.name}
+                </Button>
+              ))}
+            </Box>
           </Box>
-        </Paper>
+        </FormControl>
       )}
       {/* Ready Section */}
       {!gameSetup.gamePlayers
