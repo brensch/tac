@@ -277,7 +277,7 @@ const GameSetup: React.FC = () => {
           {RulesComponent && <RulesComponent />}
         </Box>
       </FormControl>
-      Bots List
+      {/* Bots List */}
       {bots.length > 0 && (
         <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
           <InputLabel shrink sx={{ backgroundColor: "white", px: 1 }}>

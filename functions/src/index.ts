@@ -1,6 +1,6 @@
 import { onGameStarted } from "./onGameStarted"
 import { onMoveCreated } from "./onMoveCreated"
-import { onTurnCreated } from "./onTurnCreated"
+import { onTurnChanged } from "./onTurnChanged"
 import { onSessionCreated } from "./onSessionCreated"
 import { onTurnExpirationRequest } from "./onTurnExpirationRequest"
 import * as admin from "firebase-admin"
@@ -20,6 +20,6 @@ export {
   onMoveCreated,
   onGameStarted,
   onTurnExpirationRequest,
-  onTurnCreated,
+  onTurnChanged,
   onSessionCreated,
 }
