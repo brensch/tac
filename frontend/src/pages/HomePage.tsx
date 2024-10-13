@@ -78,7 +78,7 @@ const HomePage: React.FC = () => {
           borderRadius: 0,
           mt: 15,
           mb: 2,
-          mx: 2,
+          mx: 1,
           px: 2,
           py: 1,
           display: "flex", // Ensures the emoji and text are inline
