@@ -13,7 +13,7 @@ const GameHeader: React.FC = () => {
     await navigator.share({
       title: "Tactic toes",
       text: "This game is completely unrelated to toes.",
-      // url: `/session/${gameSetup?.sessionName}`,
+      url: `/session/${sessionName}`,
     })
     console.log("Content shared successfully")
   }
