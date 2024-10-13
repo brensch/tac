@@ -75,7 +75,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     if (!user) return
 
     try {
-      const result = await linkWithPopup(user, provider)
+      await linkWithPopup(user, provider)
     } catch (error) {
       console.error("Error linking Google account:", error)
       setError("Can't connect your account. Try logging out and logging in.")

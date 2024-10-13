@@ -54,7 +54,7 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
     if (!user) return
 
     try {
-      const result = await signInWithPopup(auth, provider)
+      await signInWithPopup(auth, provider)
     } catch (error) {
       // try to sign in if link didn't work
       setMessage("Failed to connect google.")
