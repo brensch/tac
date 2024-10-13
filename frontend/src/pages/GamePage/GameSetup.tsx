@@ -74,7 +74,6 @@ const GameSetup: React.FC = () => {
       type: "bot",
     }
 
-    console.log(bot)
     await updateDoc(gameDocRef, {
       gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
     })
@@ -196,9 +195,6 @@ const GameSetup: React.FC = () => {
   if (gameState || !gameSetup) return null
 
   const { started, playersReady } = gameSetup
-
-  console.log(bots)
-  console.log(gameSetup.playersReady)
 
   return (
     <Stack spacing={2} pt={2}>

@@ -15,7 +15,6 @@ const GameHeader: React.FC = () => {
       text: "This game is completely unrelated to toes.",
       url: `/session/${sessionName}`,
     })
-    console.log("Content shared successfully")
   }
 
   return (

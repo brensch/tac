@@ -51,12 +51,10 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
   // Function to handle connecting Google Account to anonymous account
   const handleSignInWithGoogle = async () => {
     const user = auth.currentUser
-    console.log(user)
     if (!user) return
 
     try {
       const result = await signInWithPopup(auth, provider)
-      console.log(result)
     } catch (error) {
       // try to sign in if link didn't work
       setMessage("Failed to connect google.")

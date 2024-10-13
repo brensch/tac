@@ -49,12 +49,9 @@ const GameActive: React.FC = () => {
   if (!gameState) return null
 
   const currentTurn = gameState.turns[gameState.turns.length - 1]
-  console.log(currentTurn)
   const playerInCurrentGame = gameSetup?.gamePlayers.find(
     (player) => player.id === userID,
   )
-
-  // if (!gameSetup?.started || !currentTurn) return null
 
   return (
     <Stack spacing={2} pt={2}>

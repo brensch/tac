@@ -539,9 +539,6 @@ const GameGrid: React.FC = () => {
 
   const handleSquareClick = async (index: number) => {
     if (!selectedTurn || !gameState) return
-    console.log(index)
-    console.log(gameSetup)
-
     if (gameSetup?.started) {
       const allowedMoves = selectedTurn.allowedMoves[user.userID] || []
       if (allowedMoves.includes(index)) {
@@ -592,7 +589,6 @@ const GameGrid: React.FC = () => {
   }
 
   const disabled = hasSubmittedMove
-  console.log(selectedSquare)
 
   return (
     <>

@@ -45,13 +45,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         setUserID(uid)
 
         const userDocRef = doc(db, "users", uid)
-        console.log(uid)
 
         // Real-time listener for user document updates
         const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
           if (docSnapshot.exists()) {
             const userInfo = docSnapshot.data() as Human
-            console.log(userInfo)
             setName(userInfo.name || "Unknown")
             setEmoji(userInfo.emoji || "")
             setColour(userInfo.colour)

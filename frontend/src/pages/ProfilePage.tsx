@@ -72,12 +72,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   // Function to handle connecting Google Account to anonymous account
   const handleLinkGoogleAccount = async () => {
     const user = auth.currentUser
-    console.log(user)
     if (!user) return
 
     try {
       const result = await linkWithPopup(user, provider)
-      console.log(result)
     } catch (error) {
       console.error("Error linking Google account:", error)
       setError("Can't connect your account. Try logging out and logging in.")
