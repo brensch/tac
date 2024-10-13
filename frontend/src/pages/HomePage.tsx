@@ -20,7 +20,7 @@ const HomePage: React.FC = () => {
         Games entirely unrelated to toes*
       </Typography>
 
-      <Typography pt={10} variant="body2" align="left" gutterBottom>
+      <Typography pt={14} variant="body2" align="left" gutterBottom>
         Pick a word for your session. If you want to play with someone, use the
         same word.
       </Typography>
@@ -63,37 +63,22 @@ const HomePage: React.FC = () => {
           }}
         />
       </form>
-      {/* {errorMessage && (
-        <Typography color="error" variant="body2">
-          {errorMessage}
-        </Typography>
-      )} */}
-
-      {/* <Button
-        sx={{
-          background: colour,
-          mt: 2,
-        }}
-        onClick={handleNewGame}
-      >
-        Start session
-      </Button>
-      <Button
-        sx={{ flexGrow: 1, background: joinSessionColor, mt: 2 }}
-        onClick={handleJoin}
-      >
-        Join session
-      </Button> */}
 
       <Typography
         pt={2}
         variant="body2"
         sx={{
+          position: "absolute",
+          bottom: "60px",
+          left: 0,
+          right: 0,
           border: "1px solid",
           borderImage:
             "linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1",
           borderRadius: 0,
           mt: 15,
+          mb: 2,
+          mx: 2,
           px: 2,
           py: 1,
           display: "flex", // Ensures the emoji and text are inline

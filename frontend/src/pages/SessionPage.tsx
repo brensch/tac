@@ -65,30 +65,26 @@ const Sessionpage: React.FC = () => {
     navigate(`/session/${sessionName}/${session.latestGameID}`)
   }
 
-  if (!session || !sessionName) {
-    return (
-      <Stack
-        spacing={2}
-        direction="column"
-        alignItems="center"
-        justifyContent="center"
-        sx={{ height: "100vh" }}
+  return (
+    <Stack
+      spacing={2}
+      direction="column"
+      alignItems="center"
+      justifyContent="center"
+      sx={{ height: "100vh" }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh", // Full viewport height
+        }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            height: "100vh", // Full viewport height
-          }}
-        >
-          <EmojiCycler />
-        </Box>
-      </Stack>
-    )
-  }
-
-  return null
+        <EmojiCycler />
+      </Box>
+    </Stack>
+  )
 }
 
 export default Sessionpage
