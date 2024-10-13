@@ -163,6 +163,7 @@ const GameActive: React.FC = () => {
               justifyContent: "center",
               alignItems: "center",
               pointerEvents: "none",
+              zIndex: 9999,
             }}
           >
             <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
