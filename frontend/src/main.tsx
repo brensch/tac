@@ -42,6 +42,7 @@ const theme = createTheme({
           transition: "box-shadow 0.3s ease",
           "&:hover": {
             border: "2px solid #000",
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
           },
           "&.Mui-focused": {
             border: "2px solid #000",
@@ -101,7 +102,7 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         select: {
-          paddingRight: "32px !important", // Ensure space for the icon
+          paddingRight: "32px !important",
         },
         icon: {
           right: 14,
@@ -114,12 +115,12 @@ const theme = createTheme({
         paper: {
           borderRadius: 0,
           border: "2px solid #000",
-          // boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-          marginTop: "0px", // Small gap between select and menu
+          marginTop: "0px",
+          transition: "box-shadow 0.3s ease",
+          "&:hover": {
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+          },
         },
-        // list: {
-        //   padding: 0,
-        // },
       },
       defaultProps: {
         TransitionProps: {
@@ -147,7 +148,7 @@ const theme = createTheme({
           "&.Mui-selected": {
             backgroundColor: "#f0f0f0",
             "&:hover": {
-              backgroundColor: "#81d681",
+              backgroundColor: "#f0f0f0",
             },
           },
         },
@@ -180,7 +181,7 @@ const theme = createTheme({
           boxShadow: "none",
           transition: "all 0.1s ease-in-out",
           "&:hover": {
-            backgroundColor: "#f0f0f0",
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
           },
           "&:active": {
             boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
@@ -192,18 +193,10 @@ const theme = createTheme({
         },
         contained: {
           color: "#000",
-          "&:hover": {
-            backgroundColor: "#81d681",
-          },
           "&.Mui-disabled": {
             backgroundColor: "#d3d3d3",
             border: "2px solid #a9a9a9",
             color: "#808080",
-          },
-        },
-        outlined: {
-          "&:hover": {
-            backgroundColor: "#f0f0f0",
           },
         },
       },

@@ -8,8 +8,10 @@ import {
   Button,
 } from "@mui/material"
 import {
+  ColorClashRules,
   Connect4Rules,
   LongBoiRules,
+  ReversiRules,
   SnekRules,
   TacticToesRules,
 } from "../../constants/Rules"
@@ -31,6 +33,10 @@ export const getRulesComponent = (rules?: GameType): React.FC => {
       return TacticToesRules
     case "snek":
       return SnekRules
+    case "colourclash":
+      return ColorClashRules
+    case "reversi":
+      return ReversiRules
     default:
       return Connect4Rules // Fallback if no valid rules type is provided
   }

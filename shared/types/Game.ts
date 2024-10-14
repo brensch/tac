@@ -27,7 +27,13 @@ export interface MoveStatus {
   movedPlayerIDs: string[]
 }
 
-export type GameType = "connect4" | "longboi" | "tactictoes" | "snek"
+export type GameType =
+  | "connect4"
+  | "longboi"
+  | "tactictoes"
+  | "snek"
+  | "colourclash"
+  | "reversi"
 
 export interface Session {
   latestGameID: string | null

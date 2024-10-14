@@ -212,6 +212,8 @@ const GameSetup: React.FC = () => {
           <MenuItem value="connect4">Connect 4</MenuItem>
           <MenuItem value="tactictoes">Tactic Toes</MenuItem>
           <MenuItem value="longboi">Long Boi</MenuItem>
+          <MenuItem value="reversi">Reversi (othello) - By Chatgpt</MenuItem>
+          <MenuItem value="colourclash">Colour Clash - By Claude</MenuItem>
         </Select>
       </FormControl>
       <Box sx={{ display: "flex", gap: 2 }}>

@@ -6,6 +6,8 @@ import { GameProcessor } from "./GameProcessor"
 import { SnekProcessor } from "./SnekProcessor"
 import { LongboiProcessor } from "./LongboiProcessor"
 import { TacticToesProcessor } from "./TacticToesProcessor"
+import { ColorClashProcessor } from "./ColourClash"
+import { ReversiProcessor } from "./Reversi"
 
 export function getGameProcessor(gameSetup: GameSetup): GameProcessor | null {
   switch (gameSetup.gameType) {
@@ -17,6 +19,10 @@ export function getGameProcessor(gameSetup: GameSetup): GameProcessor | null {
       return new TacticToesProcessor(gameSetup)
     case "snek":
       return new SnekProcessor(gameSetup)
+    case "colourclash":
+      return new ColorClashProcessor(gameSetup)
+    case "reversi":
+      return new ReversiProcessor(gameSetup)
     default:
       console.error(`Unsupported game type: ${gameSetup.gameType}`)
       return null

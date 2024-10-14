@@ -71,7 +71,7 @@ const GameFinished: React.FC = () => {
           zIndex: 9999999, // Ensures this section stays on top
           backgroundColor: "white", // Blocks out the EmojiRain
           padding: 2,
-          border: "1px solid black",
+          border: "2px solid black",
           my: 2,
         }}
       >

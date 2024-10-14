@@ -41,3 +41,60 @@ export const SnekRules: React.FC = () => {
     </>
   )
 }
+
+export const ColorClashRules: React.FC = () => {
+  return (
+    <>
+      <Typography>
+        ColourClash is a board game where players compete to create the largest
+        area of their color.
+      </Typography>
+      <ul className="list-disc pl-5 space-y-2">
+        <li>
+          <Typography>
+            Players start in different corners of the board.
+          </Typography>
+        </li>
+        <li>
+          <Typography>
+            On your turn, place a piece next to one of your existing pieces.
+          </Typography>
+        </li>
+        <li>
+          <Typography>The game ends when no one can make a move.</Typography>
+        </li>
+        <li>
+          <Typography>
+            The player with the largest connected color area wins!
+          </Typography>
+        </li>
+      </ul>
+      <Typography>
+        Strategy tip: Expand your area while blocking opponents. Think ahead!
+      </Typography>
+    </>
+  )
+}
+
+export const ReversiRules: React.FC = () => {
+  return (
+    <>
+      <Typography>
+        Reversi is a strategy board game for two players, played on an 8x8 grid.
+      </Typography>
+      <Typography>
+        Players take turns placing pieces on the board with their color facing
+        up.
+      </Typography>
+      <Typography>
+        When you place a piece such that it brackets one or more of your
+        opponent's pieces in a straight line (horizontally, vertically, or
+        diagonally), those pieces are flipped to your color.
+      </Typography>
+      <Typography>
+        The game ends when neither player can make a valid move. The player with
+        the most pieces on the board wins.
+      </Typography>
+    </>
+  )
+}
