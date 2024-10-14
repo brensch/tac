@@ -92,6 +92,9 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
             justifyContent: "center",
             alignItems: "center",
             border: "2px solid #000",
+            "& .hue-horizontal": {
+              borderRadius: "0px !important",
+            },
           }}
         >
           <HuePicker

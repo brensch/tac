@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react"
-import { useUser } from "../context/UserContext"
-import { Container, Box, TextField, Button, Typography } from "@mui/material"
-import { HuePicker, ColorResult } from "react-color"
+import { Box, Button, Container, TextField, Typography } from "@mui/material"
 import { emojiList } from "@shared/types/Emojis"
-import { auth, provider } from "../firebaseConfig"
 import { linkWithPopup, signOut } from "firebase/auth"
+import React, { useEffect, useState } from "react"
+import { ColorResult, HuePicker } from "react-color"
+import { useUser } from "../context/UserContext"
+import { auth, provider } from "../firebaseConfig"
 import { generateColor } from "../utils/colourUtils"
 
 interface ProfilePageProps {
@@ -18,13 +18,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   setUpdatedColour,
   setUpdatedEmoji,
 }) => {
-  const { name: initialName, emoji: initialEmoji } = useUser()
+  const {
+    name: initialName,
+    emoji: initialEmoji,
+    colour: initialColour,
+  } = useUser()
 
   const [name, setName] = useState<string>(initialName)
-  const [hue, setHue] = useState<number>(Math.floor(Math.random() * 360))
-  const [selectedColour, setSelectedColour] = useState<string>(
-    generateColor(hue),
-  )
+  const [hue, setHue] = useState<number>(() => {
+    // Extract hue from HSL color string
+    const hslMatch = initialColour.match(
+      /hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/,
+    )
+    if (hslMatch) {
+      return parseFloat(hslMatch[1])
+    }
+    return 0 // Default hue if parsing fails
+  })
+  const [selectedColour, setSelectedColour] = useState<string>(initialColour)
   const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
   const [error, setError] = useState<string | null>()
@@ -46,6 +57,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   }, [name, setUpdatedName])
 
   useEffect(() => {
+    // Generate new color in HSL format
     const newColor = generateColor(hue)
     setSelectedColour(newColor)
     setUpdatedColour(newColor)
@@ -99,6 +111,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             justifyContent: "center",
             alignItems: "center",
             border: "2px solid #000",
+            "& .hue-horizontal": {
+              borderRadius: "0px !important",
+            },
           }}
         >
           <HuePicker

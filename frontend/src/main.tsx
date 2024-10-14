@@ -1,9 +1,9 @@
-import { StrictMode } from "react"
-import { createRoot } from "react-dom/client"
-import App from "./App.tsx"
-import { ThemeProvider } from "@emotion/react"
-import { createTheme, CssBaseline } from "@mui/material"
-import "@fontsource/roboto-mono" // Import the brutalist font
+import React from "react"
+import ReactDOM from "react-dom/client"
+import { ThemeProvider, createTheme } from "@mui/material/styles"
+import CssBaseline from "@mui/material/CssBaseline"
+import App from "./App"
+import "@fontsource/roboto-mono"
 
 const theme = createTheme({
   palette: {
@@ -12,7 +12,7 @@ const theme = createTheme({
       main: "#000000",
     },
     success: {
-      main: "#90ee90",
+      main: "#f0f0f0",
     },
   },
   typography: {
@@ -20,25 +20,32 @@ const theme = createTheme({
   },
   components: {
     MuiCssBaseline: {
-      styleOverrides: {
-        "*": {
-          boxSizing: "border-box",
-        },
-      },
+      styleOverrides: `
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `,
     },
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
           borderRadius: 0,
           border: "2px solid #000",
-          boxShadow: "none", // Remove default box shadow
-          transition: "box-shadow 0.3s ease", // Add transition for smooth effect
+          boxShadow: "none",
+          transition: "box-shadow 0.3s ease",
           "&:hover": {
             border: "2px solid #000",
           },
           "&.Mui-focused": {
             border: "2px solid #000",
-            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", // Apply box shadow only when focused
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
           },
           "& .MuiOutlinedInput-notchedOutline": {
             border: "none",
@@ -54,7 +61,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "&.Mui-focused .MuiSelect-icon": {
-            display: "block", // Show dropdown icon when focused
+            display: "block",
           },
         },
       },
@@ -93,29 +100,35 @@ const theme = createTheme({
     },
     MuiSelect: {
       styleOverrides: {
-        icon: {
-          display: "none", // Hide dropdown icon by default
-        },
         select: {
-          "&:focus": {
-            backgroundColor: "transparent",
-          },
+          paddingRight: "32px !important", // Ensure space for the icon
+        },
+        icon: {
+          right: 14,
+          color: "#000",
         },
       },
     },
     MuiMenu: {
       styleOverrides: {
         paper: {
-          marginTop: 0, // Remove default margin
           borderRadius: 0,
           border: "2px solid #000",
-          boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-          animation: "$slideIn 0.3s ease-out",
+          // boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+          marginTop: "0px", // Small gap between select and menu
         },
+        // list: {
+        //   padding: 0,
+        // },
       },
       defaultProps: {
+        TransitionProps: {
+          style: {
+            transformOrigin: "top",
+          },
+        },
         anchorOrigin: {
-          vertical: "top",
+          vertical: "bottom",
           horizontal: "left",
         },
         transformOrigin: {
@@ -124,33 +137,27 @@ const theme = createTheme({
         },
       },
     },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          padding: "12px 14px",
+          "&:hover": {
+            backgroundColor: "#f0f0f0",
+          },
+          "&.Mui-selected": {
+            backgroundColor: "#f0f0f0",
+            "&:hover": {
+              backgroundColor: "#81d681",
+            },
+          },
+        },
+      },
+    },
     MuiPopover: {
       styleOverrides: {
         root: {
           "& .MuiPaper-root": {
             transform: "translateY(0) !important",
-          },
-        },
-      },
-    },
-    MuiList: {
-      styleOverrides: {
-        root: {
-          padding: 0, // Remove default padding
-        },
-      },
-    },
-    MuiMenuItem: {
-      styleOverrides: {
-        root: {
-          "&:hover": {
-            backgroundColor: "#f0f0f0",
-          },
-          "&.Mui-selected": {
-            backgroundColor: "#90ee90",
-            "&:hover": {
-              backgroundColor: "#81d681",
-            },
           },
         },
       },
@@ -205,7 +212,6 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 0,
-          // border: "2px solid #000",
           transition: "box-shadow 0.3s ease",
           "&:hover, &:focus-within": {
             boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
@@ -237,11 +243,13 @@ const theme = createTheme({
   },
 })
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
+
+root.render(
+  <React.StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <App />
     </ThemeProvider>
-  </StrictMode>,
+  </React.StrictMode>,
 )

@@ -206,7 +206,7 @@ const GameSetup: React.FC = () => {
           value={gameType}
           onChange={handleGameTypeChange}
           disabled={started}
-          label="Game Type" // Make sure this matches the InputLabel text
+          label="Game Type"
         >
           <MenuItem value="snek">Snek</MenuItem>
           <MenuItem value="connect4">Connect 4</MenuItem>
