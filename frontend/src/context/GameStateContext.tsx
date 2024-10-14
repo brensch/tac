@@ -302,8 +302,6 @@ export const GameStateProvider: React.FC<{
     let intervalTime = 1000 // Initial interval time
 
     const intervalFunction = async () => {
-      console.log(latestTurn.endTime.toMillis())
-
       const now = Date.now() / 1000 // Current time in seconds
       const endTimeSeconds =
         latestTurn.endTime instanceof Timestamp ? latestTurn.endTime.seconds : 0 // End time from Firestore

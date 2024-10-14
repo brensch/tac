@@ -169,22 +169,26 @@ const GameActive: React.FC = () => {
             <Typography sx={{ mx: 2, textAlign: "center" }} variant="h4">
               Waiting for
               <br />
-              {gameSetup?.gamePlayers
-                .filter(
+              {(() => {
+                const unmovePlayers = currentTurn.alivePlayers.filter(
                   (player) =>
-                    !latestMoveStatus?.movedPlayerIDs?.includes(player.id), // Check if player hasn't moved
+                    !latestMoveStatus?.movedPlayerIDs?.includes(player),
                 )
-                .map((gamePlayer, index) => {
+
+                if (unmovePlayers.length === 0) return "google cloud"
+
+                return unmovePlayers.map((gamePlayer, index) => {
                   const player = players.find(
-                    (player) => gamePlayer.id === player.id,
+                    (player) => gamePlayer === player.id,
                   )
                   return (
                     <React.Fragment key={player?.id}>
                       {player?.name}
-                      {index < players.length - 1 && <br />}
+                      {index < unmovePlayers.length - 1 && <br />}
                     </React.Fragment>
                   )
-                })}
+                })
+              })()}
             </Typography>
           </Box>
         )}
