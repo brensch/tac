@@ -22,7 +22,7 @@ const HomePage: React.FC = () => {
 
   return (
     <Stack alignItems="left">
-      <Typography pt={14} variant="h4" align="left" gutterBottom>
+      <Typography pt={10} variant="h4" align="left" gutterBottom>
         Games entirely unrelated to toes*
       </Typography>
       <Typography pt={2} variant="body2" align="left" gutterBottom>
