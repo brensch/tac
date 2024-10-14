@@ -24,9 +24,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     colour: initialColour,
   } = useUser()
 
-  const fixedSaturation = 60
-  const fixedLightness = 70
-
   const [name, setName] = useState<string>(initialName)
   const [selectedColour, setSelectedColour] = useState<string>(
     getRandomColor(initialColour),
@@ -35,8 +32,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
   const [error, setError] = useState<string | null>()
 
-  const { h: initialHue } = hexToHSL(selectedColour)
-  const [hue, setHue] = useState<number>(initialHue)
+  // const { h: initialHue } = hexToHSL(selectedColour)
+  // const [hue, setHue] = useState<number>(initialHue)
 
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
@@ -54,11 +51,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setUpdatedName(name)
   }, [name, setUpdatedName])
 
-  useEffect(() => {
-    const newColor = hslToHex(hue, fixedSaturation, fixedLightness)
-    setSelectedColour(newColor)
-    setUpdatedColour(newColor)
-  }, [hue, fixedSaturation, fixedLightness, setUpdatedColour])
+  // useEffect(() => {
+  //   const newColor = hslToHex(hue)
+  //   setSelectedColour(newColor)
+  //   setUpdatedColour(newColor)
+  // }, [hue, , setUpdatedColour])
 
   const handleEmojiClick = (emoji: string) => {
     setSelectedEmoji(emoji)
@@ -66,7 +63,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   }
 
   const handleHueChange = (color: ColorResult) => {
-    setHue(color.hsl.h)
+    color.hsl.l = 60
+    color.hsl.s = 40
+    setSelectedColour(color.hex)
+    setUpdatedColour(color.hex)
   }
 
   // Function to handle connecting Google Account to anonymous account
@@ -109,8 +109,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             display: "flex", // Use flexbox to center the content
             justifyContent: "center", // Center horizontally
             alignItems: "center", // Center vertically if needed
-            padding: 2, // Optional padding
-            border: "1px solid #000",
+            // padding: 2, // Optional padding
+            border: "2px solid #000",
           }}
         >
           <HuePicker

@@ -13,7 +13,7 @@ export const getRandomColor = (inputColor?: string) => {
     lightness = l !== 50 ? 50 : l // Clamp lightness to 50 if it's not already 50
   }
 
-  return hslToHex(hue, saturation, lightness)
+  return hslToHex(hue)
 }
 
 // Convert hex to HSL
@@ -63,10 +63,13 @@ export const hexToHSL = (hex: string) => {
   return { h, s, l }
 }
 
+const fixedSaturation = 85
+const fixedLightness = 60
+
 // Convert HSL to hex
-export const hslToHex = (h: number, s: number, l: number) => {
-  s /= 100
-  l /= 100
+export const hslToHex = (h: number) => {
+  const s = fixedSaturation / 100
+  const l = fixedLightness / 100
 
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))

@@ -21,9 +21,6 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
 
   const [hue, setHue] = useState<number>(initialHue)
 
-  const fixedSaturation = 60
-  const fixedLightness = 70
-
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
     const filteredEmojis = shuffledEmojis.filter(
@@ -44,9 +41,9 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
   }
 
   useEffect(() => {
-    const newColor = hslToHex(hue, fixedSaturation, fixedLightness)
+    const newColor = hslToHex(hue)
     setSelectedColour(newColor)
-  }, [hue, fixedSaturation, fixedLightness])
+  }, [hue])
 
   // Function to handle connecting Google Account to anonymous account
   const handleSignInWithGoogle = async () => {
@@ -97,7 +94,7 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
             display: "flex", // Use flexbox to center the content
             justifyContent: "center", // Center horizontally
             alignItems: "center", // Center vertically if needed
-            padding: 2, // Optional padding
+            border: "2px solid #000",
           }}
         >
           <HuePicker
