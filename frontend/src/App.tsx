@@ -51,7 +51,7 @@ const AppContent: React.FC = () => {
   // Save the name and colour when closing the profile
   const handleProfileClose = async () => {
     const userDocRef = doc(db, "users", userID)
-    await updateDoc(userDocRef, {
+    updateDoc(userDocRef, {
       name: updatedName,
       colour: updatedColour,
       emoji: updatedEmoji,

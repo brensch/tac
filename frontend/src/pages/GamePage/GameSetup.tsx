@@ -198,44 +198,6 @@ const GameSetup: React.FC = () => {
 
   return (
     <Stack spacing={2} pt={2}>
-      <Box sx={{ display: "flex", gap: 2 }}>
-        <TextField
-          label="Board Width"
-          type="number"
-          value={boardWidth}
-          onChange={handleBoardWidthChange}
-          onBlur={handleBoardWidthBlur}
-          disabled={started}
-          fullWidth
-        />
-        <TextField
-          label="Board Height"
-          type="number"
-          value={boardHeight}
-          onChange={handleBoardHeightChange}
-          onBlur={handleBoardHeightBlur}
-          disabled={started}
-          fullWidth
-        />
-        {gameSetup.boardWidth < 5 && (
-          <Typography color="error">Board needs to be bigger than 4</Typography>
-        )}
-
-        <TextField
-          label="Turn time (s)"
-          type="number"
-          value={secondsPerTurn}
-          onChange={handleSecondsPerTurnChange}
-          onBlur={handleSecondsPerTurnBlur}
-          disabled={started}
-          fullWidth
-        />
-        {parseInt(secondsPerTurn) <= 0 && (
-          <Typography color="error">
-            Seconds per Turn must be greater than 0
-          </Typography>
-        )}
-      </Box>
       {/* Game Type Dropdown */}
       <FormControl fullWidth variant="outlined">
         <InputLabel id="game-type-label">Game Type</InputLabel>
@@ -252,6 +214,45 @@ const GameSetup: React.FC = () => {
           <MenuItem value="longboi">Long Boi</MenuItem>
         </Select>
       </FormControl>
+      <Box sx={{ display: "flex", gap: 2 }}>
+        <TextField
+          label="Width"
+          type="number"
+          value={boardWidth}
+          onChange={handleBoardWidthChange}
+          onBlur={handleBoardWidthBlur}
+          disabled={started}
+          fullWidth
+        />
+        <TextField
+          label="Height"
+          type="number"
+          value={boardHeight}
+          onChange={handleBoardHeightChange}
+          onBlur={handleBoardHeightBlur}
+          disabled={started}
+          fullWidth
+        />
+        {gameSetup.boardWidth < 5 && (
+          <Typography color="error">Board needs to be bigger than 4</Typography>
+        )}
+
+        <TextField
+          label="Time (s)"
+          type="number"
+          value={secondsPerTurn}
+          onChange={handleSecondsPerTurnChange}
+          onBlur={handleSecondsPerTurnBlur}
+          disabled={started}
+          fullWidth
+        />
+        {parseInt(secondsPerTurn) <= 0 && (
+          <Typography color="error">
+            Seconds per Turn must be greater than 0
+          </Typography>
+        )}
+      </Box>
+
       {/* Game rules */}
       <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
         <InputLabel shrink sx={{ backgroundColor: "white", px: 1 }}>
@@ -259,7 +260,7 @@ const GameSetup: React.FC = () => {
         </InputLabel>
         <Box
           sx={{
-            border: "1px solid black",
+            border: "2px solid black",
             padding: 2,
             borderRadius: "0px",
             minHeight: "56px", // Similar height to a TextField
@@ -281,7 +282,7 @@ const GameSetup: React.FC = () => {
           </InputLabel>
           <Box
             sx={{
-              border: "1px solid black",
+              border: "2px solid black",
               padding: 2,
               borderRadius: "0px",
               minHeight: "56px",

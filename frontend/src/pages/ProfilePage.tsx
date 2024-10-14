@@ -100,7 +100,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           fullWidth
           sx={{ mt: 1 }}
         />
-
+        {/* HuePicker with fixed brightness and saturation */}
+        <Box
+          sx={{
+            mt: 2,
+            width: "100%",
+            maxWidth: "600px", // Optional max width for color slider
+            display: "flex", // Use flexbox to center the content
+            justifyContent: "center", // Center horizontally
+            alignItems: "center", // Center vertically if needed
+            padding: 2, // Optional padding
+            border: "1px solid #000",
+          }}
+        >
+          <HuePicker
+            color={selectedColour} // Set the current color
+            onChange={handleHueChange} // Handle only hue changes
+            width="100%" // Set the width to 100% to make it full width
+          />
+        </Box>
         <Box
           sx={{
             display: "flex",
@@ -133,25 +151,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         >
           New emojis please.
         </Button>
-
-        {/* HuePicker with fixed brightness and saturation */}
-        <Box
-          sx={{
-            mt: 4,
-            width: "100%",
-            maxWidth: "600px", // Optional max width for color slider
-            display: "flex", // Use flexbox to center the content
-            justifyContent: "center", // Center horizontally
-            alignItems: "center", // Center vertically if needed
-            padding: 2, // Optional padding
-          }}
-        >
-          <HuePicker
-            color={selectedColour} // Set the current color
-            onChange={handleHueChange} // Handle only hue changes
-            width="100%" // Set the width to 100% to make it full width
-          />
-        </Box>
 
         {/* Button to link Google Account */}
         {auth.currentUser?.isAnonymous && (

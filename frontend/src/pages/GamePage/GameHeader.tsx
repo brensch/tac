@@ -28,7 +28,7 @@ const GameHeader: React.FC = () => {
         }}
       >
         <Typography
-          variant="h6"
+          variant="h5"
           sx={{
             flexGrow: 1,
             overflow: "hidden",
