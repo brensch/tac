@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react"
 import {
+  Box,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -9,13 +8,13 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Box,
 } from "@mui/material"
-import { useGameStateContext } from "../../context/GameStateContext"
-import EmojiRain from "./EmojiRain"
-import { useNavigate } from "react-router-dom"
 import { Winner } from "@shared/types/Game"
+import React, { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { useGameStateContext } from "../../context/GameStateContext"
 import { useUser } from "../../context/UserContext"
+import EmojiRain from "./EmojiRain"
 
 interface PlayerResult {
   playerID: string
@@ -97,10 +96,7 @@ const GameFinished: React.FC = () => {
           </>
         )}
         {/* Table of Players and Scores */}
-        <TableContainer
-          component={Paper}
-          sx={{ maxWidth: 600, margin: "auto", my: 2 }}
-        >
+        <TableContainer sx={{ maxWidth: 600, margin: "auto", my: 2 }}>
           <Table size="small">
             <TableHead>
               <TableRow>

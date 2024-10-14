@@ -163,6 +163,19 @@ const theme = createTheme({
         },
       },
     },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 0,
+          boxShadow: "none",
+          border: "2px solid #000",
+          transition: "box-shadow 0.3s ease",
+          "&:hover": {
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+          },
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {
@@ -205,10 +218,6 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 0,
-          transition: "box-shadow 0.3s ease",
-          "&:hover, &:focus-within": {
-            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-          },
         },
       },
     },
