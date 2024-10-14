@@ -205,15 +205,18 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 0,
-          boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-          border: "2px solid #000",
+          // border: "2px solid #000",
+          transition: "box-shadow 0.3s ease",
+          "&:hover, &:focus-within": {
+            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+          },
         },
       },
     },
     MuiTableCell: {
       styleOverrides: {
         root: {
-          border: "1px solid #000",
+          border: "2px solid #000",
           borderRadius: 0,
         },
         head: {
@@ -226,7 +229,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "&:last-child td, &:last-child th": {
-            borderBottom: "1px solid #000",
+            borderBottom: "2px solid #000",
           },
         },
       },

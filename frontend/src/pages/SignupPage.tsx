@@ -3,7 +3,7 @@ import { Box, TextField, Button, Typography, Container } from "@mui/material"
 import { Refresh } from "@mui/icons-material"
 import { emojiList } from "@shared/types/Emojis"
 import { ColorResult, HuePicker } from "react-color"
-import { getRandomColor, hexToHSL, hslToHex } from "../utils/colourUtils"
+import { generateColor } from "../utils/colourUtils" // Import the new generateColor function
 import { signInWithPopup } from "firebase/auth"
 import { auth, provider } from "../firebaseConfig"
 
@@ -16,10 +16,10 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
   const [selectedEmoji, setSelectedEmoji] = useState<string>("")
   const [message, setMessage] = useState<string>("")
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
-  const [selectedColour, setSelectedColour] = useState<string>(getRandomColor())
-  const { h: initialHue } = hexToHSL(selectedColour)
-
-  const [hue, setHue] = useState<number>(initialHue)
+  const [hue, setHue] = useState<number>(Math.floor(Math.random() * 360))
+  const [selectedColour, setSelectedColour] = useState<string>(
+    generateColor(hue),
+  )
 
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
@@ -41,11 +41,10 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
   }
 
   useEffect(() => {
-    const newColor = hslToHex(hue)
+    const newColor = generateColor(hue)
     setSelectedColour(newColor)
   }, [hue])
 
-  // Function to handle connecting Google Account to anonymous account
   const handleSignInWithGoogle = async () => {
     const user = auth.currentUser
     if (!user) return
@@ -53,7 +52,6 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
     try {
       await signInWithPopup(auth, provider)
     } catch (error) {
-      // try to sign in if link didn't work
       setMessage("Failed to connect google.")
       console.error("Error linking Google account:", error)
     }
@@ -85,22 +83,21 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
           onChange={(e) => setName(e.target.value)}
           fullWidth
         />
-        {/* HuePicker with fixed brightness and saturation */}
         <Box
           sx={{
             mt: 4,
             width: "100%",
-            maxWidth: "600px", // Optional max width for color slider
-            display: "flex", // Use flexbox to center the content
-            justifyContent: "center", // Center horizontally
-            alignItems: "center", // Center vertically if needed
+            maxWidth: "600px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
             border: "2px solid #000",
           }}
         >
           <HuePicker
-            color={selectedColour} // Set the current color
-            onChange={handleHueChange} // Handle only hue changes
-            width="100%" // Set the width to 100% to make it full width
+            color={selectedColour}
+            onChange={handleHueChange}
+            width="100%"
           />
         </Box>
 

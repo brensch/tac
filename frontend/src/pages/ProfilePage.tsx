@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react"
 import { useUser } from "../context/UserContext"
 import { Container, Box, TextField, Button, Typography } from "@mui/material"
 import { HuePicker, ColorResult } from "react-color"
-import { getRandomColor, hexToHSL, hslToHex } from "../utils/colourUtils"
 import { emojiList } from "@shared/types/Emojis"
-import { auth, provider } from "../firebaseConfig" // Import Firebase and the Google provider
+import { auth, provider } from "../firebaseConfig"
 import { linkWithPopup, signOut } from "firebase/auth"
+import { generateColor } from "../utils/colourUtils"
 
 interface ProfilePageProps {
   setUpdatedName: (name: string) => void
@@ -18,22 +18,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   setUpdatedColour,
   setUpdatedEmoji,
 }) => {
-  const {
-    name: initialName,
-    emoji: initialEmoji,
-    colour: initialColour,
-  } = useUser()
+  const { name: initialName, emoji: initialEmoji } = useUser()
 
   const [name, setName] = useState<string>(initialName)
+  const [hue, setHue] = useState<number>(Math.floor(Math.random() * 360))
   const [selectedColour, setSelectedColour] = useState<string>(
-    getRandomColor(initialColour),
+    generateColor(hue),
   )
   const [selectedEmoji, setSelectedEmoji] = useState<string>(initialEmoji)
   const [displayedEmojis, setDisplayedEmojis] = useState<string[]>([])
   const [error, setError] = useState<string | null>()
-
-  // const { h: initialHue } = hexToHSL(selectedColour)
-  // const [hue, setHue] = useState<number>(initialHue)
 
   const randomizeEmojis = () => {
     const shuffledEmojis = [...emojiList].sort(() => 0.5 - Math.random())
@@ -51,11 +45,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setUpdatedName(name)
   }, [name, setUpdatedName])
 
-  // useEffect(() => {
-  //   const newColor = hslToHex(hue)
-  //   setSelectedColour(newColor)
-  //   setUpdatedColour(newColor)
-  // }, [hue, , setUpdatedColour])
+  useEffect(() => {
+    const newColor = generateColor(hue)
+    setSelectedColour(newColor)
+    setUpdatedColour(newColor)
+  }, [hue, setUpdatedColour])
 
   const handleEmojiClick = (emoji: string) => {
     setSelectedEmoji(emoji)
@@ -63,13 +57,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   }
 
   const handleHueChange = (color: ColorResult) => {
-    color.hsl.l = 60
-    color.hsl.s = 40
-    setSelectedColour(color.hex)
-    setUpdatedColour(color.hex)
+    setHue(color.hsl.h)
   }
 
-  // Function to handle connecting Google Account to anonymous account
   const handleLinkGoogleAccount = async () => {
     const user = auth.currentUser
     if (!user) return
@@ -100,23 +90,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           fullWidth
           sx={{ mt: 1 }}
         />
-        {/* HuePicker with fixed brightness and saturation */}
         <Box
           sx={{
             mt: 2,
             width: "100%",
-            maxWidth: "600px", // Optional max width for color slider
-            display: "flex", // Use flexbox to center the content
-            justifyContent: "center", // Center horizontally
-            alignItems: "center", // Center vertically if needed
-            // padding: 2, // Optional padding
+            maxWidth: "600px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
             border: "2px solid #000",
           }}
         >
           <HuePicker
-            color={selectedColour} // Set the current color
-            onChange={handleHueChange} // Handle only hue changes
-            width="100%" // Set the width to 100% to make it full width
+            color={selectedColour}
+            onChange={handleHueChange}
+            width="100%"
           />
         </Box>
         <Box
@@ -152,11 +140,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           New emojis please.
         </Button>
 
-        {/* Button to link Google Account */}
         {auth.currentUser?.isAnonymous && (
           <Button
             onClick={handleLinkGoogleAccount}
-            sx={{ mt: 2, backgroundColor: selectedColour }} // Google blue color
+            sx={{ mt: 2, backgroundColor: selectedColour }}
           >
             Connect google
           </Button>
@@ -166,7 +153,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             await signOut(auth)
             window.location.reload()
           }}
-          sx={{ mt: 2, backgroundColor: selectedColour }} // Google blue color
+          sx={{ mt: 2, backgroundColor: selectedColour }}
         >
           Sign out
         </Button>
