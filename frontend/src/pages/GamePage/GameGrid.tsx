@@ -25,11 +25,16 @@ export interface GameLogicProps {
   cellSize: number
 }
 
+export interface ClashInfo {
+  reason: string
+  playerIDs: string[]
+}
+
 export interface GameLogicReturn {
   cellContentMap: { [index: number]: JSX.Element }
   cellBackgroundMap: { [index: number]: string }
   cellAllowedMoveMap: { [index: number]: boolean }
-  clashesAtPosition: { [index: number]: any }
+  clashesAtPosition: { [index: number]: ClashInfo }
 }
 
 const GameGrid: React.FC = () => {

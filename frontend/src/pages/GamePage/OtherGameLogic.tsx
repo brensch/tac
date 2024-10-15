@@ -1,4 +1,4 @@
-import { GameLogicProps, GameLogicReturn } from "./GameGrid"
+import { ClashInfo, GameLogicProps, GameLogicReturn } from "./GameGrid"
 
 const GameLogic = ({
   selectedTurn,
@@ -9,7 +9,7 @@ const GameLogic = ({
   const cellContentMap: { [index: number]: JSX.Element } = {}
   const cellBackgroundMap: { [index: number]: string } = {}
   const cellAllowedMoveMap: { [index: number]: boolean } = {}
-  const clashesAtPosition: { [index: number]: any } = {}
+  const clashesAtPosition: { [index: number]: ClashInfo } = {}
 
   if (!selectedTurn || !gameState)
     return {
