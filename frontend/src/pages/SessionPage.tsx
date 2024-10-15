@@ -8,8 +8,8 @@ import {
 } from "firebase/firestore"
 import React, { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import EmojiCycler from "../components/EmojiCycler"
 import { db } from "../firebaseConfig"
+import { EmojiCycler } from "../components/EmojiCycler"
 
 const Sessionpage: React.FC = () => {
   const { sessionName } = useParams<{ sessionName: string }>()
@@ -17,7 +17,6 @@ const Sessionpage: React.FC = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    console.log("Setting up session subscription")
     const createAndSubscribeToSession = async () => {
       if (!sessionName) {
         return
@@ -59,11 +58,14 @@ const Sessionpage: React.FC = () => {
     }
 
     createAndSubscribeToSession()
-  }, [sessionName]) // Removed currentGameID from dependencies
+  }, [sessionName])
 
-  if (session?.latestGameID) {
-    navigate(`/session/${sessionName}/${session.latestGameID}`)
-  }
+  // New effect for navigation
+  useEffect(() => {
+    if (session?.latestGameID) {
+      navigate(`/session/${sessionName}/${session.latestGameID}`)
+    }
+  }, [session, sessionName, navigate])
 
   return (
     <Stack

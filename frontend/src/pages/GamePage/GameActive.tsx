@@ -175,7 +175,7 @@ const GameActive: React.FC = () => {
                     !latestMoveStatus?.movedPlayerIDs?.includes(player),
                 )
 
-                if (unmovePlayers.length === 0) return "google cloud"
+                if (unmovePlayers.length === 0) return "the cloud"
 
                 return unmovePlayers.map((gamePlayer, index) => {
                   const player = players.find(

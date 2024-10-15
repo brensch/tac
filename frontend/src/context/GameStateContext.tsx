@@ -33,19 +33,19 @@ import React, {
   useRef,
   useState,
 } from "react"
-import EmojiCycler from "../components/EmojiCycler"
+import { EmojiCycler } from "../components/EmojiCycler"
 import { db } from "../firebaseConfig"
 import { useUser } from "./UserContext"
 
 interface GameStateContextType {
   gameState: GameState | null
   turns: Turn[]
-  latestTurn: Turn | undefined
+  latestTurn: Turn | null
   hasSubmittedMove: boolean
   handlePrevTurn: () => void
   handleNextTurn: () => void
   handleLatestTurn: () => void
-  selectedTurn: Turn | undefined
+  selectedTurn: Turn | null
   selectedTurnIndex: number
   setSelectedTurnIndex: React.Dispatch<React.SetStateAction<number>>
   selectedSquare: number | null
@@ -84,12 +84,12 @@ export const GameStateProvider: React.FC<{
   )
   const [humans, setHumans] = useState<Human[]>([])
   const [turns, setTurns] = useState<Turn[]>([])
-  const [latestTurn, setLatestTurn] = useState<Turn | undefined>(undefined)
+  const [latestTurn, setLatestTurn] = useState<Turn | null>(null)
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
-  const [currentTurn, setSelectedTurn] = useState<Turn | undefined>()
+  const [currentTurn, setSelectedTurn] = useState<Turn | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
   const [bots, setBots] = useState<Bot[]>([])
   const [gameType, setGameType] = useState<GameType>("snek")

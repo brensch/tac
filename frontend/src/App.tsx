@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, Suspense, ErrorInfo, ReactNode } from "react"
 import {
   BrowserRouter as Router,
   Routes,
@@ -15,28 +15,80 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
+  CircularProgress,
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
 import HomePage from "./pages/HomePage"
 import GamePage from "./pages/GamePage/index"
 import ProfilePage from "./pages/ProfilePage"
-import { UserProvider, useUser } from "./context/UserContext"
+import { UserProvider, useUser, UserContextType } from "./context/UserContext"
 import Sessionpage from "./pages/SessionPage"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "./firebaseConfig"
+import { EmojiCycler } from "./components/EmojiCycler"
+
+// Error Boundary Component
+interface ErrorBoundaryProps {
+  children: ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+}
+
+class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error("Caught an error:", error, errorInfo)
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return <h1>Something went wrong. Please refresh the page.</h1>
+    }
+
+    return this.props.children
+  }
+}
+
+// Wrap AppContent with error handling and user context check
+const SafeAppContent: React.FC = () => {
+  const userContext = useUser()
+
+  if (!userContext) {
+    return <EmojiCycler />
+  }
+
+  return <AppContent />
+}
 
 const App: React.FC = () => {
   return (
-    <UserProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </UserProvider>
+    <ErrorBoundary>
+      <UserProvider>
+        <Router>
+          <Suspense fallback={<EmojiCycler />}>
+            <SafeAppContent />
+          </Suspense>
+        </Router>
+      </UserProvider>
+    </ErrorBoundary>
   )
 }
 
 const AppContent: React.FC = () => {
-  const { name, emoji, colour, userID } = useUser()
+  const { name, emoji, colour, userID } = useUser() as UserContextType
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false)
   const [updatedName, setUpdatedName] = useState<string>(name)
   const [updatedColour, setUpdatedColour] = useState<string>(colour)
@@ -44,14 +96,14 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate()
 
   // Open the profile modal
-  const handleProfileOpen = () => {
+  const handleProfileOpen = (): void => {
     setIsProfileOpen(true)
   }
 
   // Save the name and colour when closing the profile
-  const handleProfileClose = async () => {
+  const handleProfileClose = async (): Promise<void> => {
     const userDocRef = doc(db, "users", userID)
-    updateDoc(userDocRef, {
+    await updateDoc(userDocRef, {
       name: updatedName,
       colour: updatedColour,
       emoji: updatedEmoji,
@@ -107,7 +159,7 @@ const AppContent: React.FC = () => {
       {/* Profile Modal */}
       <Dialog
         open={isProfileOpen}
-        onClose={handleProfileClose} // Trigger save on close
+        onClose={handleProfileClose}
         fullWidth
         maxWidth="sm"
       >

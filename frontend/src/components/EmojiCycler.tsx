@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react"
-import { Box } from "@mui/material"
+import { Box, Typography } from "@mui/material"
 import { emojiList } from "@shared/types/Emojis"
 
-const EmojiCycler: React.FC = () => {
+export const EmojiCycler: React.FC = () => {
   const [currentEmoji, setCurrentEmoji] = useState<string>(emojiList[0])
 
   useEffect(() => {
@@ -24,4 +24,93 @@ const EmojiCycler: React.FC = () => {
   return <Box sx={{ fontSize: "10rem" }}>{currentEmoji}</Box>
 }
 
-export default EmojiCycler
+const sendEmojis = [
+  "🚀",
+  "🛫",
+  "🏹",
+  "💨",
+  "📈",
+  "💸",
+  "🏄",
+  "🌙",
+  "➡️",
+  "💹",
+  "🐂",
+  "🎬",
+  "🚦",
+  "👉",
+  "🔛",
+  "🆒",
+  "🦍",
+  "✅",
+  "👍",
+  "🍑",
+  "🦶",
+  "🤑",
+  "⛷️",
+  "🧑‍🦯‍➡️",
+  "🏃‍♀️‍➡️",
+  "🕺",
+  "🏌️",
+  "🏂",
+  "🕹️",
+  "🥇",
+  "💡",
+  "🚒",
+  "🏎️",
+  "✈️",
+  "🛩️",
+  "🚢",
+  "🛥️",
+  "⛵",
+  "🚤",
+  "🚨",
+  "🆕",
+  "▶️",
+  "🔜",
+  "☑️",
+]
+
+type Emoji = (typeof sendEmojis)[number]
+
+export const RotatingEmoji: React.FC = () => {
+  const [currentEmoji, setCurrentEmoji] = useState<Emoji>(sendEmojis[0])
+  const [previousEmojis, setPreviousEmojis] = useState<Emoji[]>([sendEmojis[0]])
+
+  const getRandomEmoji = (): Emoji => {
+    const availableEmojis = sendEmojis.filter(
+      (emoji) => !previousEmojis.includes(emoji),
+    )
+    if (availableEmojis.length === 0) {
+      // If all emojis have been used, reset the previous emojis list
+      setPreviousEmojis([currentEmoji])
+      return sendEmojis.find((emoji) => emoji !== currentEmoji) ?? sendEmojis[0]
+    }
+    return availableEmojis[Math.floor(Math.random() * availableEmojis.length)]
+  }
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const newEmoji = getRandomEmoji()
+      setCurrentEmoji(newEmoji)
+      setPreviousEmojis((prev) =>
+        [...prev, newEmoji].slice(-sendEmojis.length + 1),
+      )
+    }, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [currentEmoji])
+
+  return (
+    <Typography
+      variant="h3"
+      component="div"
+      sx={{
+        fontFamily:
+          '"Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif',
+      }}
+    >
+      {currentEmoji}
+    </Typography>
+  )
+}

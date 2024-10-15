@@ -6,9 +6,9 @@ import { auth } from "../firebaseConfig"
 import SignupPage from "../pages/SignupPage"
 import { Container, Box } from "@mui/material"
 import { Human } from "@shared/types/Game"
-import EmojiCycler from "../components/EmojiCycler"
+import { EmojiCycler } from "../components/EmojiCycler"
 
-interface UserContextType {
+export interface UserContextType {
   userID: string
   name: string
   emoji: string
