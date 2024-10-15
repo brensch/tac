@@ -29,7 +29,7 @@ const GameLogic = ({
   }
 
   // Map allowed moves for all players
-  Object.entries(allowedMoves).forEach(([playerID, moves]) => {
+  Object.entries(allowedMoves).forEach(([, moves]) => {
     moves.forEach((position) => {
       cellAllowedMoveMap[position] = true
     })

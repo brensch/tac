@@ -1,18 +1,24 @@
-import React from "react"
 import { Box } from "@mui/material"
+import React from "react"
 import { GameLogicProps, GameLogicReturn } from "./GameGrid"
 
-const BORDER_WIDTH = 3 // Width of the white border and corner size
+const BORDER_WIDTH = 4 // Width of the white border and corner size
 
-// Define the props for the Cell component
 interface CellProps {
   children?: React.ReactNode
   sx?: any
   [key: string]: any
+  borders: {
+    borderTop: string
+    borderRight: string
+    borderBottom: string
+    borderLeft: string
+  }
 }
 
-const Cell: React.FC<CellProps> = ({ children, sx, ...props }) => (
+const Cell: React.FC<CellProps> = ({ children, sx, borders, ...props }) => (
   <Box
+    onClick={() => console.log(borders)}
     sx={{
       position: "relative",
       width: "100%",
@@ -20,57 +26,76 @@ const Cell: React.FC<CellProps> = ({ children, sx, ...props }) => (
       padding: 0,
       margin: 0,
       boxSizing: "border-box",
-      ...sx,
     }}
-    {...props}
   >
-    {children}
+    <Box
+      onClick={() => console.log(borders)}
+      sx={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        padding: 0,
+        margin: 0,
+        boxSizing: "border-box",
+        ...sx,
+      }}
+      {...props}
+    >
+      {children}
+    </Box>
+
     {/* Top-left corner */}
+
     <Box
       sx={{
         position: "absolute",
-        top: -BORDER_WIDTH,
-        left: -BORDER_WIDTH,
+        top: 0,
+        left: 0,
         width: BORDER_WIDTH,
         height: BORDER_WIDTH,
         backgroundColor: "white",
-        zIndex: 1,
+        zIndex: 2,
       }}
     />
+
     {/* Top-right corner */}
+
     <Box
       sx={{
         position: "absolute",
-        top: -BORDER_WIDTH,
-        right: -BORDER_WIDTH,
+        top: 0,
+        right: 0,
         width: BORDER_WIDTH,
         height: BORDER_WIDTH,
         backgroundColor: "white",
-        zIndex: 1,
+        zIndex: 2,
       }}
     />
+
     {/* Bottom-left corner */}
     <Box
       sx={{
         position: "absolute",
-        bottom: -BORDER_WIDTH,
-        left: -BORDER_WIDTH,
+        bottom: 0,
+        left: 0,
         width: BORDER_WIDTH,
         height: BORDER_WIDTH,
         backgroundColor: "white",
-        zIndex: 1,
+        zIndex: 2,
       }}
     />
+
     {/* Bottom-right corner */}
+
     <Box
       sx={{
         position: "absolute",
-        bottom: -BORDER_WIDTH,
-        right: -BORDER_WIDTH,
+        bottom: 0,
+        right: 0,
         width: BORDER_WIDTH,
         height: BORDER_WIDTH,
         backgroundColor: "white",
-        zIndex: 1,
+        zIndex: 2,
       }}
     />
   </Box>
@@ -124,7 +149,6 @@ const GameLogic = ({
 
   // Helper function to determine snake segment borders
   const getSnakeBorders = (
-    playerID: string,
     position: number,
     index: number,
     positions: number[],
@@ -161,7 +185,9 @@ const GameLogic = ({
   Object.entries(playerPieces).forEach(([playerID, positions]) => {
     const playerInfo = players.find((p) => p.id === playerID)
 
-    positions.forEach((position, index) => {
+    // Iterate through positions in reverse order
+    for (let index = positions.length - 1; index >= 0; index--) {
+      const position = positions[index]
       const isHead = index === 0
       const isTail = index === positions.length - 1
 
@@ -169,14 +195,22 @@ const GameLogic = ({
         cellSnakeSegments[position] = {}
       }
 
-      cellSnakeSegments[position][playerID] = {
-        hasHead: isHead,
-        hasTail: isTail,
-        count: (cellSnakeSegments[position][playerID]?.count || 0) + 1,
+      if (!cellSnakeSegments[position][playerID]) {
+        cellSnakeSegments[position][playerID] = {
+          hasHead: isHead,
+          hasTail: isTail,
+          count: 1,
+        }
+      } else {
+        cellSnakeSegments[position][playerID].count += 1
+        // Preserve head information if this segment is the head
+        if (isHead) {
+          cellSnakeSegments[position][playerID].hasHead = true
+        }
       }
 
       cellBackgroundMap[position] = playerInfo?.colour || "white"
-    })
+    }
   })
 
   // Render snake segments
@@ -189,7 +223,6 @@ const GameLogic = ({
       const positions = playerPieces[playerID]
 
       const borders = getSnakeBorders(
-        playerID,
         position,
         positions.indexOf(position),
         positions,
@@ -205,12 +238,15 @@ const GameLogic = ({
         backgroundColor: playerInfo?.colour || "white",
         padding: 0,
         margin: 0,
-        boxSizing: "border-box",
       }
 
       if (hasHead) {
         content = (
-          <Cell key={`head-${playerID}-${position}`} sx={commonBoxStyle}>
+          <Cell
+            key={`head-${playerID}-${position}`}
+            sx={commonBoxStyle}
+            borders={borders}
+          >
             <span
               style={{ fontSize: cellSize * 0.8, lineHeight: 1, zIndex: 2 }}
             >
@@ -221,7 +257,11 @@ const GameLogic = ({
       } else if (positions[1] === position) {
         // Snake length on the second body piece
         content = (
-          <Cell key={`body-length-${playerID}-${position}`} sx={commonBoxStyle}>
+          <Cell
+            key={`body-length-${playerID}-${position}`}
+            sx={commonBoxStyle}
+            borders={borders}
+          >
             <Box
               sx={{
                 fontSize: cellSize * 0.6,
@@ -238,7 +278,11 @@ const GameLogic = ({
       } else if (hasTail && count > 1) {
         // Tail length indicator
         content = (
-          <Cell key={`tail-${playerID}-${position}`} sx={commonBoxStyle}>
+          <Cell
+            key={`tail-${playerID}-${position}`}
+            sx={commonBoxStyle}
+            borders={borders}
+          >
             <Box
               sx={{
                 fontSize: cellSize * 0.6,
@@ -255,7 +299,11 @@ const GameLogic = ({
       } else {
         // Regular body segment
         content = (
-          <Cell key={`body-${playerID}-${position}`} sx={commonBoxStyle} />
+          <Cell
+            key={`body-${playerID}-${position}`}
+            sx={commonBoxStyle}
+            borders={borders}
+          />
         )
       }
 
@@ -279,18 +327,18 @@ const GameLogic = ({
   // Place food
   food?.forEach((position) => {
     cellContentMap[position] = (
-      <Cell key={`food-${position}`} sx={commonCellStyle}>
-        <span style={{ zIndex: 2 }}>🍎</span>
-      </Cell>
+      <Box key={`food-${position}`} sx={commonCellStyle}>
+        🍎
+      </Box>
     )
   })
 
   // Place walls
   walls?.forEach((position) => {
     cellContentMap[position] = (
-      <Cell key={`wall-${position}`} sx={commonCellStyle}>
-        <span style={{ zIndex: 2 }}>🧱</span>
-      </Cell>
+      <Box key={`wall-${position}`} sx={commonCellStyle}>
+        🧱
+      </Box>
     )
     cellBackgroundMap[position] = "#8B4513" // Brown color for walls
   })
@@ -298,9 +346,9 @@ const GameLogic = ({
   // Place hazards
   hazards?.forEach((position) => {
     cellContentMap[position] = (
-      <Cell key={`hazard-${position}`} sx={commonCellStyle}>
+      <Box key={`hazard-${position}`} sx={commonCellStyle}>
         <span style={{ zIndex: 2 }}>☠️</span>
-      </Cell>
+      </Box>
     )
   })
 
@@ -308,9 +356,9 @@ const GameLogic = ({
   clashes?.forEach((clash) => {
     const position = clash.index
     cellContentMap[position] = (
-      <Cell key={`clash-${position}`} sx={commonCellStyle}>
-        <span style={{ zIndex: 2 }}>💀</span>
-      </Cell>
+      <Box key={`clash-${position}`} sx={commonCellStyle}>
+        💀
+      </Box>
     )
     cellBackgroundMap[position] = "#d3d3d3" // light gray
   })

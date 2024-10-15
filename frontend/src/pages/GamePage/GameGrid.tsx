@@ -1,21 +1,21 @@
-import React, { useLayoutEffect, useRef, useState } from "react"
 import { Box } from "@mui/material"
-import { Clash, GamePlayer, GameState, Player, Turn } from "@shared/types/Game"
-import { useGameStateContext } from "../../context/GameStateContext"
-import { useUser } from "../../context/UserContext"
-import ClashDialog from "./ClashDialog"
+import { GamePlayer, GameState, Player, Turn } from "@shared/types/Game"
 import {
-  collection,
   addDoc,
+  arrayUnion,
+  collection,
+  doc,
   serverTimestamp,
   updateDoc,
-  doc,
-  arrayUnion,
 } from "firebase/firestore"
+import React, { useLayoutEffect, useRef, useState } from "react"
+import { useGameStateContext } from "../../context/GameStateContext"
+import { useUser } from "../../context/UserContext"
 import { db } from "../../firebaseConfig"
+import ClashDialog from "./ClashDialog"
 import GridCell from "./GridCell"
-import SnakeGameLogic from "./SnakeGameLogic"
 import OtherGameLogic from "./OtherGameLogic"
+import SnakeGameLogic from "./SnakeGameLogic"
 
 export interface GameLogicProps {
   selectedTurn: Turn | null
@@ -31,8 +31,6 @@ export interface GameLogicReturn {
   cellAllowedMoveMap: { [index: number]: boolean }
   clashesAtPosition: { [index: number]: any }
 }
-
-const BORDER_WIDTH = 4
 
 const GameGrid: React.FC = () => {
   const {
@@ -135,12 +133,7 @@ const GameGrid: React.FC = () => {
     cellSize,
   }
 
-  const {
-    cellContentMap,
-    cellBackgroundMap,
-    cellAllowedMoveMap,
-    clashesAtPosition,
-  } =
+  const { cellContentMap, cellBackgroundMap, clashesAtPosition } =
     gameState?.setup.gameType === "snek"
       ? SnakeGameLogic(gameLogicProps)
       : OtherGameLogic(gameLogicProps)

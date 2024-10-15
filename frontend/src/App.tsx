@@ -1,31 +1,30 @@
-import React, { useState, Suspense, ErrorInfo, ReactNode } from "react"
+import CloseIcon from "@mui/icons-material/Close"
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useNavigate,
-} from "react-router-dom"
-import {
-  Container,
+  AppBar,
   Box,
   Button,
-  AppBar,
-  Typography,
+  Container,
   Dialog,
-  DialogTitle,
   DialogContent,
+  DialogTitle,
   IconButton,
-  CircularProgress,
+  Typography,
 } from "@mui/material"
-import CloseIcon from "@mui/icons-material/Close"
-import HomePage from "./pages/HomePage"
-import GamePage from "./pages/GamePage/index"
-import ProfilePage from "./pages/ProfilePage"
-import { UserProvider, useUser, UserContextType } from "./context/UserContext"
-import Sessionpage from "./pages/SessionPage"
 import { doc, updateDoc } from "firebase/firestore"
-import { db } from "./firebaseConfig"
+import React, { ErrorInfo, ReactNode, Suspense, useState } from "react"
+import {
+  Route,
+  BrowserRouter as Router,
+  Routes,
+  useNavigate,
+} from "react-router-dom"
 import { EmojiCycler } from "./components/EmojiCycler"
+import { UserContextType, UserProvider, useUser } from "./context/UserContext"
+import { db } from "./firebaseConfig"
+import GamePage from "./pages/GamePage/index"
+import HomePage from "./pages/HomePage"
+import ProfilePage from "./pages/ProfilePage"
+import Sessionpage from "./pages/SessionPage"
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -45,7 +44,8 @@ class ErrorBoundary extends React.Component<
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(err: Error): ErrorBoundaryState {
+    console.log(err)
     return { hasError: true }
   }
 
@@ -103,12 +103,12 @@ const AppContent: React.FC = () => {
   // Save the name and colour when closing the profile
   const handleProfileClose = async (): Promise<void> => {
     const userDocRef = doc(db, "users", userID)
+    setIsProfileOpen(false)
     await updateDoc(userDocRef, {
       name: updatedName,
       colour: updatedColour,
       emoji: updatedEmoji,
     })
-    setIsProfileOpen(false)
   }
 
   return (

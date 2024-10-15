@@ -87,7 +87,6 @@ const GridCell: React.FC<GridCellProps> = ({
           alignItems: "center",
           fontSize: `${cellSize}px`,
           textAlign: "center",
-          padding: 1,
           userSelect: "none",
           zIndex: 1,
         }}
