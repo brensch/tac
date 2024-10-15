@@ -29,47 +29,59 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed:", user)
+
       if (!user) {
         try {
-          await signInAnonymously(auth)
+          const result = await signInAnonymously(auth)
+          console.log("Signed in anonymously:", result.user)
         } catch (error) {
           console.error("Failed to sign in anonymously:", error)
-          setAuthLoaded(true) // Ensure authLoaded is set even if sign-in fails
+          setAuthLoaded(true)
           return
         }
       }
 
       const currentUser = auth.currentUser
+
       if (currentUser) {
         const uid = currentUser.uid
         setUserID(uid)
 
         const userDocRef = doc(db, "users", uid)
 
-        // Real-time listener for user document updates
-        const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const userInfo = docSnapshot.data() as Human
-            setName(userInfo.name || "Unknown")
-            setEmoji(userInfo.emoji || "")
-            setColour(userInfo.colour)
-          } else {
-            console.log("No user document exists, prompting user for info.")
-          }
-          setUserDocLoaded(true) // Set user doc loaded after trying to fetch data
-        })
+        const unsubscribeUserDoc = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const userInfo = docSnapshot.data() as Human
+              setName(userInfo.name || "Unknown")
+              setEmoji(userInfo.emoji || "")
+              setColour(userInfo.colour)
+            } else {
+              console.log("No user document exists, prompting user for info.")
+            }
+            setUserDocLoaded(true)
+          },
+          (error) => {
+            console.error("Error in onSnapshot:", error)
+            setUserDocLoaded(true) // Set to true even on error to allow the app to proceed
+          },
+        )
 
-        setAuthLoaded(true) // Auth is now loaded since we have a user
+        setAuthLoaded(true)
 
         return () => {
-          unsubscribeUserDoc() // Unsubscribe from Firestore listener on unmount
+          unsubscribeUserDoc()
         }
       } else {
-        setAuthLoaded(true) // Auth is now loaded even if no currentUser
+        setAuthLoaded(true)
       }
     })
 
-    return () => unsubscribeAuth()
+    return () => {
+      unsubscribeAuth()
+    }
   }, [])
 
   // Save name and emoji once user submits the form
