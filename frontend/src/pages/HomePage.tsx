@@ -75,7 +75,7 @@ const HomePage: React.FC = () => {
         </Typography>
       </Box>
 
-      <Box sx={{ mt: "auto", mb: 2 }}>
+      <Box sx={{ mt: "auto", mb: 5 }}>
         <Box
           sx={{
             border: "2px solid",
@@ -101,9 +101,12 @@ const HomePage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ px: 2 }}>
+        <Box>
           <Typography variant="body1" align="left">
-            * Toes may be involved.
+            * Toes may be involved
+          </Typography>
+          <Typography variant="body1" align="left">
+            A game by brendan
           </Typography>
         </Box>
       </Box>
