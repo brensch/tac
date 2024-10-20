@@ -20,12 +20,20 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from "@mui/material"
 import { GamePlayer, GameType } from "@shared/types/Game"
 import { useGameStateContext } from "../../context/GameStateContext"
 import { getRulesComponent } from "./RulesDialog"
+
+// Define the board size mapping
+const BOARD_SIZE_MAPPING = {
+  small: { width: 11, height: 11 },
+  medium: { width: 13, height: 13 },
+  large: { width: 17, height: 17 },
+}
+
+type BoardSize = keyof typeof BOARD_SIZE_MAPPING
 
 const GameSetup: React.FC = () => {
   const { userID, colour } = useUser()
@@ -40,12 +48,12 @@ const GameSetup: React.FC = () => {
     gameState,
   } = useGameStateContext()
 
-  const [boardWidth, setBoardWidth] = useState<string>("8")
-  const [boardHeight, setBoardHeight] = useState<string>("8")
   const [secondsPerTurn, setSecondsPerTurn] = useState<string>("10")
   const [RulesComponent, setRulesComponent] = useState<React.FC | null>(null)
+  const [boardSize, setBoardSize] = useState<BoardSize>("medium")
 
   const gameDocRef = doc(db, "sessions", sessionName, "setups", gameID)
+
   // Inject the shake animation styles once the component mounts
   React.useEffect(() => {
     addStyles()
@@ -54,8 +62,14 @@ const GameSetup: React.FC = () => {
   // Update local state when gameSetup changes
   useEffect(() => {
     if (gameSetup) {
-      setBoardWidth(`${gameSetup.boardWidth}`)
-      setBoardHeight(`${gameSetup.boardHeight}`)
+      const currentSize = Object.entries(BOARD_SIZE_MAPPING).find(
+        ([_, dimensions]) =>
+          dimensions.width === gameSetup.boardWidth &&
+          dimensions.height === gameSetup.boardHeight,
+      )
+      if (currentSize) {
+        setBoardSize(currentSize[0] as BoardSize)
+      }
       if (gameSetup.gameType) setGameType(gameSetup.gameType)
       setSecondsPerTurn(`${gameSetup.maxTurnTime}`)
     }
@@ -64,7 +78,7 @@ const GameSetup: React.FC = () => {
   // Start game
   const handleReady = async () => {
     await updateDoc(gameDocRef, {
-      playersReady: arrayUnion(userID), // Add the current userID to playersReady array
+      playersReady: arrayUnion(userID),
     })
   }
 
@@ -75,14 +89,14 @@ const GameSetup: React.FC = () => {
     }
 
     await updateDoc(gameDocRef, {
-      gamePlayers: arrayUnion(bot), // Add the current userID to playersReady array
+      gamePlayers: arrayUnion(bot),
     })
   }
 
   // Start game
   const handleStart = async () => {
     await updateDoc(gameDocRef, {
-      startRequested: true, // Add the current userID to playersReady array
+      startRequested: true,
     })
   }
 
@@ -93,68 +107,13 @@ const GameSetup: React.FC = () => {
       type: type,
     }
     await updateDoc(gameDocRef, {
-      gamePlayers: arrayRemove(player), // Remove the specified playerID from playerIDs array
+      gamePlayers: arrayRemove(player),
     })
-  }
-
-  // Handle board width change
-  const handleBoardWidthChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = event.target.value
-    setBoardWidth(value)
-  }
-
-  // Handle board width change
-  const handleBoardHeightChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = event.target.value
-    setBoardHeight(value)
-  }
-
-  // Update Firestore when the input loses focus
-  const handleBoardWidthBlur = async () => {
-    if (!gameSetup?.started) {
-      const newBoardWidth = parseInt(boardWidth, 10)
-
-      if (!isNaN(newBoardWidth) && newBoardWidth >= 5 && newBoardWidth <= 20) {
-        await updateDoc(gameDocRef, {
-          boardWidth: newBoardWidth,
-        })
-      } else {
-        // Handle invalid input: reset to default
-        setBoardWidth("8")
-      }
-    }
-  }
-
-  // Update Firestore when the input loses focus
-  const handleBoardHeightBlur = async () => {
-    if (!gameSetup?.started) {
-      const newBoardHeight = parseInt(boardHeight, 10)
-
-      if (
-        !isNaN(newBoardHeight) &&
-        newBoardHeight >= 5 &&
-        newBoardHeight <= 20
-      ) {
-        await updateDoc(gameDocRef, {
-          boardHeight: newBoardHeight,
-        })
-      } else {
-        // Handle invalid input: reset to default
-        setBoardHeight("8")
-        await updateDoc(gameDocRef, {
-          boardHeight: 8,
-        })
-      }
-    }
   }
 
   // Handler for selecting game type
   const handleGameTypeChange = async (event: SelectChangeEvent<GameType>) => {
-    const selectedGameType = event.target.value as "connect4" | "longboi" // Type casting to the enum type
+    const selectedGameType = event.target.value as GameType
     setGameType(selectedGameType)
 
     // Update Firestore when game type is selected
@@ -163,28 +122,19 @@ const GameSetup: React.FC = () => {
     }
   }
 
-  // Handle seconds per turn change
-  const handleSecondsPerTurnChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    setSecondsPerTurn(event.target.value)
-  }
+  // Handler for selecting board size
+  const handleBoardSizeChange = async (event: SelectChangeEvent<BoardSize>) => {
+    const selectedBoardSize = event.target.value as BoardSize
+    setBoardSize(selectedBoardSize)
 
-  const handleSecondsPerTurnBlur = async () => {
+    const { width, height } = BOARD_SIZE_MAPPING[selectedBoardSize]
+
+    // Update Firestore when board size is selected
     if (!gameSetup?.started) {
-      const newMaxTurnTime = parseInt(secondsPerTurn, 10)
-
-      if (!isNaN(newMaxTurnTime) && newMaxTurnTime > 0) {
-        await updateDoc(gameDocRef, {
-          maxTurnTime: newMaxTurnTime,
-        })
-      } else {
-        // Handle invalid input: reset to default
-        setSecondsPerTurn("10")
-        await updateDoc(gameDocRef, {
-          maxTurnTime: 10,
-        })
-      }
+      await updateDoc(gameDocRef, {
+        boardWidth: width,
+        boardHeight: height,
+      })
     }
   }
 
@@ -241,61 +191,41 @@ const GameSetup: React.FC = () => {
             Not ready: {notReadyPlayers.join(", ")}
           </Typography>
         )}
-      {/* Game Type Dropdown */}
-      <FormControl fullWidth variant="outlined">
-        <InputLabel id="game-type-label">Game Type</InputLabel>
-        <Select
-          labelId="game-type-label"
-          value={gameType}
-          onChange={handleGameTypeChange}
-          disabled={started}
-          label="Game Type"
-        >
-          <MenuItem value="snek">Snek</MenuItem>
-          <MenuItem value="connect4">Connect 4</MenuItem>
-          <MenuItem value="tactictoes">Tactic Toes</MenuItem>
-          <MenuItem value="longboi">Long Boi</MenuItem>
-          <MenuItem value="reversi">Reversi (othello) - By Chatgpt</MenuItem>
-          <MenuItem value="colourclash">Colour Clash - By Claude</MenuItem>
-        </Select>
-      </FormControl>
       <Box sx={{ display: "flex", gap: 2 }}>
-        <TextField
-          label="Width"
-          type="number"
-          value={boardWidth}
-          onChange={handleBoardWidthChange}
-          onBlur={handleBoardWidthBlur}
-          disabled={started}
-          fullWidth
-        />
-        <TextField
-          label="Height"
-          type="number"
-          value={boardHeight}
-          onChange={handleBoardHeightChange}
-          onBlur={handleBoardHeightBlur}
-          disabled={started}
-          fullWidth
-        />
-        {gameSetup.boardWidth < 5 && (
-          <Typography color="error">Board needs to be bigger than 4</Typography>
-        )}
+        {/* Game Type Dropdown */}
+        <FormControl variant="outlined" sx={{ flex: 1 }}>
+          <InputLabel id="game-type-label">Game Type</InputLabel>
+          <Select
+            labelId="game-type-label"
+            value={gameType}
+            onChange={handleGameTypeChange}
+            disabled={started}
+            label="Game Type"
+          >
+            <MenuItem value="snek">Snek</MenuItem>
+            <MenuItem value="connect4">Connect 4</MenuItem>
+            <MenuItem value="tactictoes">Tactic Toes</MenuItem>
+            <MenuItem value="longboi">Long Boi</MenuItem>
+            <MenuItem value="reversi">Othello</MenuItem>
+            <MenuItem value="colourclash">Colour Clash</MenuItem>
+          </Select>
+        </FormControl>
 
-        <TextField
-          label="Time (s)"
-          type="number"
-          value={secondsPerTurn}
-          onChange={handleSecondsPerTurnChange}
-          onBlur={handleSecondsPerTurnBlur}
-          disabled={started}
-          fullWidth
-        />
-        {parseInt(secondsPerTurn) <= 0 && (
-          <Typography color="error">
-            Seconds per Turn must be greater than 0
-          </Typography>
-        )}
+        {/* Game Size */}
+        <FormControl variant="outlined" sx={{ flex: 1 }}>
+          <InputLabel id="board-size-label">Size</InputLabel>
+          <Select
+            labelId="board-size-label"
+            value={boardSize}
+            onChange={handleBoardSizeChange}
+            disabled={started}
+            label="Board Size"
+          >
+            <MenuItem value="small">Small</MenuItem>
+            <MenuItem value="medium">Medium</MenuItem>
+            <MenuItem value="large">Large</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Game rules */}
@@ -308,12 +238,12 @@ const GameSetup: React.FC = () => {
             border: "2px solid black",
             padding: 2,
             borderRadius: "0px",
-            minHeight: "56px", // Similar height to a TextField
+            minHeight: "56px",
             display: "flex",
             alignItems: "start",
             flexDirection: "column",
-            fontFamily: "monospace", // Ensure consistent text formatting
-            whiteSpace: "pre-wrap", // Maintain whitespace and line breaks
+            fontFamily: "monospace",
+            whiteSpace: "pre-wrap",
           }}
         >
           {RulesComponent && <RulesComponent />}
@@ -384,11 +314,7 @@ const GameSetup: React.FC = () => {
                     sx={{ backgroundColor: player.colour }}
                     onClick={() => handleKick(player.id, gamePlayer.type)}
                   >
-                    {/* <Button
-                      onClick={() => handleKick(player.id, gamePlayer.type)}
-                      sx={{ height: 20 }}
-                    > */}
-                    ❌{/* </Button> */}
+                    ❌
                   </TableCell>
                 </TableRow>
               )

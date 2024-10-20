@@ -1,14 +1,20 @@
-import React, { useState } from "react"
+import React, { ChangeEvent, useState } from "react"
 import { Box, Button, Stack, TextField, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 import { RotatingEmoji } from "../components/EmojiCycler"
 import { useUser } from "../context/UserContext"
+import TypingEffectInput from "../components/TypingEffectInput"
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
   const [sessionName, setSessionName] = useState("")
   const [error, setError] = useState("")
   const { colour } = useUser()
+
+  const handleSessionNameChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const lowercaseValue = e.target.value.toLowerCase().replace(/[^a-z]/g, "")
+    setSessionName(lowercaseValue)
+  }
 
   const handleNewGame = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -40,27 +46,10 @@ const HomePage: React.FC = () => {
         </Typography>
         <form onSubmit={handleNewGame} style={{ width: "100%" }}>
           <Box display="flex" alignItems="center" mt={3}>
-            <TextField
-              fullWidth
+            <TypingEffectInput
               value={sessionName}
-              placeholder="Session name"
-              onChange={(e) => {
-                const lowercaseValue = e.target.value
-                  .toLowerCase()
-                  .replace(/[^a-z]/g, "")
-                setSessionName(lowercaseValue)
-              }}
-              sx={{
-                flexGrow: 1,
-                "& .MuiInputBase-root": {
-                  height: "70px",
-                  backgroundColor: colour,
-                },
-                "& .MuiInputBase-input": {
-                  fontSize: "28px",
-                  paddingLeft: "16px",
-                },
-              }}
+              onChange={handleSessionNameChange}
+              colour={colour}
             />
           </Box>
           <Button
