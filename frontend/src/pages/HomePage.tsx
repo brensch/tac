@@ -66,7 +66,8 @@ const HomePage: React.FC = () => {
               },
             }}
           >
-            Play <RotatingEmoji />
+            Play{"\u00A0"}
+            <RotatingEmoji />
           </Button>
         </form>
         <Typography sx={{ pt: 2 }} color="error">
