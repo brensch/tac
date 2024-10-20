@@ -52,7 +52,6 @@ const HomePage: React.FC = () => {
               }}
               sx={{
                 flexGrow: 1,
-                mr: 2,
                 "& .MuiInputBase-root": {
                   height: "70px",
                   backgroundColor: colour,
@@ -63,24 +62,23 @@ const HomePage: React.FC = () => {
                 },
               }}
             />
-            <Button
-              type="submit"
-              sx={{
-                height: "70px",
-                width: "70px",
-                minWidth: "70px",
-                fontSize: "32px",
-                backgroundColor: colour,
-                color: "black",
-                "&:hover": {
-                  backgroundColor: colour,
-                  opacity: 0.8,
-                },
-              }}
-            >
-              <RotatingEmoji />
-            </Button>
           </Box>
+          <Button
+            type="submit"
+            fullWidth
+            sx={{
+              mt: 2,
+              fontSize: "32px",
+              backgroundColor: colour,
+              color: "black",
+              "&:hover": {
+                backgroundColor: colour,
+                opacity: 0.8,
+              },
+            }}
+          >
+            Play <RotatingEmoji />
+          </Button>
         </form>
         <Typography sx={{ pt: 2 }} color="error">
           {error}
@@ -95,7 +93,7 @@ const HomePage: React.FC = () => {
               "linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1",
             borderRadius: 0,
             py: 1,
-            mb: 2,
+            my: 2,
             display: "flex",
             alignItems: "center",
           }}
