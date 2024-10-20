@@ -104,7 +104,6 @@ const HomePage: React.FC = () => {
         <Box sx={{ px: 2 }}>
           <Typography variant="body1" align="left">
             * Toes may be involved.
-            <br /> A game by brendo
           </Typography>
         </Box>
       </Box>
