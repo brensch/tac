@@ -39,15 +39,15 @@ import { useUser } from "./UserContext"
 
 interface GameStateContextType {
   gameState: GameState | null
-  turns: Turn[]
+  // turns: Turn[]
   latestTurn: Turn | null
   hasSubmittedMove: boolean
-  handlePrevTurn: () => void
-  handleNextTurn: () => void
-  handleLatestTurn: () => void
-  selectedTurn: Turn | null
-  selectedTurnIndex: number
-  setSelectedTurnIndex: React.Dispatch<React.SetStateAction<number>>
+  // handlePrevTurn: () => void
+  // handleNextTurn: () => void
+  // handleLatestTurn: () => void
+  // selectedTurn: Turn | null
+  // selectedTurnIndex: number
+  // setSelectedTurnIndex: React.Dispatch<React.SetStateAction<number>>
   selectedSquare: number | null
   setSelectedSquare: React.Dispatch<React.SetStateAction<number | null>>
   startGame: () => Promise<void>
@@ -83,13 +83,13 @@ export const GameStateProvider: React.FC<{
     null,
   )
   const [humans, setHumans] = useState<Human[]>([])
-  const [turns, setTurns] = useState<Turn[]>([])
+  // const [turns, setTurns] = useState<Turn[]>([])
   const [latestTurn, setLatestTurn] = useState<Turn | null>(null)
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
-  const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
+  // const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
-  const [currentTurn, setSelectedTurn] = useState<Turn | null>(null)
+  // const [currentTurn, setSelectedTurn] = useState<Turn | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
   const [bots, setBots] = useState<Bot[]>([])
   const [gameType, setGameType] = useState<GameType>("snek")
@@ -111,10 +111,10 @@ export const GameStateProvider: React.FC<{
       }
       const gameData = docSnapshot.data() as GameState
       setGameState(gameData)
-      setTurns(gameData.turns)
+      // setTurns(gameData.turns)
       setLatestTurn(gameData.turns[gameData.turns.length - 1])
-      setSelectedTurnIndex(gameData.turns.length - 1)
-      setSelectedTurn(gameData.turns[gameData.turns.length - 1])
+      // setSelectedTurnIndex(gameData.turns.length - 1)
+      // setSelectedTurn(gameData.turns[gameData.turns.length - 1])
     })
 
     return () => unsubscribe()
@@ -268,7 +268,7 @@ export const GameStateProvider: React.FC<{
           const highestMoveStatus = querySnapshot.docs[0].data() as MoveStatus
 
           // Set the current turn index to the move number of the highest move
-          setSelectedTurnIndex(highestMoveStatus.moveNumber)
+          // setSelectedTurnIndex(highestMoveStatus.moveNumber)
           setLatestMoveStatus(highestMoveStatus)
         }
       })
@@ -277,10 +277,11 @@ export const GameStateProvider: React.FC<{
     }
   }, [gameID, userID])
 
-  // Manage current turn based on currentTurnIndex
-  useEffect(() => {
-    setSelectedTurn(turns[selectedTurnIndex])
-  }, [turns, selectedTurnIndex, gameState])
+  // // Manage current turn based on currentTurnIndex
+  // useEffect(() => {
+  //   setSelectedTurn(turns[selectedTurnIndex])
+  // }, [turns, selectedTurnIndex, gameState])
+
   useEffect(() => {
     const shouldClearInterval = () => {
       if (
@@ -377,23 +378,6 @@ export const GameStateProvider: React.FC<{
     }
   }
 
-  // Navigation handlers
-  const handlePrevTurn = () => {
-    if (selectedTurnIndex > 0) {
-      setSelectedTurnIndex(selectedTurnIndex - 1)
-    }
-  }
-
-  const handleNextTurn = () => {
-    if (selectedTurnIndex < turns.length - 1) {
-      setSelectedTurnIndex(selectedTurnIndex + 1)
-    }
-  }
-
-  const handleLatestTurn = () => {
-    setSelectedTurnIndex(turns.length - 1)
-  }
-
   // Function to submit a move
   const submitMove = async (selectedSquare: number) => {
     if (!latestTurn || !gameState || !userID || !gameID) {
@@ -424,15 +408,15 @@ export const GameStateProvider: React.FC<{
       value={{
         gameState,
         humans,
-        turns,
+        // turns,
         latestTurn,
-        selectedTurn: currentTurn,
-        selectedTurnIndex: selectedTurnIndex,
+        // selectedTurn: currentTurn,
+        // selectedTurnIndex: selectedTurnIndex,
+        // setSelectedTurnIndex: setSelectedTurnIndex,
         hasSubmittedMove,
-        handlePrevTurn,
-        handleNextTurn,
-        handleLatestTurn,
-        setSelectedTurnIndex: setSelectedTurnIndex,
+        // handlePrevTurn,
+        // handleNextTurn,
+        // handleLatestTurn,
         selectedSquare,
         setSelectedSquare,
         startGame,

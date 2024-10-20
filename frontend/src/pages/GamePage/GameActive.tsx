@@ -28,11 +28,6 @@ const GameActive: React.FC = () => {
     gameState,
     gameSetup,
     players,
-    turns,
-    selectedTurnIndex,
-    handleLatestTurn,
-    handleNextTurn,
-    handlePrevTurn,
     timeRemaining,
     selectedSquare,
     latestMoveStatus,
@@ -88,28 +83,6 @@ const GameActive: React.FC = () => {
       {/* Game Grid */}
       {<GameGrid />}
 
-      {/* Navigation controls */}
-      <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-        <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
-          <ArrowBack />
-        </IconButton>
-        <Typography variant="body2" sx={{ marginX: 2 }}>
-          {currentTurn ? selectedTurnIndex + 1 : "Loading..."} of {turns.length}
-        </Typography>
-        <IconButton
-          onClick={handleNextTurn}
-          disabled={selectedTurnIndex >= turns.length - 1}
-        >
-          <ArrowForward />
-        </IconButton>
-        <IconButton
-          onClick={handleLatestTurn}
-          disabled={selectedTurnIndex >= turns.length - 1}
-        >
-          <LastPage />
-        </IconButton>
-      </Box>
-
       {/* Players Table */}
       <TableContainer sx={{ my: 2, width: "100%" }}>
         <Table size="small" sx={{ borderCollapse: "collapse" }}>
@@ -149,7 +122,7 @@ const GameActive: React.FC = () => {
 
       {/* Waiting Overlay */}
       {latestMoveStatus &&
-        latestMoveStatus.moveNumber === turns.length - 1 &&
+        latestMoveStatus.moveNumber === gameState.turns.length - 1 &&
         latestMoveStatus.movedPlayerIDs.includes(userID) && (
           <Box
             sx={{
