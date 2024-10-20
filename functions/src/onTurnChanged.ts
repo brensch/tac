@@ -69,7 +69,7 @@ const processTurn = async (
         },
         map: "standard", // Adjust map type if needed
         source: "league", // Source of the game
-        timeout: 3000, // Timeout per move
+        timeout: 500, // Timeout per move
       },
       turn: gameData.turns.length - 1,
       board: {
