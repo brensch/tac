@@ -85,17 +85,17 @@ const processTurn = async (
           const y = Math.floor(pos / gameData.setup.boardWidth)
           return adjustPosition(x, y) // Adjust the position inward and flip y-axis
         }),
-        snakes: gameData.setup.gamePlayers.map((player) => {
-          const body = turnData.playerPieces[player.id].map((pos) => {
+        snakes: Object.keys(turnData.playerPieces).map((player) => {
+          const body = turnData.playerPieces[player].map((pos) => {
             const x = pos % gameData.setup.boardWidth
             const y = Math.floor(pos / gameData.setup.boardWidth)
             return adjustPosition(x, y) // Adjust the position inward and flip y-axis
           })
 
           return {
-            id: player.id,
-            name: player.id, // You can modify this to get the player's name if needed
-            health: turnData.playerHealth[player.id],
+            id: player,
+            name: player, // You can modify this to get the player's name if needed
+            health: turnData.playerHealth[player],
             body,
             head: { ...body[0] }, // Clone the head position to avoid circular reference
             length: body.length,
