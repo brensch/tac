@@ -69,7 +69,7 @@ const processTurn = async (
         },
         map: "standard", // Adjust map type if needed
         source: "league", // Source of the game
-        timeout: 1000, // Timeout per move
+        timeout: 3000, // Timeout per move
       },
       turn: gameData.turns.length - 1,
       board: {
@@ -129,7 +129,7 @@ const processTurn = async (
     try {
       // Make a POST request to the bot's URL
       const response = await axios.post(`${bot.url}/move`, botRequestBody, {
-        timeout: 5000, // Timeout for the bot to respond
+        timeout: 10000, // Timeout for the bot to respond
       })
       logger.info(`Successfully sent move request to bot ${bot.id}`, {
         response: response.data,
