@@ -18,8 +18,8 @@ import EmojiRain from "./EmojiRain"
 
 interface PlayerResult {
   playerID: string
-  name: string
-  emoji: string
+  name: string | undefined
+  emoji: string | undefined
   score: number
 }
 
@@ -33,13 +33,13 @@ const GameFinished: React.FC = () => {
     if (!latestTurn) return
     const winners: Winner[] = latestTurn.winners || []
     // Build a list of all players with their scores
-    const playersWithScores = players.map((player) => {
-      const winner = winners.find((w) => w.playerID === player.id)
+    const playersWithScores = winners.map((player) => {
+      const winner = players.find((w) => w.id === player.playerID)
       return {
-        playerID: player.id,
-        name: player.name,
-        emoji: player.emoji,
-        score: winner ? winner.score : 0,
+        playerID: player.playerID,
+        name: winner?.name,
+        emoji: winner?.emoji,
+        score: player.score,
       }
     })
 
@@ -140,7 +140,7 @@ const GameFinished: React.FC = () => {
       {/* Emoji Rain Effect for Top Player */}
       {topPlayer && !draw && (
         <EmojiRain
-          emoji={topPlayer.emoji}
+          emoji={topPlayer.emoji ? topPlayer.emoji : "💩"}
           top={-20} // Start emoji rain from the top
         />
       )}

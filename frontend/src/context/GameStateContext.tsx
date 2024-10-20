@@ -281,36 +281,45 @@ export const GameStateProvider: React.FC<{
     setSelectedTurn(turns[selectedTurnIndex])
   }, [turns, selectedTurnIndex, gameState])
 
-  // Handle turn expiration
   useEffect(() => {
-    // Early return if latestTurn, gameSetup, or gameID is not valid
-    // also return if we have winners since no longer need to count
-    if (
-      !latestTurn ||
-      !gameSetup?.maxTurnTime ||
-      !gameID ||
-      latestTurn.winners.length > 0
-    ) {
-      // Clear the interval if any of the dependencies are invalid
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null
+    const shouldClearInterval = () => {
+      if (
+        !latestTurn ||
+        !gameSetup?.maxTurnTime ||
+        !gameID ||
+        latestTurn.winners.length > 0
+      ) {
+        if (intervalIdRef.current) {
+          clearInterval(intervalIdRef.current)
+          intervalIdRef.current = null
+        }
+        return true
       }
+      return false
+    }
+
+    if (shouldClearInterval()) {
       return
     }
 
     let intervalTime = 1000 // Initial interval time
 
     const intervalFunction = async () => {
+      if (shouldClearInterval()) {
+        return
+      }
+
       const now = Date.now() / 1000 // Current time in seconds
       const endTimeSeconds =
-        latestTurn.endTime instanceof Timestamp ? latestTurn.endTime.seconds : 0 // End time from Firestore
-      const remaining = endTimeSeconds - now // Time remaining for the turn
+        latestTurn?.endTime instanceof Timestamp
+          ? latestTurn.endTime.seconds
+          : 0
+      const remaining = endTimeSeconds - now
 
-      setTimeRemaining(remaining) // Update your local state for the timer display
+      setTimeRemaining(remaining)
 
       if (remaining > -1 || !gameState) {
-        return // If there's still time remaining, continue the interval
+        return
       }
 
       // Check Firestore for existing expiration requests
@@ -325,14 +334,14 @@ export const GameStateProvider: React.FC<{
         playerID: userID,
       })
 
-      console.log(`Turn expiration request created for gameID: ${gameID}, `)
+      console.log(`Turn expiration request created for gameID: ${gameID}`)
 
       // Slow down the interval after expiration to reduce resource usage
       if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current) // Clear the current interval
+        clearInterval(intervalIdRef.current)
       }
       intervalTime = 10000 // Increase interval time
-      intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set new interval with the updated time
+      intervalIdRef.current = setInterval(intervalFunction, intervalTime)
     }
 
     // Clear any existing interval before setting a new one
@@ -340,16 +349,16 @@ export const GameStateProvider: React.FC<{
       clearInterval(intervalIdRef.current)
     }
 
-    intervalIdRef.current = setInterval(intervalFunction, intervalTime) // Set initial interval
+    intervalIdRef.current = setInterval(intervalFunction, intervalTime)
 
-    // Cleanup function: stop the timer when the current turn changes, nextGame is set, or gameID changes
+    // Cleanup function
     return () => {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
         intervalIdRef.current = null
       }
     }
-  }, [latestTurn, userID, gameState, gameID, sessionName, gameSetup])
+  }, [latestTurn, userID, gameState, gameID, sessionName, gameSetup, db])
 
   // Function to start the game
   const startGame = async () => {

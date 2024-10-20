@@ -195,9 +195,52 @@ const GameSetup: React.FC = () => {
   if (gameState || !gameSetup) return null
 
   const { started, playersReady } = gameSetup
+  const notReadyPlayers = gameSetup.gamePlayers
+    .filter((gamePlayer) => gamePlayer.type === "human")
+    .filter((player) => !gameSetup.playersReady.includes(player.id))
+    .map(
+      (notReadyPlayer) =>
+        players.find((player) => player.id === notReadyPlayer.id)?.name,
+    )
 
   return (
     <Stack spacing={2} pt={2}>
+      {/* Ready Section */}
+      {!gameSetup.gamePlayers
+        .filter((gamePlayer) => gamePlayer.type === "human")
+        .map((human) => human.id)
+        .every((player) => gameSetup.playersReady.includes(player)) ? (
+        <Button
+          disabled={
+            started ||
+            gameSetup.boardWidth < 5 ||
+            gameSetup.boardWidth > 20 ||
+            parseInt(secondsPerTurn) <= 0 ||
+            gameSetup.playersReady.includes(userID)
+          }
+          onClick={handleReady}
+          sx={{ backgroundColor: colour, height: "70px", fontSize: "32px" }}
+          fullWidth
+        >
+          {gameSetup.playersReady.includes(userID) ? `Waiting` : "Ready?"}
+        </Button>
+      ) : (
+        <Button
+          disabled={gameSetup.startRequested}
+          onClick={handleStart}
+          sx={{ backgroundColor: colour, height: "70px", fontSize: "32px" }}
+          className="shake"
+          fullWidth
+        >
+          Start game
+        </Button>
+      )}
+      {gameSetup.playersReady.includes(userID) &&
+        notReadyPlayers.length > 0 && (
+          <Typography color="error">
+            Not ready: {notReadyPlayers.join(", ")}
+          </Typography>
+        )}
       {/* Game Type Dropdown */}
       <FormControl fullWidth variant="outlined">
         <InputLabel id="game-type-label">Game Type</InputLabel>
@@ -308,40 +351,7 @@ const GameSetup: React.FC = () => {
           </Box>
         </FormControl>
       )}
-      {/* Ready Section */}
-      {!gameSetup.gamePlayers
-        .filter((gamePlayer) => gamePlayer.type === "human")
-        .map((human) => human.id)
-        .every((player) => gameSetup.playersReady.includes(player)) ? (
-        <Button
-          disabled={
-            started ||
-            gameSetup.boardWidth < 5 ||
-            gameSetup.boardWidth > 20 ||
-            parseInt(secondsPerTurn) <= 0 ||
-            gameSetup.playersReady.includes(userID)
-          }
-          onClick={handleReady}
-          sx={{ backgroundColor: colour }}
-          fullWidth
-        >
-          <Typography variant="body2">
-            {gameSetup.playersReady.includes(userID)
-              ? `Waiting for others`
-              : "Ready?"}
-          </Typography>
-        </Button>
-      ) : (
-        <Button
-          disabled={gameSetup.startRequested}
-          onClick={handleStart}
-          sx={{ backgroundColor: colour }}
-          className="shake"
-          fullWidth
-        >
-          <Typography variant="body2">Start game</Typography>
-        </Button>
-      )}
+
       {/* Players Table */}
       <TableContainer>
         <Table size="small">
@@ -349,7 +359,7 @@ const GameSetup: React.FC = () => {
             <TableRow>
               <TableCell>Player</TableCell>
               <TableCell align="right">Ready</TableCell>
-              <TableCell align="right">Kick</TableCell>
+              <TableCell align="right">Remove?</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -372,13 +382,13 @@ const GameSetup: React.FC = () => {
                   <TableCell
                     align="right"
                     sx={{ backgroundColor: player.colour }}
+                    onClick={() => handleKick(player.id, gamePlayer.type)}
                   >
-                    <Button
+                    {/* <Button
                       onClick={() => handleKick(player.id, gamePlayer.type)}
                       sx={{ height: 20 }}
-                    >
-                      Kick?
-                    </Button>
+                    > */}
+                    ❌{/* </Button> */}
                   </TableCell>
                 </TableRow>
               )
