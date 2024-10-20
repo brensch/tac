@@ -1,12 +1,5 @@
 import { GameProcessor } from "./GameProcessor"
-import {
-  Winner,
-  Turn,
-  Move,
-  Clash,
-  GamePlayer,
-  GameSetup,
-} from "@shared/types/Game"
+import { Winner, Turn, Move, Clash, GameSetup } from "@shared/types/Game"
 import { logger } from "../logger"
 import { Timestamp } from "firebase-admin/firestore"
 
@@ -44,11 +37,7 @@ export class SnekProcessor extends GameProcessor {
     const now = Date.now()
 
     // Initialize playerPieces
-    const playerPieces = this.initializeSnakes(
-      boardWidth,
-      boardHeight,
-      gamePlayers,
-    )
+    const playerPieces = this.initializeSnakes()
 
     // Initialize food positions
     const food = this.initializeFood(boardWidth, boardHeight, playerPieces)
@@ -390,16 +379,12 @@ export class SnekProcessor extends GameProcessor {
     }
   }
 
-  private initializeSnakes(
-    boardWidth: number,
-    boardHeight: number,
-    gamePlayers: GamePlayer[],
-  ): { [playerID: string]: number[] } {
-    const positions = this.generateStartingPositions(
-      boardWidth,
-      boardHeight,
-      gamePlayers.length,
-    )
+  private initializeSnakes(): {
+    [playerID: string]: number[]
+  } {
+    const { boardWidth, gamePlayers } = this.gameSetup
+
+    const positions = this.generateStartingPositions()
 
     const playerPieces: { [playerID: string]: number[] } = {}
 
@@ -415,33 +400,160 @@ export class SnekProcessor extends GameProcessor {
     return playerPieces
   }
 
-  private generateStartingPositions(
-    boardWidth: number,
-    boardHeight: number,
-    numPlayers: number,
-  ): { x: number; y: number }[] {
+  private generateStartingPositions(): { x: number; y: number }[] {
+    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
     const positions: { x: number; y: number }[] = []
 
-    // Calculate the inner bounds where snakes should be placed
-    const minX = 1
-    const maxX = boardWidth - 2
-    const minY = 1
-    const maxY = boardHeight - 2
+    // Calculate the outermost position that allows odd spacing
+    const startX = (boardWidth - 1) % 4 === 0 ? 2 : 1
+    const startY = (boardHeight - 1) % 4 === 0 ? 2 : 1
+    const endX = boardWidth - startX - 1
+    const endY = boardHeight - startY - 1
 
-    // Spread players evenly around the board inside the walls
-    for (let i = 0; i < numPlayers; i++) {
-      const angle = (2 * Math.PI * i) / numPlayers
-      const x = Math.floor(
-        (minX + maxX) / 2 + ((maxX - minX) / 2) * Math.cos(angle),
-      )
-      const y = Math.floor(
-        (minY + maxY) / 2 + ((maxY - minY) / 2) * Math.sin(angle),
-      )
+    // Define edges
+    const edges = [
+      { start: { x: startX, y: startY }, end: { x: endX, y: startY } }, // Top
+      { start: { x: endX, y: startY }, end: { x: endX, y: endY } }, // Right
+      { start: { x: endX, y: endY }, end: { x: startX, y: endY } }, // Bottom
+      { start: { x: startX, y: endY }, end: { x: startX, y: startY } }, // Left
+    ]
 
-      positions.push({ x, y })
+    // Add corner positions
+    positions.push(
+      { x: startX, y: startY },
+      { x: endX, y: startY },
+      { x: startX, y: endY },
+      { x: endX, y: endY },
+    )
+
+    let depth = 0
+    while (positions.length < gamePlayers.length) {
+      const newPositions: { x: number; y: number }[] = []
+      for (const edge of edges) {
+        const midpoints = this.getMidpoints(edge.start, edge.end, depth)
+        newPositions.push(...midpoints)
+      }
+
+      // Filter out duplicates and add new positions
+      newPositions.forEach((pos) => {
+        if (!positions.some((p) => p.x === pos.x && p.y === pos.y)) {
+          positions.push(pos)
+        }
+      })
+
+      depth++
+
+      // If we can't add more positions on the edges, break the loop
+      if (newPositions.length === 0) break
     }
 
+    // If we still need more positions, fill the inner part
+    if (positions.length < gamePlayers.length) {
+      this.fillInnerPositions(positions)
+    }
+
+    return positions.slice(0, gamePlayers.length)
+  }
+
+  private getMidpoints(
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    depth: number,
+  ): { x: number; y: number }[] {
+    const positions: { x: number; y: number }[] = []
+    const segments = Math.pow(2, depth + 1)
+    for (let i = 1; i < segments; i += 2) {
+      const x = Math.round(start.x + ((end.x - start.x) * i) / segments)
+      const y = Math.round(start.y + ((end.y - start.y) * i) / segments)
+      positions.push({ x, y })
+    }
     return positions
+  }
+
+  private fillInnerPositions(positions: { x: number; y: number }[]): void {
+    const { boardWidth, boardHeight, gamePlayers } = this.gameSetup
+    let innerStartX = 3
+    let innerStartY = 3
+    let innerEndX = boardWidth - 4
+    let innerEndY = boardHeight - 4
+
+    while (
+      positions.length < gamePlayers.length &&
+      innerStartX < innerEndX &&
+      innerStartY < innerEndY
+    ) {
+      // Add corner positions for this inner layer
+      const innerPositions = [
+        { x: innerStartX, y: innerStartY },
+        { x: innerEndX, y: innerStartY },
+        { x: innerStartX, y: innerEndY },
+        { x: innerEndX, y: innerEndY },
+      ]
+
+      // Add midpoints for this inner layer
+      if (innerEndX - innerStartX > 2) {
+        innerPositions.push({
+          x: Math.floor((innerStartX + innerEndX) / 2),
+          y: innerStartY,
+        })
+        innerPositions.push({
+          x: Math.floor((innerStartX + innerEndX) / 2),
+          y: innerEndY,
+        })
+      }
+      if (innerEndY - innerStartY > 2) {
+        innerPositions.push({
+          x: innerStartX,
+          y: Math.floor((innerStartY + innerEndY) / 2),
+        })
+        innerPositions.push({
+          x: innerEndX,
+          y: Math.floor((innerStartY + innerEndY) / 2),
+        })
+      }
+
+      // Add new positions if they don't already exist
+      innerPositions.forEach((pos) => {
+        if (!positions.some((p) => p.x === pos.x && p.y === pos.y)) {
+          positions.push(pos)
+        }
+      })
+
+      // Move to the next inner layer
+      innerStartX += 2
+      innerStartY += 2
+      innerEndX -= 2
+      innerEndY -= 2
+    }
+  }
+
+  public visualizeBoard(turn: Turn): string {
+    const { boardWidth, boardHeight } = this.gameSetup
+
+    const board = Array(boardHeight)
+      .fill(null)
+      .map(() => Array(boardWidth).fill("."))
+
+    // Add walls
+    for (let i = 0; i < boardWidth; i++) {
+      board[0][i] = "#"
+      board[boardHeight - 1][i] = "#"
+    }
+    for (let i = 0; i < boardHeight; i++) {
+      board[i][0] = "#"
+      board[i][boardWidth - 1] = "#"
+    }
+
+    // Add snakes
+    Object.entries(turn.playerPieces).forEach(([playerId, snake], index) => {
+      const headPos = snake[0]
+      const x = headPos % boardWidth
+      const y = Math.floor(headPos / boardWidth)
+      board[y][x] = (index + 1).toString()
+    })
+
+    // Convert to string
+    return board.map((row) => row.join(" ")).join("\n")
   }
 
   private initializeFood(
@@ -460,43 +572,45 @@ export class SnekProcessor extends GameProcessor {
     const wallPositions = this.getWallPositions(boardWidth, boardHeight)
     wallPositions.forEach((position) => occupiedPositions.add(position))
 
-    const getValidAdjacentPositions = (x: number, y: number): number[] => {
-      const positions: number[] = []
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dy = -2; dy <= 2; dy++) {
-          const newX = x + dx
-          const newY = y + dy
-          if (
-            newX >= 1 &&
-            newX < boardWidth - 1 &&
-            newY >= 1 &&
-            newY < boardHeight - 1
-          ) {
-            const newPosition = newY * boardWidth + newX
-            if (!occupiedPositions.has(newPosition)) {
-              positions.push(newPosition)
-            }
-          }
-        }
-      }
-      return positions
-    }
-
     const foodPositions: number[] = []
 
-    // Place food near each snake's head within 2 squares
+    // Place food in the center of the board
+    const centerX = Math.floor(boardWidth / 2)
+    const centerY = Math.floor(boardHeight / 2)
+    const centerPosition = centerY * boardWidth + centerX
+    foodPositions.push(centerPosition)
+    occupiedPositions.add(centerPosition)
+
+    // Place additional food for each snake
     Object.values(playerPieces).forEach((snake) => {
       const snakeHead = snake[0]
       const headX = snakeHead % boardWidth
       const headY = Math.floor(snakeHead / boardWidth)
 
-      const validPositions = getValidAdjacentPositions(headX, headY)
+      const diagonalDirections = [
+        { dx: 1, dy: 1 },
+        { dx: 1, dy: -1 },
+        { dx: -1, dy: 1 },
+        { dx: -1, dy: -1 },
+      ]
 
-      if (validPositions.length > 0) {
-        const randomIndex = Math.floor(Math.random() * validPositions.length)
-        const foodPosition = validPositions[randomIndex]
-        foodPositions.push(foodPosition)
-        occupiedPositions.add(foodPosition)
+      for (const { dx, dy } of diagonalDirections) {
+        const foodX = headX + dx
+        const foodY = headY + dy
+
+        if (
+          foodX >= 1 &&
+          foodX < boardWidth - 1 &&
+          foodY >= 1 &&
+          foodY < boardHeight - 1
+        ) {
+          const foodPosition = foodY * boardWidth + foodX
+          if (!occupiedPositions.has(foodPosition)) {
+            foodPositions.push(foodPosition)
+            occupiedPositions.add(foodPosition)
+            break
+          }
+        }
       }
     })
 

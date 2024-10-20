@@ -63,7 +63,7 @@ const GameSetup: React.FC = () => {
   useEffect(() => {
     if (gameSetup) {
       const currentSize = Object.entries(BOARD_SIZE_MAPPING).find(
-        ([_, dimensions]) =>
+        ([, dimensions]) =>
           dimensions.width === gameSetup.boardWidth &&
           dimensions.height === gameSetup.boardHeight,
       )

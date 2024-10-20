@@ -3,7 +3,7 @@ import { TextField, TextFieldProps } from "@mui/material"
 
 const useTypingEffect = (
   placeholderText: string,
-  typingSpeed: number = 50,
+  typingSpeed: number = 100,
   pauseDuration: number = 1000,
 ): string => {
   const [placeholder, setPlaceholder] = useState<string>("")
@@ -52,7 +52,6 @@ interface TypingEffectInputProps extends Omit<TextFieldProps, "placeholder"> {
 const TypingEffectInput: React.FC<TypingEffectInputProps> = ({
   value,
   onChange,
-  colour,
   ...props
 }) => {
   const placeholder = useTypingEffect("Session name")

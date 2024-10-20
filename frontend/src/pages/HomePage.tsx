@@ -1,9 +1,9 @@
+import { Box, Button, Stack, Typography } from "@mui/material"
 import React, { ChangeEvent, useState } from "react"
-import { Box, Button, Stack, TextField, Typography } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 import { RotatingEmoji } from "../components/EmojiCycler"
-import { useUser } from "../context/UserContext"
 import TypingEffectInput from "../components/TypingEffectInput"
+import { useUser } from "../context/UserContext"
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate()

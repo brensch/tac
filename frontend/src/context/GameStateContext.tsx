@@ -99,6 +99,7 @@ export const GameStateProvider: React.FC<{
 
   // **NEW**: Use useRef to store the interval ID
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
+  const initialGameIDRef = useRef(gameID)
 
   // Subscribe to game document
   useEffect(() => {
@@ -280,14 +281,14 @@ export const GameStateProvider: React.FC<{
   useEffect(() => {
     setSelectedTurn(turns[selectedTurnIndex])
   }, [turns, selectedTurnIndex, gameState])
-
   useEffect(() => {
     const shouldClearInterval = () => {
       if (
         !latestTurn ||
         !gameSetup?.maxTurnTime ||
         !gameID ||
-        latestTurn.winners.length > 0
+        latestTurn.winners.length > 0 ||
+        gameID !== initialGameIDRef.current
       ) {
         if (intervalIdRef.current) {
           clearInterval(intervalIdRef.current)
