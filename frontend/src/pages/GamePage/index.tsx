@@ -1,11 +1,10 @@
 import React from "react"
+import { useParams } from "react-router-dom"
 import { GameStateProvider } from "../../context/GameStateContext"
 import GameActive from "./GameActive"
+import GameFinished from "./GameFinished"
 import GameHeader from "./GameHeader"
 import GameSetup from "./GameSetup"
-import GameFinished, { PlayerResult } from "./GameFinished"
-import { useParams } from "react-router-dom"
-import EmojiRain from "./EmojiRain"
 
 const GamePage: React.FC = () => {
   const { sessionName, gameID } = useParams<{

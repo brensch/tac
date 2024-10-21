@@ -245,12 +245,7 @@ const GameGrid: React.FC = () => {
       </Box>
       {/* Navigation controls */}
       <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-        <IconButton
-          onClick={handleFirstTurn}
-          disabled={
-            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
-          }
-        >
+        <IconButton onClick={handleFirstTurn} disabled={selectedTurnIndex <= 0}>
           <FirstPage />
         </IconButton>
         <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
