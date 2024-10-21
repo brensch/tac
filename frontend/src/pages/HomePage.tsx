@@ -106,7 +106,7 @@ const HomePage: React.FC = () => {
             * Toes may be involved
           </Typography>
           <Typography variant="body1" align="left">
-            A game by brendan
+            A game by Brendo
           </Typography>
         </Box>
       </Box>
