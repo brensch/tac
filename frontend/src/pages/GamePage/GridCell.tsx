@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { Box } from "@mui/material"
 
 interface GridCellProps {
@@ -12,6 +12,7 @@ interface GridCellProps {
   isSelected: boolean
   onClick: (index: number) => void
   disabled: boolean
+  selectedTurnIndex: number
 }
 
 const BORDER_WIDTH = 4
@@ -27,9 +28,11 @@ const GridCell: React.FC<GridCellProps> = ({
   isSelected,
   onClick,
   disabled,
+  selectedTurnIndex,
 }) => {
   return (
     <Box
+      key={`${index}-${selectedTurnIndex}`}
       onClick={() => {
         if (disabled) return
         onClick(index)
@@ -91,7 +94,7 @@ const GridCell: React.FC<GridCellProps> = ({
           zIndex: 1,
         }}
       >
-        {cellContent}
+        {!isWinningSquare && cellContent}
       </Box>
     </Box>
   )

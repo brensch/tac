@@ -16,23 +16,12 @@ const GamePage: React.FC = () => {
   // If no gameID is passed, do nothing
   if (!gameID || !sessionName) return null
 
-  // const sortedPlayers = playersWithScores.sort((a, b) => b.score - a.score)
-  // const topPlayer: PlayerResult | null =
-  //   sortedPlayers.length > 0 ? sortedPlayers[0] : null
-  // const draw =
-  //   sortedPlayers.length > 1 &&
-  //   sortedPlayers[0].score === sortedPlayers[1].score
-
   return (
     <GameStateProvider key={gameID} gameID={gameID} sessionName={sessionName}>
       <GameHeader />
       <GameFinished />
       <GameSetup />
       <GameActive />
-      <EmojiRain
-        emoji={"💩"}
-        top={-20} // Start emoji rain from the top
-      />
     </GameStateProvider>
   )
 }

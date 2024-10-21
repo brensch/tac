@@ -156,7 +156,6 @@ const GameLogic = ({
       if (nextPos === position + gridWidth) borders.borderBottom = "none"
     }
 
-    console.log(borders)
     return borders
   }
 
@@ -223,7 +222,7 @@ const GameLogic = ({
       if (hasHead) {
         content = (
           <Cell
-            key={`head-${playerID}-${position}`}
+            key={`head-${playerID}-${position}-${selectedTurnIndex}`}
             sx={commonBoxStyle}
             borders={borders}
           >
@@ -238,7 +237,7 @@ const GameLogic = ({
         // Snake length on the second body piece
         content = (
           <Cell
-            key={`body-length-${playerID}-${position}`}
+            key={`body-length-${playerID}-${position}-${selectedTurnIndex}`}
             sx={commonBoxStyle}
             borders={borders}
           >
@@ -342,8 +341,6 @@ const GameLogic = ({
     )
     cellBackgroundMap[position] = "#d3d3d3" // light gray
   })
-
-  console.log(cellContentMap)
 
   return {
     cellContentMap,

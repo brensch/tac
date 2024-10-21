@@ -138,12 +138,12 @@ const GameFinished: React.FC = () => {
       </Box>
 
       {/* Emoji Rain Effect for Top Player */}
-      {/* {topPlayer && !draw && (
+      {topPlayer && !draw && (
         <EmojiRain
           emoji={topPlayer.emoji ? topPlayer.emoji : "💩"}
           top={-20} // Start emoji rain from the top
         />
-      )} */}
+      )}
     </>
   )
 }

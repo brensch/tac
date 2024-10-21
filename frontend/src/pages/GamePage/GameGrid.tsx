@@ -1,5 +1,5 @@
 import { Box, IconButton, Typography } from "@mui/material"
-import { GamePlayer, GameState, Player, Turn } from "@shared/types/Game"
+import { GamePlayer, GameState, Player } from "@shared/types/Game"
 import {
   addDoc,
   arrayUnion,
@@ -16,7 +16,12 @@ import ClashDialog from "./ClashDialog"
 import GridCell from "./GridCell"
 import OtherGameLogic from "./OtherGameLogic"
 import SnakeGameLogic from "./SnakeGameLogic"
-import { ArrowBack, ArrowForward, LastPage } from "@mui/icons-material"
+import {
+  ArrowBack,
+  ArrowForward,
+  FirstPage,
+  LastPage,
+} from "@mui/icons-material"
 
 export interface GameLogicProps {
   gameState: GameState | null
@@ -59,23 +64,22 @@ const GameGrid: React.FC = () => {
   const winningSquaresSet = new Set(
     winners.flatMap((winner) => winner.winningSquares),
   )
-  const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(
-    gameState?.turns ? gameState?.turns.length - 1 : 0,
-  )
+
+  // Initialize selectedTurnIndex and turnCount to 0
+  const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
+  const [turnCount, setTurnCount] = useState<number>(0)
+
   const [clashReason, setClashReason] = useState<string>("")
   const [openClashDialog, setOpenClashDialog] = useState(false)
   const [clashPlayersList, setClashPlayersList] = useState<GamePlayer[]>([])
   const [gameLogicReturn, setGameLogicReturn] = useState<
     GameLogicReturn | undefined
   >()
-  const [turnCount, setTurnCount] = useState(gameState?.turns.length)
   const gridRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState<number>(0)
 
   const cellSize = containerWidth ? containerWidth / gridWidth : 0
 
-  console.log(selectedTurnIndex)
-  console.log(turnCount)
   useLayoutEffect(() => {
     const updateContainerWidth = () => {
       if (gridRef.current) {
@@ -87,7 +91,7 @@ const GameGrid: React.FC = () => {
     return () => {
       window.removeEventListener("resize", updateContainerWidth)
     }
-  }, [gridWidth])
+  }, [gridWidth, selectedTurnIndex])
 
   const handleSquareClick = async (index: number) => {
     if (!latestTurn || !gameState) return
@@ -137,36 +141,35 @@ const GameGrid: React.FC = () => {
 
   const disabled = hasSubmittedMove
 
+  // Update selectedTurnIndex and turnCount when gameState.turns.length changes
   useEffect(() => {
-    const gameLogicProps = {
-      gameState,
-      players,
-      gridWidth,
-      cellSize,
-      selectedTurnIndex: selectedTurnIndex ? selectedTurnIndex - 1 : 0,
+    if (gameState?.turns) {
+      const newTurnCount = gameState.turns.length
+      if (newTurnCount !== turnCount) {
+        setTurnCount(newTurnCount)
+        setSelectedTurnIndex(newTurnCount - 1) // Automatically go to the latest turn
+      }
     }
+  }, [gameState?.turns?.length])
 
-    setGameLogicReturn(
-      gameState?.setup.gameType === "snek"
-        ? SnakeGameLogic(gameLogicProps)
-        : OtherGameLogic(gameLogicProps),
-    )
-    console.log(
-      !turnCount,
-      gameState?.turns && gameState.turns.length,
-      turnCount,
-    )
-    if (
-      !turnCount ||
-      (gameState?.turns && gameState.turns.length > turnCount)
-    ) {
-      console.log("setting")
-      setTurnCount(gameState?.turns.length)
-      setSelectedTurnIndex(gameState?.turns.length || 1)
+  // Update gameLogicReturn when relevant variables change
+  useEffect(() => {
+    if (gameState && players) {
+      const gameLogicProps = {
+        gameState,
+        players,
+        gridWidth,
+        cellSize,
+        selectedTurnIndex: selectedTurnIndex >= 0 ? selectedTurnIndex : 0,
+      }
+
+      setGameLogicReturn(
+        gameState.setup.gameType === "snek"
+          ? SnakeGameLogic(gameLogicProps)
+          : OtherGameLogic(gameLogicProps),
+      )
     }
   }, [gameState, players, gridWidth, cellSize, selectedTurnIndex])
-
-  if (!gameLogicReturn) return
 
   // Filter allowed moves for the current user
   const currentUserAllowedMoveMap: { [index: number]: boolean } = {}
@@ -185,16 +188,24 @@ const GameGrid: React.FC = () => {
   }
 
   const handleNextTurn = () => {
-    if (gameState?.turns && selectedTurnIndex < gameState?.turns.length - 1) {
+    if (gameState?.turns && selectedTurnIndex < gameState.turns.length - 1) {
       setSelectedTurnIndex(selectedTurnIndex + 1)
     }
   }
 
   const handleLatestTurn = () => {
     if (gameState?.turns) {
-      setSelectedTurnIndex(gameState?.turns?.length - 1)
+      setSelectedTurnIndex(gameState.turns.length - 1)
     }
   }
+
+  const handleFirstTurn = () => {
+    if (gameState?.turns) {
+      setSelectedTurnIndex(0)
+    }
+  }
+
+  if (!gameLogicReturn) return
 
   return (
     <>
@@ -214,34 +225,46 @@ const GameGrid: React.FC = () => {
       >
         {Array.from({ length: totalCells }).map((_, index) => (
           <GridCell
-            key={`${selectedTurnIndex}-${index}`}
+            key={`${index}-${selectedTurnIndex}`}
             index={index}
             cellSize={cellSize}
             cellContent={gameLogicReturn.cellContentMap[index]}
             backgroundColor={gameLogicReturn.cellBackgroundMap[index]}
-            isWinningSquare={winningSquaresSet.has(index)}
+            isWinningSquare={
+              selectedTurnIndex === turnCount - 1 &&
+              winningSquaresSet.has(index)
+            }
             isLatestMove={latestTurn?.moves[user.userID] === index}
             isAllowedMove={currentUserAllowedMoveMap[index]}
             isSelected={selectedSquare === index}
             onClick={handleSquareClick}
             disabled={disabled}
+            selectedTurnIndex={selectedTurnIndex}
           />
         ))}
       </Box>
       {/* Navigation controls */}
       <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
+        <IconButton
+          onClick={handleFirstTurn}
+          disabled={
+            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
+          }
+        >
+          <FirstPage />
+        </IconButton>
         <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
           <ArrowBack />
         </IconButton>
         <Typography variant="body2" sx={{ marginX: 2 }}>
-          {latestTurn ? selectedTurnIndex + 1 : "Loading..."} of{" "}
-          {gameState?.turns.length}
+          {gameState?.turns ? selectedTurnIndex + 1 : "Loading..."} of{" "}
+          {gameState?.turns?.length || 0}
         </Typography>
+
         <IconButton
           onClick={handleNextTurn}
           disabled={
-            !gameState?.turns ||
-            selectedTurnIndex >= gameState?.turns.length - 1
+            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
           }
         >
           <ArrowForward />
@@ -249,8 +272,7 @@ const GameGrid: React.FC = () => {
         <IconButton
           onClick={handleLatestTurn}
           disabled={
-            !gameState?.turns ||
-            selectedTurnIndex >= gameState?.turns.length - 1
+            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
           }
         >
           <LastPage />
