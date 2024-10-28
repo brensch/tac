@@ -94,5 +94,10 @@ service cloud.firestore {
     match /bots/{botId} {
       allow read: if true;
     }
+
+    // Rankings Collection
+    match /rankings/{playerID} {
+      allow read: if true;
+    }
   }
 }

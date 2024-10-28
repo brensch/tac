@@ -25,6 +25,7 @@ import GamePage from "./pages/GamePage/index"
 import HomePage from "./pages/HomePage"
 import ProfilePage from "./pages/ProfilePage"
 import Sessionpage from "./pages/SessionPage"
+import LadderPage from "./pages/LadderPage"
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -133,7 +134,13 @@ const AppContent: React.FC = () => {
             color="primary"
             sx={{ flexGrow: 1, textDecoration: "none" }}
           />
-
+          <Button
+            color="primary"
+            sx={{ height: 30,  mr:1 }}
+            onClick={() => navigate("/ladder")}
+          >
+            ladder 🪜
+          </Button>
           <Button
             color="primary"
             sx={{ height: 30, backgroundColor: colour }}
@@ -146,8 +153,9 @@ const AppContent: React.FC = () => {
       <Container maxWidth="sm" sx={{ p: 1 }}>
         <Box width="100%">
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/session/:sessionName" element={<Sessionpage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/ladder/:gameType" element={<LadderPage />} />
+          <Route path="/session/:sessionName" element={<Sessionpage />} />
             <Route
               path="/session/:sessionName/:gameID"
               element={<GamePage />}

@@ -7,6 +7,8 @@ export interface Winner {
   playerID: string
   score: number
   winningSquares: number[]
+  mmrChange?: number // Added mmrChange to include resulting MMR for the game
+  newMMR?: number    // Added newMMR to include the player's new MMR
 }
 
 // Move interface
@@ -18,9 +20,7 @@ export interface Move {
   timestamp: FieldValue | Timestamp // Server timestamp when the move was submitted
 }
 
-// this is public so that users can see who has moved and to reduce reads of who has completed their move
-// needs to get created when turn is created.
-// clients should write their own id to this
+// Public interface for move statuses
 export interface MoveStatus {
   moveNumber: number
   alivePlayerIDs: string[]
@@ -37,7 +37,6 @@ export type GameType =
 
 export interface Session {
   latestGameID: string | null
-
   timeCreated: Timestamp | FieldValue
 }
 
@@ -49,16 +48,14 @@ export interface GameSetup {
   playersReady: string[]
   maxTurnTime: number // Time limit per turn in seconds
   startRequested: boolean
-  started: boolean //set true when gamestate created to avoid double handling
-
+  started: boolean // Set true when GameState is created to avoid double handling
   timeCreated: Timestamp | FieldValue
 }
 
-// Updated GameState interface with the new 'winner' structure
+// Updated GameState interface with the new 'winners' structure
 export interface GameState {
   setup: GameSetup
   turns: Turn[]
-
   timeCreated: Timestamp | FieldValue
   timeFinished: Timestamp | FieldValue | null
 }
@@ -74,7 +71,6 @@ export interface Player {
   emoji: string
   colour: string
   createdAt: Timestamp | FieldValue
-  ranking?: PlayerRanking
 }
 
 export interface Human extends Player {
@@ -87,25 +83,18 @@ export interface Bot extends Player {
   capabilities: GameType[]
 }
 
-// Updated Turn interface to include 'allowedMoves', 'walls', and 'clashes'
 export interface Turn {
   playerHealth: { [playerID: string]: number } // Map of playerID to health
   startTime: Timestamp // When the turn started
   endTime: Timestamp // When the turn should end
   scores: { [playerID: string]: number } // Map of playerID to score
   alivePlayers: string[] // List of player IDs who are still alive
-
-  // New fields
   food: number[] // Positions of food on the board
   hazards: number[] // Positions of hazards on the board
-  playerPieces: {
-    [playerID: string]: number[] // Map of playerID to array of positions
-  } // Each snake is represented by a map entry
+  playerPieces: { [playerID: string]: number[] } // Each snake is represented by a map entry
   allowedMoves: { [playerID: string]: number[] } // Map of playerID to allowed move indexes
   walls: number[] // Positions of walls on the board
-
-  // Clashes
-  clashes: Clash[] // Map of playerID to positions of their dead snake
+  clashes: Clash[] // Array of clashes
   moves: { [playerID: string]: number }
   winners: Winner[] // Updated to an array of winner objects
 }
@@ -126,7 +115,14 @@ export interface GameResult {
   opponents: OpponentInfo[]
 }
 
-export interface PlayerRanking {
+export interface Ranking {
+  playerID: string // ID of the player (user ID or bot ID)
+  type: "human" | "bot" // Type of player
+  rankings: { [gameType: string]: GameRanking } // Map of gameType to GameRanking
+  lastUpdated: Timestamp | FieldValue
+}
+
+export interface GameRanking {
   currentMMR: number
   gamesPlayed: number
   wins: number

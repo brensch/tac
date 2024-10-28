@@ -1,42 +1,48 @@
+// processTurn.ts
+
 import {
-  Transaction,
-  QuerySnapshot,
-  DocumentData,
-  Timestamp,
-  FieldValue,
-} from "firebase-admin/firestore"
-import {
-  Move,
-  GameState,
-  MoveStatus,
-  PlayerRanking,
+  GameRanking,
   GameResult,
-  Player,
-  Winner,
+  GameState,
+  Move,
+  MoveStatus,
+  Ranking,
+  Winner
 } from "@shared/types/Game"
-import { getGameProcessor } from "./ProcessorFactory"
+import * as admin from "firebase-admin"
+import {
+  DocumentData,
+  FieldValue,
+  QuerySnapshot,
+  Timestamp,
+  Transaction,
+} from "firebase-admin/firestore"
 import { logger } from "../logger"
 import { createNewGame } from "../utils/createNewGame"
-import * as admin from "firebase-admin"
+import { getGameProcessor } from "./ProcessorFactory"
 
 interface PlayerUpdateData {
-  ref: FirebaseFirestore.DocumentReference
-  newRanking: PlayerRanking
+  playerID: string
+  type: "human" | "bot"
+  ref: FirebaseFirestore.DocumentReference // Reference to the ranking document
+  newRanking: GameRanking
   shouldCreate: boolean
+  mmrChange: number
+  newMMR: number
 }
 
 interface PlayerData {
   id: string
-  ref: FirebaseFirestore.DocumentReference
-  data: Player | null
+  type: "human" | "bot"
+  rankingRef: FirebaseFirestore.DocumentReference // Reference to the ranking document
+  rankingData: Ranking | null // Existing ranking data
   currentMMR: number
   gamesPlayed: number
-  exists: boolean
+  exists: boolean // Whether the ranking document exists
 }
 
-// Modified constants
 const DEFAULT_MMR = 1000
-const MIN_MMR = 50 // Minimum MMR value
+const MIN_MMR = 0 // Minimum MMR value
 
 async function preparePlayerUpdates(
   transaction: Transaction,
@@ -45,22 +51,38 @@ async function preparePlayerUpdates(
   gameState: GameState,
   winners: Winner[]
 ): Promise<PlayerUpdateData[]> {
+  const gameType = gameState.setup.gameType // Get the game type
+
   const playerIDs = gameState.setup.gamePlayers.map((p) => p.id)
-  const playerRefs = playerIDs.map((id) =>
-    admin.firestore().collection("users").doc(id)
+  const playerTypes = new Map<string, "human" | "bot">()
+  gameState.setup.gamePlayers.forEach((p) => {
+    playerTypes.set(p.id, p.type)
+  })
+
+  // Build references to the rankings documents
+  const rankingRefs = playerIDs.map((id) =>
+    admin.firestore().collection("rankings").doc(id)
   )
 
-  const playerDocs = await Promise.all(playerRefs.map((ref) => transaction.get(ref)))
+  // Fetch existing rankings
+  const rankingDocs = await Promise.all(
+    rankingRefs.map((ref) => transaction.get(ref))
+  )
 
-  const playerData: PlayerData[] = playerDocs.map((doc) => {
-    const data = doc.data() as Player | undefined
-    const ranking = data?.ranking
+  const playerData: PlayerData[] = rankingDocs.map((doc, index) => {
+    const data = doc.data() as Ranking | undefined
+    const type = playerTypes.get(doc.id)!
+
+    const rankings = data?.rankings
+    const rankingForGameType = rankings ? rankings[gameType] : null
+
     return {
       id: doc.id,
-      ref: doc.ref,
-      data: data ?? null,
-      currentMMR: ranking?.currentMMR ?? DEFAULT_MMR,
-      gamesPlayed: ranking?.gamesPlayed ?? 0,
+      type: type,
+      rankingRef: doc.ref,
+      rankingData: data || null,
+      currentMMR: rankingForGameType?.currentMMR ?? DEFAULT_MMR,
+      gamesPlayed: rankingForGameType?.gamesPlayed ?? 0,
       exists: doc.exists,
     }
   })
@@ -95,7 +117,9 @@ async function preparePlayerUpdates(
   }
 
   // Get the list of placements in the same order as playerData
-  const placements: number[] = playerData.map((player) => placementsMap.get(player.id)!)
+  const placements: number[] = playerData.map(
+    (player) => placementsMap.get(player.id)!
+  )
 
   // Prepare data for MMR calculation
   const playersForMMR = playerData.map((player) => ({
@@ -132,7 +156,7 @@ async function preparePlayerUpdates(
         })),
     }
 
-    const existingRanking = player.data?.ranking ?? {
+    const existingRanking = player.rankingData?.rankings?.[gameType] ?? {
       currentMMR: DEFAULT_MMR,
       gamesPlayed: 0,
       wins: 0,
@@ -143,7 +167,7 @@ async function preparePlayerUpdates(
 
     const gameHistory = [...existingRanking.gameHistory, gameResult].slice(-100)
 
-    const newRanking: PlayerRanking = {
+    const newRanking: GameRanking = {
       currentMMR: newMMR,
       gamesPlayed: existingRanking.gamesPlayed + 1,
       wins: existingRanking.wins + (placement === 1 ? 1 : 0),
@@ -152,30 +176,229 @@ async function preparePlayerUpdates(
       lastUpdated: FieldValue.serverTimestamp(),
     }
 
+    // Prepare the updated rankings object
+    const updatedRankings = {
+      ...(player.rankingData?.rankings || {}),
+      [gameType]: newRanking,
+    }
+
+    // // Prepare the full Ranking document
+    // const updatedRankingDoc: Ranking = {
+    //   playerID: player.id,
+    //   type: player.type,
+    //   rankings: updatedRankings,
+    //   lastUpdated: FieldValue.serverTimestamp(),
+    // }
+
     updates.push({
-      ref: player.ref,
-      newRanking,
+      playerID: player.id,
+      type: player.type,
+      ref: player.rankingRef,
+      newRanking: newRanking,
       shouldCreate: !player.exists,
+      mmrChange,
+      newMMR,
     })
 
     logger.info(`Preparing ranking update for player ${player.id}`, {
       previousMMR: player.currentMMR,
-      newMMR: newRanking.currentMMR,
+      newMMR: newMMR,
       mmrChange,
       placement,
       gamesPlayed: player.gamesPlayed,
       creating: !player.exists,
     })
+
+    // Now, write the updated ranking document
+    if (player.exists) {
+      // Update existing ranking document
+      transaction.update(player.rankingRef, {
+        playerID: player.id,
+        type: player.type,
+        rankings: updatedRankings,
+        lastUpdated: FieldValue.serverTimestamp(),
+      })
+    } else {
+      // Create new ranking document
+      transaction.create(player.rankingRef, {
+        playerID: player.id,
+        type: player.type,
+        rankings: {
+          [gameType]: newRanking,
+        },
+        lastUpdated: FieldValue.serverTimestamp(),
+      })
+    }
+  }
+
+  // Update the winners array to include mmrChange and newMMR
+  for (const winner of winners) {
+    const playerUpdate = updates.find((u) => u.playerID === winner.playerID)
+    if (playerUpdate) {
+      winner.mmrChange = playerUpdate.mmrChange
+      winner.newMMR = playerUpdate.newMMR
+    }
   }
 
   return updates
+}
+
+export async function processTurn(
+  transaction: Transaction,
+  gameID: string,
+  sessionID: string,
+  turnNumber: number
+): Promise<void> {
+  try {
+    // Get game state
+    const gameStateRef = admin
+      .firestore()
+      .collection(`sessions/${sessionID}/games`)
+      .doc(gameID)
+    const gameStateDoc = await transaction.get(gameStateRef)
+    const gameState = gameStateDoc.data() as GameState
+
+    if (!gameState) {
+      logger.error("Game state not found", { gameID })
+      return
+    }
+
+    if (gameState.turns.length === 0) {
+      logger.error("No turns in game state.")
+      return
+    }
+
+    const latestTurnNumber = gameState.turns.length - 1
+    if (latestTurnNumber !== turnNumber) {
+      logger.error(
+        "Processing previous turn",
+        latestTurnNumber,
+        turnNumber
+      )
+      return
+    }
+    const currentTurn = gameState.turns[turnNumber]
+
+    // Get moves
+    const movesQuery = admin
+      .firestore()
+      .collection(`sessions/${sessionID}/games/${gameID}/privateMoves`)
+      .where("moveNumber", "==", turnNumber)
+    const movesSnapshot: QuerySnapshot<DocumentData> = await transaction.get(
+      movesQuery
+    )
+
+    if (currentTurn.winners.length > 0) {
+      logger.warn("Game already finished.")
+      return
+    }
+
+    // Process moves and get next turn
+    const movesThisRound: Move[] = movesSnapshot.docs.map(
+      (doc) => doc.data() as Move
+    )
+    const latestAllowedTime = currentTurn.endTime.toMillis()
+
+    const latestMoves: Move[] = movesThisRound
+      .filter((move) => {
+        const moveTime =
+          move.timestamp instanceof Timestamp
+            ? move.timestamp.toMillis()
+            : 0
+        return moveTime <= latestAllowedTime
+      })
+      .sort((a, b) => {
+        const aTime =
+          a.timestamp instanceof Timestamp
+            ? a.timestamp.toMillis()
+            : 0
+        const bTime =
+          b.timestamp instanceof Timestamp
+            ? b.timestamp.toMillis()
+            : 0
+        return bTime - aTime
+      })
+      .reduce((acc: Move[], move: Move) => {
+        if (!acc.find((m) => m.playerID === move.playerID)) {
+          acc.push(move)
+        }
+        return acc
+      }, [])
+
+    if (!currentTurn) {
+      logger.info("No current turn found for the game.", { gameID })
+      return
+    }
+
+    const processor = getGameProcessor(gameState)
+    if (!processor) {
+      logger.error(`No processor available `, { gameID })
+      throw `Processor not known: ${gameState.setup.gameType}`
+    }
+
+    const nextTurn = await processor.applyMoves(currentTurn, latestMoves)
+    const now = Date.now()
+    const turnDurationMillis = gameState.setup.maxTurnTime * 1000
+    const endTime = new Date(now + turnDurationMillis)
+
+    nextTurn.startTime = Timestamp.fromMillis(now)
+    nextTurn.endTime = Timestamp.fromDate(endTime)
+
+    if (nextTurn.winners.length > 0) {
+      // Prepare all player ranking updates (reads and writes are done in preparePlayerUpdates)
+      // All ranking updates are handled within preparePlayerUpdates
+      await preparePlayerUpdates(
+        transaction,
+        sessionID,
+        gameID,
+        gameState,
+        nextTurn.winners
+      )
+
+      // Perform all writes together
+      transaction.update(gameStateRef, {
+        turns: FieldValue.arrayUnion(nextTurn),
+        timeFinished: FieldValue.serverTimestamp(),
+      })
+
+
+      // Create new game
+      await createNewGame(transaction, sessionID, gameState.setup)
+
+      logger.info(`Game ${gameID} finished and rankings updated.`, {
+        winners: nextTurn.winners,
+      })
+    } else {
+      // Normal turn update
+      transaction.update(gameStateRef, {
+        turns: FieldValue.arrayUnion(nextTurn),
+      })
+
+      const moveNumber = gameState.turns.length
+      const moveStatusRef = admin
+        .firestore()
+        .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
+        .doc(`${moveNumber}`)
+      const moveStatus: MoveStatus = {
+        moveNumber: moveNumber,
+        alivePlayerIDs: nextTurn.alivePlayers,
+        movedPlayerIDs: [],
+      }
+      transaction.set(moveStatusRef, moveStatus)
+    }
+  } catch (error) {
+    logger.error(
+      `Error processing turn ${turnNumber} for game ${gameID}:`,
+      error
+    )
+    throw error
+  }
 }
 
 export const calculateMMRChanges = (
   players: { mmr: number; gamesPlayed: number }[],
   placements: number[]
 ): number[] => {
-  // const totalPlayers = players.length
   const mmrChanges: number[] = []
 
   players.forEach((player, idx) => {
@@ -200,7 +423,7 @@ export const calculateMMRChanges = (
     let actualScore = 0
     const playerPlacement = placements[idx]
     opponentPlayers.forEach((_, oppIdx) => {
-      const opponentPlacement = placements[oppIdx]
+      const opponentPlacement = placements[oppIdx >= idx ? oppIdx + 1 : oppIdx]
       let scoreVsOpponent = 0
       if (playerPlacement < opponentPlacement) {
         scoreVsOpponent = 1 // Player beat opponent
@@ -234,7 +457,6 @@ function calculateKFactor(gamesPlayed: number): number {
   const K = Math.max(MIN_K, MAX_K - (gamesPlayed * (MAX_K - MIN_K)) / 50)
   return K
 }
-
 
 // Adjust MMR changes to prevent MMR from going below MIN_MMR
 function adjustMMRChangesForMinMMR(
@@ -270,177 +492,4 @@ function adjustMMRChangesForMinMMR(
   }
 
   return adjustedChanges
-}
-
-// // Adjust MMR changes to zero-sum
-// function adjustMMRChangesToZeroSum(mmrChanges: number[]): number[] {
-//   const totalChange = mmrChanges.reduce((sum, change) => sum + change, 0)
-//   const adjustment = -totalChange / mmrChanges.length
-//   return mmrChanges.map((change) => change + adjustment)
-// }
-
-export async function processTurn(
-  transaction: Transaction,
-  gameID: string,
-  sessionID: string,
-  turnNumber: number
-): Promise<void> {
-  try {
-    // Get game state
-    const gameStateRef = admin
-      .firestore()
-      .collection(`sessions/${sessionID}/games`)
-      .doc(gameID)
-    const gameStateDoc = await transaction.get(gameStateRef)
-    const gameState = gameStateDoc.data() as GameState
-
-    if (!gameState) {
-      logger.error("Game state not found", { gameID })
-      return
-    }
-
-    if (gameState.turns.length === 0) {
-      logger.error("got no turns in move. problem")
-      return
-    }
-
-    const latestTurnNumber = gameState.turns.length - 1
-    if (latestTurnNumber !== turnNumber) {
-      logger.error(
-        "got asked to process previous turn",
-        latestTurnNumber,
-        turnNumber
-      )
-      return
-    }
-    const currentTurn = gameState.turns[turnNumber]
-
-    // Get moves
-    const movesQuery = admin
-      .firestore()
-      .collection(`sessions/${sessionID}/games/${gameID}/privateMoves`)
-      .where("moveNumber", "==", turnNumber)
-    const movesSnapshot: QuerySnapshot<DocumentData> = await transaction.get(
-      movesQuery
-    )
-
-    if (currentTurn.winners.length > 0) {
-      logger.warn("game already finished.")
-      return
-    }
-
-    // Process moves and get next turn
-    const movesThisRound: Move[] = movesSnapshot.docs.map(
-      (doc) => doc.data() as Move
-    )
-    const latestAllowedTime = currentTurn.endTime.toMillis()
-
-    const latestMoves: Move[] = movesThisRound
-      .filter((move) => {
-        const moveTime =
-          move.timestamp instanceof Timestamp ? move.timestamp.toMillis() : 0
-        return moveTime <= latestAllowedTime
-      })
-      .sort((a, b) => {
-        const aTime =
-          a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : 0
-        const bTime =
-          b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : 0
-        return bTime - aTime
-      })
-      .reduce((acc: Move[], move: Move) => {
-        if (!acc.find((m) => m.playerID === move.playerID)) {
-          acc.push(move)
-        }
-        return acc
-      }, [])
-
-    if (!currentTurn) {
-      logger.info("No current turn found for the game.", { gameID })
-      return
-    }
-
-    const processor = getGameProcessor(gameState)
-    if (!processor) {
-      logger.error(`No processor available `, { gameID })
-      throw `processor not known: ${gameState.setup.gameType}`
-    }
-
-    const nextTurn = await processor.applyMoves(currentTurn, latestMoves)
-    const now = Date.now()
-    const turnDurationMillis = gameState.setup.maxTurnTime * 1000
-    const endTime = new Date(now + turnDurationMillis)
-
-    nextTurn.startTime = Timestamp.fromMillis(now)
-    nextTurn.endTime = Timestamp.fromDate(endTime)
-
-    if (nextTurn.winners.length > 0) {
-      // Prepare all player ranking updates (reads)
-      const playerUpdates = await preparePlayerUpdates(
-        transaction,
-        sessionID,
-        gameID,
-        gameState,
-        nextTurn.winners
-      )
-
-      // Perform all writes together
-      transaction.update(gameStateRef, {
-        turns: FieldValue.arrayUnion(nextTurn),
-        timeFinished: FieldValue.serverTimestamp(),
-      })
-
-      // Update or create all player rankings
-      playerUpdates.forEach((update) => {
-        if (update.shouldCreate) {
-          // Create new player document with initial data
-          transaction.create(update.ref, {
-            id: update.ref.id,
-            name:
-              gameState.setup.gamePlayers.find((p) => p.id === update.ref.id)
-                ?.id ?? update.ref.id,
-            emoji: "🎮", // Default emoji
-            colour: "#000000", // Default color
-            createdAt: FieldValue.serverTimestamp(),
-            ranking: update.newRanking,
-          })
-        } else {
-          // Update existing player document
-          transaction.update(update.ref, {
-            ranking: update.newRanking,
-          })
-        }
-      })
-
-      // Create new game
-      await createNewGame(transaction, sessionID, gameState.setup)
-
-      logger.info(`Game ${gameID} finished and rankings updated.`, {
-        winners: nextTurn.winners,
-      })
-    } else {
-      // Normal turn update
-      transaction.update(gameStateRef, {
-        turns: FieldValue.arrayUnion(nextTurn),
-      })
-
-      const moveNumber = gameState.turns.length
-      const moveStatusRef = admin
-        .firestore()
-        .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
-        .doc(`${moveNumber}`)
-      const moveStatus: MoveStatus = {
-        moveNumber: moveNumber,
-        alivePlayerIDs: nextTurn.alivePlayers,
-        movedPlayerIDs: [],
-      }
-      transaction.set(moveStatusRef, moveStatus)
-    }
-  } catch (error) {
-    logger.error(
-      `Error processing turn ${turnNumber} for game ${gameID}:`,
-      error
-    )
-    throw error
-  }
 }
