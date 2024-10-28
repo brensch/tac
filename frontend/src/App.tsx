@@ -137,7 +137,7 @@ const AppContent: React.FC = () => {
           <Button
             color="primary"
             sx={{ height: 30,  mr:1 }}
-            onClick={() => navigate("/ladder")}
+            onClick={() => navigate("/ladder/snek")}
           >
             ladder 🪜
           </Button>
