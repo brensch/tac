@@ -45,7 +45,12 @@ const LadderPage: React.FC = () => {
   const [userRanking, setUserRanking] = useState<Ranking | null>(null);
   const [userGameHistory, setUserGameHistory] = useState<GameResult[]>([]);
   const [playersMap, setPlayersMap] = useState<{ [id: string]: Player }>({});
-  const [loading, setLoading] = useState<boolean>(true);
+
+  // Separate loading states
+  const [loadingTopPlayers, setLoadingTopPlayers] = useState(true);
+  const [loadingUserRanking, setLoadingUserRanking] = useState(true);
+  const [loadingPlayersMap, setLoadingPlayersMap] = useState(true);
+  const loading = loadingTopPlayers || loadingUserRanking || loadingPlayersMap;
 
   const gameTypes: GameType[] = [
     'snek',
@@ -66,7 +71,10 @@ const LadderPage: React.FC = () => {
     setUserRanking(null);
     setUserGameHistory([]);
     setPlayersMap({});
-    setLoading(true);
+    setRequiredPlayerIDs(new Set());
+    setLoadingTopPlayers(true);
+    setLoadingUserRanking(true);
+    setLoadingPlayersMap(true);
   }, [selectedGameType]);
 
   const handleGameTypeChange = (event: SelectChangeEvent<string>) => {
@@ -103,9 +111,14 @@ const LadderPage: React.FC = () => {
         top10IDs.forEach((id) => newSet.add(id));
         return newSet;
       });
+
+      setLoadingTopPlayers(false);
     });
 
-    return () => unsubscribeRankings();
+    return () => {
+      unsubscribeRankings();
+      setLoadingTopPlayers(true);
+    };
   }, [selectedGameType]);
 
   useEffect(() => {
@@ -150,19 +163,27 @@ const LadderPage: React.FC = () => {
         newSet.add(userID);
         return newSet;
       });
+
+      setLoadingUserRanking(false);
     });
 
-    return () => unsubscribeUserRanking();
+    return () => {
+      unsubscribeUserRanking();
+      setLoadingUserRanking(true);
+    };
   }, [userID, selectedGameType]);
 
   // Fetch all required player data
   useEffect(() => {
     const fetchPlayers = async () => {
+      setLoadingPlayersMap(true);
+
       const missingPlayerIDs = Array.from(requiredPlayerIDs).filter(
         (id) => !(id in playersMap)
       );
+
       if (missingPlayerIDs.length === 0) {
-        setLoading(false);
+        setLoadingPlayersMap(false);
         return;
       }
 
@@ -185,7 +206,7 @@ const LadderPage: React.FC = () => {
       });
       await Promise.all(promises);
       setPlayersMap((prev) => ({ ...prev, ...newPlayersMap }));
-      setLoading(false);
+      setLoadingPlayersMap(false);
     };
 
     fetchPlayers();
@@ -197,10 +218,6 @@ const LadderPage: React.FC = () => {
       v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
-
-  if (loading) {
-    return <EmojiCycler />;
-  }
 
   return (
     <Stack
@@ -228,115 +245,45 @@ const LadderPage: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Top 10 Players */}
-        <Typography variant="h5" sx={{ mt: 4 }}>
-          Top 10 Players
-        </Typography>
-        {topPlayers.length > 0 ? (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Rank</TableCell>
-                  <TableCell>Player</TableCell>
-                  <TableCell>MMR</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {topPlayers.map((ranking, index) => {
-                  const playerID = ranking.playerID;
-                  const gameRanking = ranking.rankings[selectedGameType];
-                  if (!gameRanking) return null; // Skip if no ranking for selectedGameType
-                  const mmr = gameRanking.currentMMR;
-                  const player = playersMap[playerID];
-                  const playerName = player ? player.name : playerID;
-                  return (
-                    <TableRow
-                      key={playerID}
-                      sx={{ backgroundColor: player?.colour || 'inherit' }}
-                    >
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        {player?.emoji ? `${player.emoji} ` : ''}
-                        {playerName}
-                      </TableCell>
-                      <TableCell>{mmr}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+        {loading ? (
+          <Box sx={{ mt: 4 }}>
+            <EmojiCycler />
+          </Box>
         ) : (
-          <Typography>No rankings available for this game type.</Typography>
-        )}
-
-        {/* User Ranking and Game History */}
-        {userRanking && userRanking.rankings[selectedGameType] ? (
           <>
+            {/* Top 10 Players */}
             <Typography variant="h5" sx={{ mt: 4 }}>
-              Your Stats
+              Top 10 Players
             </Typography>
-            <Typography>
-              Current MMR: {userRanking.rankings[selectedGameType].currentMMR}
-            </Typography>
-            <Typography>
-              Games Played: {userRanking.rankings[selectedGameType].gamesPlayed}
-            </Typography>
-            <Typography>
-              Wins: {userRanking.rankings[selectedGameType].wins}
-            </Typography>
-            <Typography>
-              Losses: {userRanking.rankings[selectedGameType].losses}
-            </Typography>
-
-            <Typography variant="h5" sx={{ mt: 4 }}>
-              Game History
-            </Typography>
-            {userGameHistory.length > 0 ? (
+            {topPlayers.length > 0 ? (
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>View Replay</TableCell>
-                      <TableCell>Opponents</TableCell>
-                      <TableCell>Result</TableCell>
-                      <TableCell>MMR Change</TableCell>
+                      <TableCell>Rank</TableCell>
+                      <TableCell>Player</TableCell>
+                      <TableCell>MMR</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {userGameHistory.map((gameResult, index) => {
-                      const opponentsNames = gameResult.opponents
-                        .map((opponent) => {
-                          const opponentPlayer = playersMap[opponent.playerID];
-                          return opponentPlayer
-                            ? opponentPlayer.name
-                            : opponent.playerID;
-                        })
-                        .join(', ');
-                      const date = gameResult.timestamp
-                        .toDate()
-                        .toLocaleString();
-                      const mmrChange = gameResult.mmrChange;
-                      const result = ordinalSuffix(gameResult.placement);
+                    {topPlayers.map((ranking, index) => {
+                      const playerID = ranking.playerID;
+                      const gameRanking = ranking.rankings[selectedGameType];
+                      if (!gameRanking) return null; // Skip if no ranking for selectedGameType
+                      const mmr = gameRanking.currentMMR;
+                      const player = playersMap[playerID];
+                      const playerName = player ? player.name : playerID;
                       return (
-                        <TableRow key={index}>
+                        <TableRow
+                          key={playerID}
+                          sx={{ backgroundColor: player?.colour || 'inherit' }}
+                        >
+                          <TableCell>{index + 1}</TableCell>
                           <TableCell>
-                            <a
-                              href={`/session/${gameResult.sessionID}/${gameResult.gameID}`}
-                              style={{
-                                textDecoration: 'none',
-                                color: 'inherit',
-                              }}
-                            >
-                              {date}
-                            </a>
+                            {player?.emoji ? `${player.emoji} ` : ''}
+                            {playerName}
                           </TableCell>
-                          <TableCell>{opponentsNames}</TableCell>
-                          <TableCell>{result}</TableCell>
-                          <TableCell>
-                            {mmrChange > 0 ? `+${mmrChange}` : mmrChange}
-                          </TableCell>
+                          <TableCell>{mmr}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -344,13 +291,91 @@ const LadderPage: React.FC = () => {
                 </Table>
               </TableContainer>
             ) : (
-              <Typography>No games played yet.</Typography>
+              <Typography>No rankings available for this game type.</Typography>
+            )}
+
+            {/* User Ranking and Game History */}
+            {userRanking && userRanking.rankings[selectedGameType] ? (
+              <>
+                <Typography variant="h5" sx={{ mt: 4 }}>
+                  Your Stats
+                </Typography>
+                <Typography>
+                  Current MMR: {userRanking.rankings[selectedGameType].currentMMR}
+                </Typography>
+                <Typography>
+                  Games Played: {userRanking.rankings[selectedGameType].gamesPlayed}
+                </Typography>
+                <Typography>
+                  Wins: {userRanking.rankings[selectedGameType].wins}
+                </Typography>
+                <Typography>
+                  Losses: {userRanking.rankings[selectedGameType].losses}
+                </Typography>
+
+                <Typography variant="h5" sx={{ mt: 4 }}>
+                  Game History
+                </Typography>
+                {userGameHistory.length > 0 ? (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>View Replay</TableCell>
+                          <TableCell>Opponents</TableCell>
+                          <TableCell>Result</TableCell>
+                          <TableCell>MMR Change</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {userGameHistory.map((gameResult, index) => {
+                          const opponentsNames = gameResult.opponents
+                            .map((opponent) => {
+                              const opponentPlayer = playersMap[opponent.playerID];
+                              return opponentPlayer
+                                ? opponentPlayer.name
+                                : opponent.playerID;
+                            })
+                            .join(', ');
+                          const date = gameResult.timestamp
+                            .toDate()
+                            .toLocaleString();
+                          const mmrChange = gameResult.mmrChange;
+                          const result = ordinalSuffix(gameResult.placement);
+                          return (
+                            <TableRow key={index}>
+                              <TableCell>
+                                <a
+                                  href={`/session/${gameResult.sessionID}/${gameResult.gameID}`}
+                                  style={{
+                                    textDecoration: 'none',
+                                    color: 'inherit',
+                                  }}
+                                >
+                                  {date}
+                                </a>
+                              </TableCell>
+                              <TableCell>{opponentsNames}</TableCell>
+                              <TableCell>{result}</TableCell>
+                              <TableCell>
+                                {mmrChange > 0 ? `+${mmrChange}` : mmrChange}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Typography>No games played yet.</Typography>
+                )}
+              </>
+            ) : (
+              <Typography variant="h6" sx={{ mt: 4 }}>
+                You haven't played any games of this type yet.
+              </Typography>
             )}
           </>
-        ) : (
-          <Typography variant="h6" sx={{ mt: 4 }}>
-            You haven't played any games of this type yet.
-          </Typography>
         )}
       </Box>
     </Stack>
