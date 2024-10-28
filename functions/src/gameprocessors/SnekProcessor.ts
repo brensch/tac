@@ -1,13 +1,13 @@
-import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, Clash, GameSetup } from "@shared/types/Game"
-import { logger } from "../logger"
+import { Clash, GameState, Move, Turn, Winner } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
+import { logger } from "../logger"
+import { GameProcessor } from "./GameProcessor"
 
 export class SnekProcessor extends GameProcessor {
   private foodSpawnChance: number = 0.5 // 50% chance to spawn food
 
-  constructor(gameSetup: GameSetup) {
-    super(gameSetup)
+  constructor(gameState: GameState) {
+    super(gameState)
   }
 
   firstTurn(): Turn {
@@ -249,7 +249,7 @@ export class SnekProcessor extends GameProcessor {
         }
       })
 
-      // Remove dead players
+      // Remove dead players from alive list and track their elimination
       deadPlayers.forEach((playerID) => {
         const index = newAlivePlayers.indexOf(playerID)
         if (index !== -1) {
@@ -316,42 +316,59 @@ export class SnekProcessor extends GameProcessor {
         this.gameSetup.boardHeight,
       )
 
-      // Update scores
+      // Update scores based on current snake lengths
       const newScores: { [playerID: string]: number } = {}
       Object.keys(newSnakes).forEach((playerID) => {
         newScores[playerID] = newSnakes[playerID].length
       })
 
-      // Determine winner if game is over
+      // Determine winners if game is over
       let winners: Winner[] = []
-      if (newAlivePlayers.length === 1) {
-        const winnerID = newAlivePlayers[0]
-        winners.push({
-          playerID: winnerID,
-          score: newScores[winnerID],
-          winningSquares: newSnakes[winnerID],
+      if (newAlivePlayers.length <= 1) {
+        // Create a map to track when players were eliminated
+        const eliminationTurns = new Map<string, number>()
+
+        // Go through turns to find when each player was eliminated
+        this.gameState.turns.forEach((turn, turnIndex) => {
+          // If this isn't the first turn, check who was eliminated
+          if (turnIndex > 0) {
+            const previousTurn = this.gameState.turns[turnIndex - 1]
+            const eliminated = previousTurn.alivePlayers.filter(
+              playerId => !turn.alivePlayers.includes(playerId)
+            )
+
+            // Record the turn number when players were eliminated
+            eliminated.forEach(playerId => {
+              if (!eliminationTurns.has(playerId)) {
+                eliminationTurns.set(playerId, turnIndex)
+              }
+            })
+          }
         })
-      } else if (newAlivePlayers.length === 0) {
-        // If all snakes died, everyone is a winner with score 0
-        winners = this.gameSetup.gamePlayers.map((player) => ({
+
+        // Add the final surviving player(s) to the elimination map
+        // They get eliminated on the final turn
+        const finalTurnIndex = this.gameState.turns.length
+        newAlivePlayers.forEach(playerId => {
+          eliminationTurns.set(playerId, finalTurnIndex)
+        })
+
+        // Create a score map based on elimination turn
+        const playerScores = new Map<string, number>()
+        this.gameSetup.gamePlayers.forEach(player => {
+          const eliminationTurn = eliminationTurns.get(player.id) ?? 0
+          playerScores.set(player.id, eliminationTurn)
+        })
+
+        // Create winners array with all players
+        winners = this.gameSetup.gamePlayers.map(player => ({
           playerID: player.id,
-          score: 0,
-          winningSquares: [],
+          score: playerScores.get(player.id) ?? 0,
+          winningSquares: newSnakes[player.id] ?? []
         }))
-        logger.info(
-          "Snek: All snakes died simultaneously. Game ended in a draw.",
-        )
-      } else if (Object.keys(newSnakes).length === 1) {
-        // If only one snake remains, it's the winner
-        const winnerID = Object.keys(newSnakes)[0]
-        winners = [
-          {
-            playerID: winnerID,
-            score: newSnakes[winnerID].length,
-            winningSquares: newSnakes[winnerID],
-          },
-        ]
-        logger.info(`Snek: Player ${winnerID} has won the game.`)
+
+        // Sort winners by score (elimination turn) in descending order
+        winners.sort((a, b) => b.score - a.score)
       }
 
       // Create the new turn

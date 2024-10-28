@@ -50,8 +50,19 @@ export const onGameStarted = functions.firestore
       return
     }
 
+    // gameprocessor needs gamestate due to needing all turns.
+    // construct a new object with empty fields
+    const gameState: GameState = {
+      turns: [],
+      setup: afterData,
+      // these are not used, don't want to change to optional fields though
+      timeCreated: Timestamp.fromMillis(0),
+      timeFinished: Timestamp.fromMillis(0),
+
+    }
+
     // Instantiate the appropriate processor using the factory
-    const processor = getGameProcessor(afterData)
+    const processor = getGameProcessor(gameState)
 
     if (!processor) {
       logger.error(

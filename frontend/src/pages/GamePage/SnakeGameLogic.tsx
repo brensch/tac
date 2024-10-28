@@ -307,7 +307,7 @@ const GameLogic = ({
   food?.forEach((position) => {
     cellContentMap[position] = (
       <Box key={`food-${position}`} sx={commonCellStyle}>
-        🍎
+        🎃
       </Box>
     )
   })

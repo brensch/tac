@@ -1,14 +1,14 @@
-import { GameProcessor } from "./GameProcessor"
-import { Winner, Turn, Move, GameSetup, Clash } from "@shared/types/Game"
-import { logger } from "../logger"
+import { Clash, GameState, Move, Turn, Winner } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
+import { logger } from "../logger"
+import { GameProcessor } from "./GameProcessor"
 
 /**
  * Processor class for the TacticToes game logic.
  */
 export class TacticToesProcessor extends GameProcessor {
-  constructor(gameSetup: GameSetup) {
-    super(gameSetup)
+  constructor(gameState: GameState) {
+    super(gameState)
   }
 
   /**

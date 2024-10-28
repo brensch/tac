@@ -1,4 +1,4 @@
-import { Clash, GameSetup, Move, Turn, Winner } from "@shared/types/Game"
+import { Clash, GameState, Move, Turn, Winner } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
 import { logger } from "../logger"
 import { GameProcessor } from "./GameProcessor"
@@ -7,8 +7,8 @@ import { GameProcessor } from "./GameProcessor"
  * Processor class for the Connect4 game logic.
  */
 export class Connect4Processor extends GameProcessor {
-  constructor(gameSetup: GameSetup) {
-    super(gameSetup)
+  constructor(gameState: GameState) {
+    super(gameState)
   }
 
   firstTurn(): Turn {

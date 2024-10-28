@@ -74,6 +74,7 @@ export interface Player {
   emoji: string
   colour: string
   createdAt: Timestamp | FieldValue
+  ranking?: PlayerRanking
 }
 
 export interface Human extends Player {
@@ -113,4 +114,29 @@ export interface Clash {
   index: number
   playerIDs: string[]
   reason: string
+}
+
+export interface GameResult {
+  sessionID: string
+  gameID: string
+  timestamp: Timestamp
+  previousMMR: number
+  mmrChange: number
+  placement: number
+  opponents: OpponentInfo[]
+}
+
+export interface PlayerRanking {
+  currentMMR: number
+  gamesPlayed: number
+  wins: number
+  losses: number
+  gameHistory: GameResult[]
+  lastUpdated: Timestamp | FieldValue
+}
+
+export interface OpponentInfo {
+  playerID: string
+  mmr: number
+  placement: number
 }

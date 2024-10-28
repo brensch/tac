@@ -1,6 +1,6 @@
 // functions/src/gameprocessors/ReversiProcessor.ts
 
-import { GameSetup, Move, Turn } from "@shared/types/Game"
+import { GameState, Move, Turn } from "@shared/types/Game"
 import { Timestamp } from "firebase-admin/firestore"
 import { logger } from "../logger"
 import { GameProcessor } from "./GameProcessor"
@@ -9,8 +9,8 @@ import { GameProcessor } from "./GameProcessor"
  * Processor class for the Reversi game logic.
  */
 export class ReversiProcessor extends GameProcessor {
-  constructor(gameSetup: GameSetup) {
-    super(gameSetup)
+  constructor(gameState: GameState) {
+    super(gameState)
   }
 
   firstTurn(): Turn {

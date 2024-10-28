@@ -1,30 +1,30 @@
 // functions/src/gameprocessors/ProcessorFactory.ts
 
-import { GameSetup } from "@shared/types/Game"
+import { GameState } from "@shared/types/Game"
+import { ColorClashProcessor } from "./ColourClash"
 import { Connect4Processor } from "./Connect4Processor"
 import { GameProcessor } from "./GameProcessor"
-import { SnekProcessor } from "./SnekProcessor"
 import { LongboiProcessor } from "./LongboiProcessor"
-import { TacticToesProcessor } from "./TacticToesProcessor"
-import { ColorClashProcessor } from "./ColourClash"
 import { ReversiProcessor } from "./Reversi"
+import { SnekProcessor } from "./SnekProcessor"
+import { TacticToesProcessor } from "./TacticToesProcessor"
 
-export function getGameProcessor(gameSetup: GameSetup): GameProcessor | null {
-  switch (gameSetup.gameType) {
+export function getGameProcessor(gameState: GameState): GameProcessor | null {
+  switch (gameState.setup.gameType) {
     case "connect4":
-      return new Connect4Processor(gameSetup)
+      return new Connect4Processor(gameState)
     case "longboi":
-      return new LongboiProcessor(gameSetup)
+      return new LongboiProcessor(gameState)
     case "tactictoes":
-      return new TacticToesProcessor(gameSetup)
+      return new TacticToesProcessor(gameState)
     case "snek":
-      return new SnekProcessor(gameSetup)
+      return new SnekProcessor(gameState)
     case "colourclash":
-      return new ColorClashProcessor(gameSetup)
+      return new ColorClashProcessor(gameState)
     case "reversi":
-      return new ReversiProcessor(gameSetup)
+      return new ReversiProcessor(gameState)
     default:
-      console.error(`Unsupported game type: ${gameSetup.gameType}`)
+      console.error(`Unsupported game type: ${gameState.setup.gameType}`)
       return null
   }
 }

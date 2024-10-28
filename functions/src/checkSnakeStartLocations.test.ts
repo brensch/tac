@@ -1,6 +1,6 @@
+import { GamePlayer, GameState } from "@shared/types/Game"
+import { Timestamp } from "firebase/firestore"
 import { SnekProcessor } from "./gameprocessors/SnekProcessor" // Adjust the import path as needed
-import { Timestamp } from "firebase/firestore" // Adjust this import based on your firebase setup
-import { GameSetup, GamePlayer } from "@shared/types/Game"
 
 // Mock Timestamp.now() to return a consistent value
 jest.mock("firebase/firestore", () => ({
@@ -10,11 +10,11 @@ jest.mock("firebase/firestore", () => ({
 }))
 
 describe("SnekProcessor", () => {
-  function createGameSetup(
+  function createGameState(
     width: number,
     height: number,
     playerCount: number,
-  ): GameSetup {
+  ): GameState {
     const gamePlayers: GamePlayer[] = Array.from(
       { length: playerCount },
       (_, i) => ({
@@ -23,21 +23,26 @@ describe("SnekProcessor", () => {
       }),
     )
     return {
-      gameType: "snek",
-      gamePlayers: gamePlayers,
-      boardWidth: width,
-      boardHeight: height,
-      playersReady: [],
-      maxTurnTime: 10,
-      startRequested: false,
-      started: true,
-      timeCreated: Timestamp.now(),
+      turns: [],
+      setup: {
+        gameType: "snek",
+        gamePlayers: gamePlayers,
+        boardWidth: width,
+        boardHeight: height,
+        playersReady: [],
+        maxTurnTime: 10,
+        startRequested: false,
+        started: true,
+        timeCreated: Timestamp.now(),
+      },
+      timeCreated: Timestamp.fromMillis(0),
+      timeFinished: Timestamp.fromMillis(0),
     }
   }
 
   test("initializes game with correct board size", () => {
-    const gameSetup = createGameSetup(7, 7, 4)
-    const game = new SnekProcessor(gameSetup)
+    const gameState = createGameState(7, 7, 4)
+    const game = new SnekProcessor(gameState)
     const initializedGame = game.initializeGame()
     const board = game.visualizeBoard(initializedGame)
     const lines = board.split("\n")
@@ -46,8 +51,8 @@ describe("SnekProcessor", () => {
   })
 
   test("places correct number of players", () => {
-    const gameSetup = createGameSetup(9, 9, 4)
-    const game = new SnekProcessor(gameSetup)
+    const gameState = createGameState(9, 9, 4)
+    const game = new SnekProcessor(gameState)
     const initializedGame = game.initializeGame()
     const board = game.visualizeBoard(initializedGame)
     const playerCount = (board.match(/[1-4]/g) || []).length
@@ -55,8 +60,8 @@ describe("SnekProcessor", () => {
   })
 
   test("places players on even squares", () => {
-    const gameSetup = createGameSetup(11, 11, 8)
-    const game = new SnekProcessor(gameSetup)
+    const gameState = createGameState(11, 11, 8)
+    const game = new SnekProcessor(gameState)
     const initializedGame = game.initializeGame()
     const board = game.visualizeBoard(initializedGame)
     const lines = board.split("\n")
@@ -71,8 +76,8 @@ describe("SnekProcessor", () => {
   })
 
   test("places players near edges for small number of players", () => {
-    const gameSetup = createGameSetup(7, 7, 2)
-    const game = new SnekProcessor(gameSetup)
+    const gameState = createGameState(7, 7, 2)
+    const game = new SnekProcessor(gameState)
     const initializedGame = game.initializeGame()
     const board = game.visualizeBoard(initializedGame)
     const lines = board.split("\n")
@@ -101,8 +106,8 @@ describe("SnekProcessor", () => {
     ]
 
     testCases.forEach(({ width, height, players }) => {
-      const gameSetup = createGameSetup(width, height, players)
-      const game = new SnekProcessor(gameSetup)
+      const gameState = createGameState(width, height, players)
+      const game = new SnekProcessor(gameState)
       const initializedGame = game.initializeGame()
       const board = game.visualizeBoard(initializedGame)
       const lines = board.split("\n")

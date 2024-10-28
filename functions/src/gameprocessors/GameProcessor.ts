@@ -1,6 +1,6 @@
 // functions/src/gameprocessors/GameProcessor.ts
 
-import { Turn, Move, GameSetup } from "@shared/types/Game"
+import { Turn, Move, GameSetup, GameState } from "@shared/types/Game"
 
 /**
  * Abstract base class for all game processors.
@@ -8,9 +8,11 @@ import { Turn, Move, GameSetup } from "@shared/types/Game"
  */
 export abstract class GameProcessor {
   protected gameSetup: GameSetup
+  protected gameState: GameState
 
-  constructor(gameSetup: GameSetup) {
-    this.gameSetup = gameSetup
+  constructor(gameState: GameState) {
+    this.gameSetup = gameState.setup
+    this.gameState = gameState
   }
 
   /**
