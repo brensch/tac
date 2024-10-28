@@ -24,7 +24,7 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
-  where
+  where,
 } from "firebase/firestore"
 import React, {
   createContext,
@@ -58,11 +58,14 @@ interface GameStateContextType {
   latestMoveStatus: MoveStatus | null
   session: Session | null
   connectivityStatus: 'connected' | 'disconnected'
+  queryTimedOut: boolean
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
   undefined,
 )
+
+const queryMaxDuration = 2000
 
 export const GameStateProvider: React.FC<{
   children: React.ReactNode
@@ -85,6 +88,7 @@ export const GameStateProvider: React.FC<{
   const [bots, setBots] = useState<Bot[]>([])
   const [gameType, setGameType] = useState<GameType>("snek")
   const [connectivityStatus, setConnectivityStatus] = useState<'connected' | 'disconnected'>('connected')
+  const [queryTimedOut, setQueryTimedOut] = useState<boolean>(false)
 
   const humanMapRef = useRef<{ [id: string]: Human }>({})
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
@@ -99,6 +103,24 @@ export const GameStateProvider: React.FC<{
   // Subscribe to game document
   useEffect(() => {
     const gameDocRef = doc(db, `sessions/${sessionName}/games`, gameID)
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const startQueryTimeout = () => {
+      timeoutId = setTimeout(() => {
+        setQueryTimedOut(true)
+        setError("Loading game data is taking longer than usual.")
+      }, queryMaxDuration)
+    }
+
+    const clearQueryTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+
+    startQueryTimeout()
+
     const unsubscribe = onSnapshot(
       gameDocRef,
       { includeMetadataChanges: true },
@@ -109,21 +131,49 @@ export const GameStateProvider: React.FC<{
           setError("Game not found.")
           return
         }
+
         const gameData = docSnapshot.data() as GameState
         setGameState(gameData)
         setLatestTurn(gameData.turns[gameData.turns.length - 1])
+
+        if (!docSnapshot.metadata.fromCache) {
+          clearQueryTimeout()
+          setQueryTimedOut(false)
+        }
       },
       (error) => {
         console.error("Error in game subscription:", error)
         setError("An error occurred while fetching game updates.")
+        clearQueryTimeout()
       }
     )
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearQueryTimeout()
+    }
   }, [gameID, sessionName])
 
   // Subscribe to session document
   useEffect(() => {
     const sessionDocRef = doc(db, `sessions/${sessionName}`)
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const startQueryTimeout = () => {
+      timeoutId = setTimeout(() => {
+        setQueryTimedOut(true)
+        setError("Loading session data is taking longer than usual.")
+      }, queryMaxDuration)
+    }
+
+    const clearQueryTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+
+    startQueryTimeout()
+
     const unsubscribe = onSnapshot(
       sessionDocRef,
       { includeMetadataChanges: true },
@@ -134,21 +184,49 @@ export const GameStateProvider: React.FC<{
           setError("Session not found.")
           return
         }
+
         const sessionData = docSnapshot.data() as Session
         setSession(sessionData)
+
+        if (!docSnapshot.metadata.fromCache) {
+          clearQueryTimeout()
+          setQueryTimedOut(false)
+        }
       },
       (error) => {
         console.error("Error in session subscription:", error)
         setError("An error occurred while fetching session updates.")
+        clearQueryTimeout()
       }
     )
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearQueryTimeout()
+    }
   }, [sessionName])
 
   // Subscribe to game setup
   useEffect(() => {
     if (!gameID || userID === "") return
     const gameDocRef = doc(db, `sessions/${sessionName}/setups`, gameID)
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const startQueryTimeout = () => {
+      timeoutId = setTimeout(() => {
+        setQueryTimedOut(true)
+        setError("Loading game setup is taking longer than usual.")
+      }, queryMaxDuration)
+    }
+
+    const clearQueryTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+
+    startQueryTimeout()
+
     const unsubscribe = onSnapshot(
       gameDocRef,
       { includeMetadataChanges: true },
@@ -159,8 +237,14 @@ export const GameStateProvider: React.FC<{
           setError("Game setup not found.")
           return
         }
+
         const gameData = docSnapshot.data() as GameSetup
         setGameSetup(gameData)
+
+        if (!docSnapshot.metadata.fromCache) {
+          clearQueryTimeout()
+          setQueryTimedOut(false)
+        }
 
         const userExists = gameData.gamePlayers.find(
           (player) => player.id === userID,
@@ -183,9 +267,13 @@ export const GameStateProvider: React.FC<{
       (error) => {
         console.error("Error in game setup subscription:", error)
         setError("An error occurred while fetching game setup.")
+        clearQueryTimeout()
       }
     )
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearQueryTimeout()
+    }
   }, [gameID, userID, sessionName])
 
   // Subscribe to the "bots" collection
@@ -195,6 +283,23 @@ export const GameStateProvider: React.FC<{
       collection(db, "bots"),
       where("capabilities", "array-contains", gameSetup.gameType),
     )
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const startQueryTimeout = () => {
+      timeoutId = setTimeout(() => {
+        setQueryTimedOut(true)
+        setError("Loading bots data is taking longer than usual.")
+      }, queryMaxDuration)
+    }
+
+    const clearQueryTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+
+    startQueryTimeout()
 
     const unsubscribe = onSnapshot(
       botsQuery,
@@ -204,13 +309,22 @@ export const GameStateProvider: React.FC<{
 
         const botsData = snapshot.docs.map((doc) => doc.data() as Bot)
         setBots(botsData)
+
+        if (!snapshot.metadata.fromCache) {
+          clearQueryTimeout()
+          setQueryTimedOut(false)
+        }
       },
       (error) => {
         console.error("Error in bots subscription:", error)
         setError("An error occurred while fetching bots data.")
+        clearQueryTimeout()
       }
     )
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearQueryTimeout()
+    }
   }, [gameSetup?.gameType])
 
   // Subscribe to player documents
@@ -227,6 +341,23 @@ export const GameStateProvider: React.FC<{
     playerIDs.forEach((playerID) => {
       if (!unsubscribes[playerID]) {
         const playerDocRef = doc(db, "users", playerID)
+        let timeoutId: NodeJS.Timeout | null = null
+
+        const startQueryTimeout = () => {
+          timeoutId = setTimeout(() => {
+            setQueryTimedOut(true)
+            setError("Loading player data is taking longer than usual.")
+          }, queryMaxDuration)
+        }
+
+        const clearQueryTimeout = () => {
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+            timeoutId = null
+          }
+        }
+
+        startQueryTimeout()
 
         const unsubscribe = onSnapshot(
           playerDocRef,
@@ -247,14 +378,23 @@ export const GameStateProvider: React.FC<{
               delete humanMap[playerID]
             }
             setHumans(Object.values(humanMap))
+
+            if (!docSnap.metadata.fromCache) {
+              clearQueryTimeout()
+              setQueryTimedOut(false)
+            }
           },
           (error) => {
             console.error(`Error in player subscription for ${playerID}:`, error)
             setError("An error occurred while fetching player updates.")
+            clearQueryTimeout()
           }
         )
 
-        unsubscribes[playerID] = unsubscribe
+        unsubscribes[playerID] = () => {
+          unsubscribe()
+          clearQueryTimeout()
+        }
       }
     })
 
@@ -281,6 +421,23 @@ export const GameStateProvider: React.FC<{
       orderBy("moveNumber", "desc"),
       limit(1),
     )
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const startQueryTimeout = () => {
+      timeoutId = setTimeout(() => {
+        setQueryTimedOut(true)
+        setError("Loading move status data is taking longer than usual.")
+      }, queryMaxDuration)
+    }
+
+    const clearQueryTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+
+    startQueryTimeout()
 
     const unsubscribe = onSnapshot(
       moveStatusesQuery,
@@ -292,14 +449,23 @@ export const GameStateProvider: React.FC<{
           const highestMoveStatus = querySnapshot.docs[0].data() as MoveStatus
           setLatestMoveStatus(highestMoveStatus)
         }
+
+        if (!querySnapshot.metadata.fromCache) {
+          clearQueryTimeout()
+          setQueryTimedOut(false)
+        }
       },
       (error) => {
         console.error("Error in move status subscription:", error)
         setError("An error occurred while fetching move updates.")
+        clearQueryTimeout()
       }
     )
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearQueryTimeout()
+    }
   }, [gameID, userID, sessionName])
 
   // Timer effect
@@ -439,7 +605,8 @@ export const GameStateProvider: React.FC<{
     gameSetup,
     latestMoveStatus,
     session,
-    connectivityStatus
+    connectivityStatus,
+    queryTimedOut,
   }
 
   return (

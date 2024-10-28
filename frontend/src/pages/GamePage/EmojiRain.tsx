@@ -6,41 +6,40 @@ interface EmojiRainProps {
   totalEmojis?: number
 }
 
-const EmojiRain: React.FC<EmojiRainProps> = ({ 
-  emoji, 
-  duration = 8, 
-  totalEmojis = 300 
+const EmojiRain: React.FC<EmojiRainProps> = ({
+  emoji,
+  duration = 15,
+  totalEmojis = 300
 }) => {
   const [emojis, setEmojis] = React.useState<Array<{
-    id: number;
-    left: number;
-    delay: number;
-    size: number;
+    id: number
+    left: number
+    delay: number
+    size: number
+    speed: number
   }>>([])
 
   React.useEffect(() => {
     if (emoji) {
-      // Create emojis with delays following a bell curve distribution
       const newEmojis = Array.from({ length: totalEmojis }, (_, i) => {
-        // Convert index to a value between -3 and 3 for normal distribution
-        const x = (i / totalEmojis) * 6 - 3
-        
-        // Calculate delay using normal distribution formula
-        // This creates a bell curve centered at duration/2
-        const standardDeviation = 1
-        const mean = duration / 2
-        const delay = mean + (x * standardDeviation)
-        
-        // Ensure delay is positive and within duration
-        const clampedDelay = Math.max(0, Math.min(duration, delay))
+        const progress = i / totalEmojis
+        const b = 3
+        const delay = Math.exp(progress * b)
+        const maxInitialDelay = duration * 2
+        const scaledDelay = (delay - 1) * maxInitialDelay / (Math.exp(b) - 1)
+
+        const speedMultiplier = 0.5 + Math.random()
 
         return {
           id: i,
           left: Math.random() * 100,
-          delay: clampedDelay,
-          size: Math.random() * 24 + 24
+          delay: scaledDelay * (0.8 + Math.random() * 0.4),
+          size: Math.random() * 24 + 24,
+          speed: duration * speedMultiplier
         }
       })
+
+      newEmojis.sort((a, b) => a.delay - b.delay)
 
       setEmojis(newEmojis)
     }
@@ -61,7 +60,7 @@ const EmojiRain: React.FC<EmojiRainProps> = ({
         zIndex: 9999,
       }}
     >
-      {emojis.map(({ id, left, delay, size }) => (
+      {emojis.map(({ id, left, delay, size, speed }) => (
         <div
           key={id}
           style={{
@@ -69,8 +68,10 @@ const EmojiRain: React.FC<EmojiRainProps> = ({
             top: `-50px`,
             left: `${left}%`,
             fontSize: `${size}px`,
-            animation: `fall ${duration}s linear ${delay}s forwards`,
+            animation: `fall ${speed}s linear ${delay}s forwards`,
             willChange: 'transform',
+            WebkitTextFillColor: 'initial', // Makes emojis solid in WebKit browsers
+            color: 'initial',               // Ensures full color rendering
           }}
         >
           {emoji}

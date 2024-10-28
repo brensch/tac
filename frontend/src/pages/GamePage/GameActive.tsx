@@ -30,6 +30,7 @@ const GameActive: React.FC = () => {
     selectedSquare,
     latestMoveStatus,
     connectivityStatus,
+    queryTimedOut,
   } = useGameStateContext()
 
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(true) // Show rules dialog initially
@@ -46,8 +47,6 @@ const GameActive: React.FC = () => {
   const playerInCurrentGame = gameSetup?.gamePlayers.find(
     (player) => player.id === userID,
   )
-
-  console.log(connectivityStatus)
 
   return (
     <Stack spacing={2} pt={2}>
@@ -73,6 +72,12 @@ const GameActive: React.FC = () => {
       {connectivityStatus === 'disconnected' &&
         <Alert severity="error">
           You have no internet. Seek higher ground.
+        </Alert>
+      }
+      {/* Alert if internet error */}
+      {queryTimedOut && connectivityStatus !== 'disconnected' &&
+        <Alert severity="error">
+          Your internet is slow. Get good.
         </Alert>
       }
 
