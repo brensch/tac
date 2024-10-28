@@ -172,7 +172,8 @@ const GameSetup: React.FC = () => {
           sx={{ backgroundColor: colour, height: "70px", fontSize: "32px" }}
           fullWidth
         >
-          {gameSetup.playersReady.includes(userID) ? `Waiting` : "Ready?"}
+          {gameSetup.playersReady.includes(userID) ? `Waiting` : "I'm ready!"}
+
         </Button>
       ) : (
         <Button
@@ -182,7 +183,7 @@ const GameSetup: React.FC = () => {
           className="shake"
           fullWidth
         >
-          Start game
+          {gameSetup.startRequested ? "Game starting" : "Start game"}
         </Button>
       )}
       {gameSetup.playersReady.includes(userID) &&

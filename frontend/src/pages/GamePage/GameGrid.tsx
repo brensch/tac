@@ -249,20 +249,18 @@ const GameGrid: React.FC = () => {
       </Box>
 
       {/* Turn navigation controls with slider */}
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           width: '100%',
-          maxWidth: 600,
           margin: '0 auto',
           mt: 2,
-          gap: 2
         }}
       >
         {/* Slider */}
-        <Box sx={{ width: '100%', px:2 }}>
+        <Box sx={{ width: '100%', px: 2 }}>
           <Slider
             value={selectedTurnIndex}
             onChange={handleSliderChange}
@@ -272,7 +270,7 @@ const GameGrid: React.FC = () => {
             disabled={!gameState?.turns || gameState.turns.length <= 1}
           />
         </Box>
-        
+
         {/* Button controls */}
         <Box sx={{ display: "flex", alignItems: "center" }}>
           <IconButton onClick={handleFirstTurn} disabled={selectedTurnIndex <= 0}>

@@ -1,6 +1,6 @@
 // LadderPage.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Stack,
@@ -16,41 +16,41 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-} from '@mui/material';
-import { useParams, useNavigate } from 'react-router-dom';
+} from '@mui/material'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc,
   collection,
   onSnapshot,
   getDoc,
-} from 'firebase/firestore';
-import { db } from '../firebaseConfig'; // Adjust the path as necessary
-import { useUser } from '../context/UserContext'; // Adjust the path as necessary
+} from 'firebase/firestore'
+import { db } from '../firebaseConfig' // Adjust the path as necessary
+import { useUser } from '../context/UserContext' // Adjust the path as necessary
 import {
   GameType,
   Ranking,
   GameResult,
   Player,
-} from '@shared/types/Game'; // Adjust the path as necessary
+} from '@shared/types/Game' // Adjust the path as necessary
 import { EmojiCycler } from '../components/EmojiCycler'
 
 const LadderPage: React.FC = () => {
-  const { gameType: routeGameType } = useParams<{ gameType: string }>();
-  const navigate = useNavigate();
-  const { userID } = useUser();
+  const { gameType: routeGameType } = useParams<{ gameType: string }>()
+  const navigate = useNavigate()
+  const { userID } = useUser()
   const [selectedGameType, setSelectedGameType] = useState<GameType>(
     (routeGameType as GameType) || 'snek'
-  );
-  const [topPlayers, setTopPlayers] = useState<Ranking[]>([]);
-  const [userRanking, setUserRanking] = useState<Ranking | null>(null);
-  const [userGameHistory, setUserGameHistory] = useState<GameResult[]>([]);
-  const [playersMap, setPlayersMap] = useState<{ [id: string]: Player }>({});
+  )
+  const [topPlayers, setTopPlayers] = useState<Ranking[]>([])
+  const [userRanking, setUserRanking] = useState<Ranking | null>(null)
+  const [userGameHistory, setUserGameHistory] = useState<GameResult[]>([])
+  const [playersMap, setPlayersMap] = useState<{ [id: string]: Player }>({})
 
   // Separate loading states
-  const [loadingTopPlayers, setLoadingTopPlayers] = useState(true);
-  const [loadingUserRanking, setLoadingUserRanking] = useState(true);
-  const [loadingPlayersMap, setLoadingPlayersMap] = useState(true);
-  const loading = loadingTopPlayers || loadingUserRanking || loadingPlayersMap;
+  const [loadingTopPlayers, setLoadingTopPlayers] = useState(true)
+  const [loadingUserRanking, setLoadingUserRanking] = useState(true)
+  const [loadingPlayersMap, setLoadingPlayersMap] = useState(true)
+  const loading = loadingTopPlayers || loadingUserRanking || loadingPlayersMap
 
   const gameTypes: GameType[] = [
     'snek',
@@ -59,165 +59,165 @@ const LadderPage: React.FC = () => {
     'longboi',
     'reversi',
     'colourclash',
-  ];
+  ]
 
   useEffect(() => {
-    setSelectedGameType((routeGameType as GameType) || 'snek');
-  }, [routeGameType]);
+    setSelectedGameType((routeGameType as GameType) || 'snek')
+  }, [routeGameType])
 
   useEffect(() => {
     // Reset state when selectedGameType changes
-    setTopPlayers([]);
-    setUserRanking(null);
-    setUserGameHistory([]);
-    setPlayersMap({});
-    setRequiredPlayerIDs(new Set());
-    setLoadingTopPlayers(true);
-    setLoadingUserRanking(true);
-    setLoadingPlayersMap(true);
-  }, [selectedGameType]);
+    setTopPlayers([])
+    setUserRanking(null)
+    setUserGameHistory([])
+    setPlayersMap({})
+    setRequiredPlayerIDs(new Set())
+    setLoadingTopPlayers(true)
+    setLoadingUserRanking(true)
+    setLoadingPlayersMap(true)
+  }, [selectedGameType])
 
   const handleGameTypeChange = (event: SelectChangeEvent<string>) => {
-    const newGameType = event.target.value as GameType;
-    navigate(`/ladder/${newGameType}`);
-  };
+    const newGameType = event.target.value as GameType
+    navigate(`/ladder/${newGameType}`)
+  }
 
   // Collect required player IDs
-  const [requiredPlayerIDs, setRequiredPlayerIDs] = useState<Set<string>>(new Set());
+  const [requiredPlayerIDs, setRequiredPlayerIDs] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     // Fetch top 10 players
-    const rankingsRef = collection(db, 'rankings');
+    const rankingsRef = collection(db, 'rankings')
     const unsubscribeRankings = onSnapshot(rankingsRef, (snapshot) => {
-      const rankings: Ranking[] = [];
+      const rankings: Ranking[] = []
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data() as Ranking;
+        const data = docSnap.data() as Ranking
         if (data.rankings && data.rankings[selectedGameType]) {
-          rankings.push({ ...data, playerID: docSnap.id });
+          rankings.push({ ...data, playerID: docSnap.id })
         }
-      });
+      })
       rankings.sort((a, b) => {
-        const mmrA = a.rankings[selectedGameType].currentMMR;
-        const mmrB = b.rankings[selectedGameType].currentMMR;
-        return mmrB - mmrA;
-      });
-      const top10 = rankings.slice(0, 10);
-      setTopPlayers(top10);
+        const mmrA = a.rankings[selectedGameType].currentMMR
+        const mmrB = b.rankings[selectedGameType].currentMMR
+        return mmrB - mmrA
+      })
+      const top10 = rankings.slice(0, 10)
+      setTopPlayers(top10)
 
       // Collect player IDs from top 10
-      const top10IDs = top10.map((ranking) => ranking.playerID);
+      const top10IDs = top10.map((ranking) => ranking.playerID)
       setRequiredPlayerIDs((prev) => {
-        const newSet = new Set(prev);
-        top10IDs.forEach((id) => newSet.add(id));
-        return newSet;
-      });
+        const newSet = new Set(prev)
+        top10IDs.forEach((id) => newSet.add(id))
+        return newSet
+      })
 
-      setLoadingTopPlayers(false);
-    });
+      setLoadingTopPlayers(false)
+    })
 
     return () => {
-      unsubscribeRankings();
-      setLoadingTopPlayers(true);
-    };
-  }, [selectedGameType]);
+      unsubscribeRankings()
+      setLoadingTopPlayers(true)
+    }
+  }, [selectedGameType])
 
   useEffect(() => {
     // Fetch user ranking
-    const userDocRef = doc(db, 'rankings', userID);
+    const userDocRef = doc(db, 'rankings', userID)
     const unsubscribeUserRanking = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data() as Ranking;
+        const data = docSnap.data() as Ranking
         if (data.rankings && data.rankings[selectedGameType]) {
-          setUserRanking({ ...data, playerID: userID });
+          setUserRanking({ ...data, playerID: userID })
           const history = [...data.rankings[selectedGameType].gameHistory]
             .reverse()
-            .slice(0, 10);
-          setUserGameHistory(history);
+            .slice(0, 10)
+          setUserGameHistory(history)
 
           // Collect opponent IDs
-          const opponentIDs = new Set<string>();
+          const opponentIDs = new Set<string>()
           history.forEach((gameResult) => {
             gameResult.opponents.forEach((opponent) => {
-              opponentIDs.add(opponent.playerID);
-            });
-          });
+              opponentIDs.add(opponent.playerID)
+            })
+          })
 
           // Update requiredPlayerIDs
           setRequiredPlayerIDs((prev) => {
-            const newSet = new Set(prev);
-            opponentIDs.forEach((id) => newSet.add(id));
-            return newSet;
-          });
+            const newSet = new Set(prev)
+            opponentIDs.forEach((id) => newSet.add(id))
+            return newSet
+          })
         } else {
-          setUserRanking(null);
-          setUserGameHistory([]);
+          setUserRanking(null)
+          setUserGameHistory([])
         }
       } else {
-        setUserRanking(null);
-        setUserGameHistory([]);
+        setUserRanking(null)
+        setUserGameHistory([])
       }
 
       // Ensure user's own ID is included
       setRequiredPlayerIDs((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(userID);
-        return newSet;
-      });
+        const newSet = new Set(prev)
+        newSet.add(userID)
+        return newSet
+      })
 
-      setLoadingUserRanking(false);
-    });
+      setLoadingUserRanking(false)
+    })
 
     return () => {
-      unsubscribeUserRanking();
-      setLoadingUserRanking(true);
-    };
-  }, [userID, selectedGameType]);
+      unsubscribeUserRanking()
+      setLoadingUserRanking(true)
+    }
+  }, [userID, selectedGameType])
 
   // Fetch all required player data
   useEffect(() => {
     const fetchPlayers = async () => {
-      setLoadingPlayersMap(true);
+      setLoadingPlayersMap(true)
 
       const missingPlayerIDs = Array.from(requiredPlayerIDs).filter(
         (id) => !(id in playersMap)
-      );
+      )
 
       if (missingPlayerIDs.length === 0) {
-        setLoadingPlayersMap(false);
-        return;
+        setLoadingPlayersMap(false)
+        return
       }
 
-      const newPlayersMap: { [id: string]: Player } = {};
+      const newPlayersMap: { [id: string]: Player } = {}
       const promises = missingPlayerIDs.map(async (id) => {
         // Try fetching from users collection
-        const userDocRef = doc(db, 'users', id);
-        const userDoc = await getDoc(userDocRef);
+        const userDocRef = doc(db, 'users', id)
+        const userDoc = await getDoc(userDocRef)
         if (userDoc.exists()) {
-          newPlayersMap[id] = { ...(userDoc.data() as Player), id };
-          return;
+          newPlayersMap[id] = { ...(userDoc.data() as Player), id }
+          return
         }
         // Try fetching from bots collection
-        const botDocRef = doc(db, 'bots', id);
-        const botDoc = await getDoc(botDocRef);
+        const botDocRef = doc(db, 'bots', id)
+        const botDoc = await getDoc(botDocRef)
         if (botDoc.exists()) {
-          newPlayersMap[id] = { ...(botDoc.data() as Player), id };
-          return;
+          newPlayersMap[id] = { ...(botDoc.data() as Player), id }
+          return
         }
-      });
-      await Promise.all(promises);
-      setPlayersMap((prev) => ({ ...prev, ...newPlayersMap }));
-      setLoadingPlayersMap(false);
-    };
+      })
+      await Promise.all(promises)
+      setPlayersMap((prev) => ({ ...prev, ...newPlayersMap }))
+      setLoadingPlayersMap(false)
+    }
 
-    fetchPlayers();
-  }, [requiredPlayerIDs]);
+    fetchPlayers()
+  }, [requiredPlayerIDs])
 
   // Function to get ordinal suffix
   const ordinalSuffix = (n: number) => {
     const s = ['th', 'st', 'nd', 'rd'],
-      v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
+      v = n % 100
+    return n + (s[(v - 20) % 10] || s[v] || s[0])
+  }
 
   return (
     <Stack
@@ -267,12 +267,12 @@ const LadderPage: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {topPlayers.map((ranking, index) => {
-                      const playerID = ranking.playerID;
-                      const gameRanking = ranking.rankings[selectedGameType];
-                      if (!gameRanking) return null; // Skip if no ranking for selectedGameType
-                      const mmr = gameRanking.currentMMR;
-                      const player = playersMap[playerID];
-                      const playerName = player ? player.name : playerID;
+                      const playerID = ranking.playerID
+                      const gameRanking = ranking.rankings[selectedGameType]
+                      if (!gameRanking) return null // Skip if no ranking for selectedGameType
+                      const mmr = gameRanking.currentMMR
+                      const player = playersMap[playerID]
+                      const playerName = player ? player.name : playerID
                       return (
                         <TableRow
                           key={playerID}
@@ -285,7 +285,7 @@ const LadderPage: React.FC = () => {
                           </TableCell>
                           <TableCell>{mmr}</TableCell>
                         </TableRow>
-                      );
+                      )
                     })}
                   </TableBody>
                 </Table>
@@ -331,17 +331,17 @@ const LadderPage: React.FC = () => {
                         {userGameHistory.map((gameResult, index) => {
                           const opponentsNames = gameResult.opponents
                             .map((opponent) => {
-                              const opponentPlayer = playersMap[opponent.playerID];
+                              const opponentPlayer = playersMap[opponent.playerID]
                               return opponentPlayer
                                 ? opponentPlayer.name
-                                : opponent.playerID;
+                                : opponent.playerID
                             })
-                            .join(', ');
+                            .join(', ')
                           const date = gameResult.timestamp
                             .toDate()
-                            .toLocaleString();
-                          const mmrChange = gameResult.mmrChange;
-                          const result = ordinalSuffix(gameResult.placement);
+                            .toLocaleString()
+                          const mmrChange = gameResult.mmrChange
+                          const result = ordinalSuffix(gameResult.placement)
                           return (
                             <TableRow key={index}>
                               <TableCell>
@@ -361,7 +361,7 @@ const LadderPage: React.FC = () => {
                                 {mmrChange > 0 ? `+${mmrChange}` : mmrChange}
                               </TableCell>
                             </TableRow>
-                          );
+                          )
                         })}
                       </TableBody>
                     </Table>
@@ -379,7 +379,7 @@ const LadderPage: React.FC = () => {
         )}
       </Box>
     </Stack>
-  );
-};
+  )
+}
 
-export default LadderPage;
+export default LadderPage

@@ -21,6 +21,8 @@ export interface PlayerResult {
   name: string | undefined
   emoji: string | undefined
   score: number
+  mmr: number | undefined
+  mmrBump: number | undefined
 }
 
 const GameFinished: React.FC = () => {
@@ -40,6 +42,8 @@ const GameFinished: React.FC = () => {
         name: winner?.name,
         emoji: winner?.emoji,
         score: player.score,
+        mmr: player.newMMR,
+        mmrBump: player.mmrChange,
       }
     })
 
@@ -96,29 +100,33 @@ const GameFinished: React.FC = () => {
           </>
         )}
         {/* Table of Players and Scores */}
-        <TableContainer sx={{ maxWidth: 600, margin: "auto", my: 2 }}>
+        <TableContainer sx={{ margin: "auto", my: 2 }}>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell align="center">
+                {/* <TableCell align="center">
                   <strong>Rank</strong>
-                </TableCell>
+                </TableCell> */}
                 <TableCell align="left">
                   <strong>Player</strong>
                 </TableCell>
                 <TableCell align="right">
                   <strong>Score</strong>
                 </TableCell>
+                <TableCell align="right">
+                  <strong>MMR</strong>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedPlayers.map((player, index) => (
                 <TableRow key={player.playerID}>
-                  <TableCell align="center">{index + 1}</TableCell>
+                  {/* <TableCell align="center">{index + 1}</TableCell> */}
                   <TableCell align="left">
-                    {player.emoji} {player.name}
+                    {index + 1}. {player.emoji} {player.name}
                   </TableCell>
                   <TableCell align="right">{player.score}</TableCell>
+                  <TableCell align="right">{player.mmr} ({player.mmrBump})</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -140,7 +148,7 @@ const GameFinished: React.FC = () => {
       {/* Emoji Rain Effect for Top Player */}
       {topPlayer && !draw && (
         <EmojiRain
-          emoji={topPlayer.emoji }
+          emoji={topPlayer.emoji}
         />
       )}
     </>
