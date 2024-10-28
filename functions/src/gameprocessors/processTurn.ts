@@ -36,7 +36,7 @@ interface PlayerData {
 
 // Modified constants
 const DEFAULT_MMR = 1000
-const MIN_MMR = 0 // Minimum MMR value
+const MIN_MMR = 50 // Minimum MMR value
 
 async function preparePlayerUpdates(
   transaction: Transaction,
@@ -65,16 +65,34 @@ async function preparePlayerUpdates(
     }
   })
 
-  // Map of playerID to placement
+  // Map of playerID to placement, handling draws
+  // First, create an array of player results
+  const playerResults = playerData.map((player) => {
+    const winner = winners.find((w) => w.playerID === player.id)
+    const score = winner ? winner.score : 0
+    return { playerID: player.id, score }
+  })
+
+  // Sort by score in descending order
+  playerResults.sort((a, b) => b.score - a.score)
+
+  // Assign placements, handling ties
   const placementsMap = new Map<string, number>()
-  winners.forEach((winner, index) => {
-    placementsMap.set(winner.playerID, index + 1)
-  })
-  playerIDs.forEach((id) => {
-    if (!placementsMap.has(id)) {
-      placementsMap.set(id, winners.length + 1)
+  let currentPlacement = 1
+  for (let i = 0; i < playerResults.length; i++) {
+    const playerID = playerResults[i].playerID
+    const score = playerResults[i].score
+
+    // If not the first player and score is equal to previous score, same placement
+    if (i > 0 && score === playerResults[i - 1].score) {
+      // Same placement as previous
+      placementsMap.set(playerID, currentPlacement)
+    } else {
+      // New placement
+      currentPlacement = i + 1
+      placementsMap.set(playerID, currentPlacement)
     }
-  })
+  }
 
   // Get the list of placements in the same order as playerData
   const placements: number[] = playerData.map((player) => placementsMap.get(player.id)!)
@@ -157,54 +175,66 @@ export const calculateMMRChanges = (
   players: { mmr: number; gamesPlayed: number }[],
   placements: number[]
 ): number[] => {
-  const totalPlayers = players.length
+  // const totalPlayers = players.length
   const mmrChanges: number[] = []
 
-  // First, calculate initial MMR changes
   players.forEach((player, idx) => {
     const opponentPlayers = players.filter((_, i) => i !== idx)
-    const opponentMMRs = opponentPlayers.map((p) => p.mmr)
-    const numOpponents = opponentMMRs.length
+    const numOpponents = opponentPlayers.length
+
+    if (numOpponents === 0) {
+      mmrChanges.push(0)
+      return
+    }
 
     // Expected score
-    let expectedWins = 0
-    opponentMMRs.forEach((opponentMMR) => {
-      const mmrDiff = player.mmr - opponentMMR
+    let expectedScore = 0
+    opponentPlayers.forEach((opponent) => {
+      const mmrDiff = player.mmr - opponent.mmr
       const winProb = 1 / (1 + Math.pow(10, -mmrDiff / 400))
-      expectedWins += winProb
+      expectedScore += winProb
     })
-    const expectedScore = expectedWins / numOpponents
+    expectedScore = expectedScore / numOpponents
 
-    // Actual score
-    const placement = placements[idx]
-    const actualWins = totalPlayers - placement
-    const actualScore = actualWins / numOpponents
+    // Actual score considering draws
+    let actualScore = 0
+    const playerPlacement = placements[idx]
+    opponentPlayers.forEach((_, oppIdx) => {
+      const opponentPlacement = placements[oppIdx]
+      let scoreVsOpponent = 0
+      if (playerPlacement < opponentPlacement) {
+        scoreVsOpponent = 1 // Player beat opponent
+      } else if (playerPlacement === opponentPlacement) {
+        scoreVsOpponent = 0.5 // Draw
+      } else {
+        scoreVsOpponent = 0 // Player lost to opponent
+      }
+      actualScore += scoreVsOpponent
+    })
+    actualScore = actualScore / numOpponents
 
-    // Base K-factor
-    const BASE_K = 32
-
-    // Adjust K-factor based on games played (new players get bigger adjustments)
-    const MIN_GAMES_FOR_STABLE_K = 30
-    const experienceMultiplier =
-      1 + Math.max(0, (MIN_GAMES_FOR_STABLE_K - player.gamesPlayed) / MIN_GAMES_FOR_STABLE_K)
-
-    // Adjusted K-factor
-    const adjustedK = BASE_K * experienceMultiplier
+    // Dynamic K-factor
+    const K = calculateKFactor(player.gamesPlayed)
 
     // MMR change
-    let mmrChange = adjustedK * (actualScore - expectedScore)
+    let mmrChange = K * (actualScore - expectedScore)
     mmrChanges.push(mmrChange)
   })
 
-  // Now, adjust MMR changes to prevent MMR from going below MIN_MMR
+  // Adjust MMR changes to prevent MMR from going below MIN_MMR
   const adjustedMMRChanges = adjustMMRChangesForMinMMR(players, mmrChanges, MIN_MMR)
 
-  // Ensure zero-sum MMR changes
-  const finalMMRChanges = adjustMMRChangesToZeroSum(adjustedMMRChanges)
-
   // Round the MMR changes
-  return finalMMRChanges.map((change) => Math.round(change))
+  return adjustedMMRChanges.map((change) => Math.round(change))
 }
+
+function calculateKFactor(gamesPlayed: number): number {
+  const MAX_K = 64 // High K-factor for new players
+  const MIN_K = 16 // Lower K-factor for experienced players
+  const K = Math.max(MIN_K, MAX_K - (gamesPlayed * (MAX_K - MIN_K)) / 50)
+  return K
+}
+
 
 // Adjust MMR changes to prevent MMR from going below MIN_MMR
 function adjustMMRChangesForMinMMR(
@@ -242,12 +272,12 @@ function adjustMMRChangesForMinMMR(
   return adjustedChanges
 }
 
-// Adjust MMR changes to zero-sum
-function adjustMMRChangesToZeroSum(mmrChanges: number[]): number[] {
-  const totalChange = mmrChanges.reduce((sum, change) => sum + change, 0)
-  const adjustment = -totalChange / mmrChanges.length
-  return mmrChanges.map((change) => change + adjustment)
-}
+// // Adjust MMR changes to zero-sum
+// function adjustMMRChangesToZeroSum(mmrChanges: number[]): number[] {
+//   const totalChange = mmrChanges.reduce((sum, change) => sum + change, 0)
+//   const adjustment = -totalChange / mmrChanges.length
+//   return mmrChanges.map((change) => change + adjustment)
+// }
 
 export async function processTurn(
   transaction: Transaction,
