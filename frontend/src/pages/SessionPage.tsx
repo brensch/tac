@@ -6,8 +6,8 @@ import {
   runTransaction,
   serverTimestamp,
 } from "firebase/firestore"
-import React, { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import React, { useEffect, useState, useRef } from "react"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
 import { db } from "../firebaseConfig"
 import { EmojiCycler } from "../components/EmojiCycler"
 
@@ -15,6 +15,8 @@ const Sessionpage: React.FC = () => {
   const { sessionName } = useParams<{ sessionName: string }>()
   const [session, setSession] = useState<Session | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const hasNavigated = useRef(false)
 
   useEffect(() => {
     const createAndSubscribeToSession = async () => {
@@ -25,12 +27,10 @@ const Sessionpage: React.FC = () => {
       const sessionDocRef = doc(db, "sessions", sessionName)
 
       try {
-        // Perform a transaction to ensure atomicity
         await runTransaction(db, async (transaction) => {
           const sessionSnapshot = await transaction.get(sessionDocRef)
 
           if (!sessionSnapshot.exists()) {
-            // If the session does not exist, create a new one
             const newSession: Session = {
               latestGameID: null,
               timeCreated: serverTimestamp(),
@@ -45,7 +45,6 @@ const Sessionpage: React.FC = () => {
         console.log("Error creating session or transaction failed: ", error)
       }
 
-      // Listen to real-time updates for the session document
       const unsubscribe = onSnapshot(sessionDocRef, (docSnapshot) => {
         if (!docSnapshot.exists()) return
 
@@ -53,19 +52,23 @@ const Sessionpage: React.FC = () => {
         setSession(sessionData)
       })
 
-      // Cleanup the subscription on unmount
       return () => unsubscribe()
     }
 
     createAndSubscribeToSession()
   }, [sessionName])
 
-  // New effect for navigation
+  // Modified navigation effect
   useEffect(() => {
-    if (session?.latestGameID) {
-      navigate(`/session/${sessionName}/${session.latestGameID}`)
+    if (session?.latestGameID && !hasNavigated.current) {
+      hasNavigated.current = true
+      // Replace the current history entry instead of pushing a new one
+      navigate(`/session/${sessionName}/${session.latestGameID}`, {
+        replace: true,
+        state: { from: location.pathname }
+      })
     }
-  }, [session, sessionName, navigate])
+  }, [session, sessionName, navigate, location])
 
   return (
     <Stack
@@ -80,7 +83,7 @@ const Sessionpage: React.FC = () => {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          height: "100vh", // Full viewport height
+          height: "100vh",
         }}
       >
         <EmojiCycler />
