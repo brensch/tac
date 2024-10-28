@@ -107,4 +107,19 @@ describe('calculateMMRChanges', () => {
         expect(typeof mmrChanges[0]).toBe('number')
         expect(Number.isFinite(mmrChanges[0])).toBe(true)
     })
+
+    it('should not allow MMR to go below MIN_MMR', () => {
+        const MIN_MMR = 0
+        const players = [
+            { mmr: 10, gamesPlayed: 20 },
+            { mmr: 1500, gamesPlayed: 20 },
+            { mmr: 1500, gamesPlayed: 20 },
+            { mmr: 1500, gamesPlayed: 20 },
+        ]
+        const placements = [4, 1, 2, 3] // The player with low MMR finished last
+        const mmrChanges = calculateMMRChanges(players, placements)
+
+        const newMMR = players[0].mmr + mmrChanges[0]
+        expect(newMMR).toBeGreaterThanOrEqual(MIN_MMR)
+    })
 })

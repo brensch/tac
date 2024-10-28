@@ -34,8 +34,9 @@ interface PlayerData {
   exists: boolean
 }
 
-// Modified constants for more dramatic MMR changes
+// Modified constants
 const DEFAULT_MMR = 1000
+const MIN_MMR = 0 // Minimum MMR value
 
 async function preparePlayerUpdates(
   transaction: Transaction,
@@ -95,6 +96,8 @@ async function preparePlayerUpdates(
     const mmrChange = mmrChanges[i]
     const placement = placements[i]
 
+    const newMMR = player.currentMMR + mmrChange
+
     const gameResult: GameResult = {
       sessionID,
       gameID,
@@ -123,7 +126,7 @@ async function preparePlayerUpdates(
     const gameHistory = [...existingRanking.gameHistory, gameResult].slice(-100)
 
     const newRanking: PlayerRanking = {
-      currentMMR: player.currentMMR + mmrChange,
+      currentMMR: newMMR,
       gamesPlayed: existingRanking.gamesPlayed + 1,
       wins: existingRanking.wins + (placement === 1 ? 1 : 0),
       losses: existingRanking.losses + (placement !== 1 ? 1 : 0),
@@ -157,6 +160,7 @@ export const calculateMMRChanges = (
   const totalPlayers = players.length
   const mmrChanges: number[] = []
 
+  // First, calculate initial MMR changes
   players.forEach((player, idx) => {
     const opponentPlayers = players.filter((_, i) => i !== idx)
     const opponentMMRs = opponentPlayers.map((p) => p.mmr)
@@ -192,11 +196,50 @@ export const calculateMMRChanges = (
     mmrChanges.push(mmrChange)
   })
 
-  // Adjust MMR changes to ensure zero-sum
-  const adjustedMMRChanges = adjustMMRChangesToZeroSum(mmrChanges)
+  // Now, adjust MMR changes to prevent MMR from going below MIN_MMR
+  const adjustedMMRChanges = adjustMMRChangesForMinMMR(players, mmrChanges, MIN_MMR)
+
+  // Ensure zero-sum MMR changes
+  const finalMMRChanges = adjustMMRChangesToZeroSum(adjustedMMRChanges)
 
   // Round the MMR changes
-  return adjustedMMRChanges.map((change) => Math.round(change))
+  return finalMMRChanges.map((change) => Math.round(change))
+}
+
+// Adjust MMR changes to prevent MMR from going below MIN_MMR
+function adjustMMRChangesForMinMMR(
+  players: { mmr: number }[],
+  mmrChanges: number[],
+  minMMR: number
+): number[] {
+  const adjustedChanges = [...mmrChanges]
+  let totalAdjustment = 0
+
+  for (let i = 0; i < players.length; i++) {
+    const playerMMR = players[i].mmr
+    const mmrChange = adjustedChanges[i]
+    const newMMR = playerMMR + mmrChange
+
+    if (newMMR < minMMR) {
+      const adjustmentNeeded = minMMR - newMMR
+      totalAdjustment += adjustmentNeeded // This amount needs to be redistributed
+      adjustedChanges[i] += adjustmentNeeded // Adjust MMR change
+    }
+  }
+
+  // Redistribute the total adjustment among other players proportionally
+  const playersWhoCanReceiveAdjustment = players
+    .map((player, idx) => ({ idx, mmrChange: adjustedChanges[idx] }))
+    .filter((p) => adjustedChanges[p.idx] + totalAdjustment / players.length > 0)
+
+  if (playersWhoCanReceiveAdjustment.length > 0) {
+    const adjustmentPerPlayer = totalAdjustment / playersWhoCanReceiveAdjustment.length
+    playersWhoCanReceiveAdjustment.forEach((p) => {
+      adjustedChanges[p.idx] -= adjustmentPerPlayer
+    })
+  }
+
+  return adjustedChanges
 }
 
 // Adjust MMR changes to zero-sum

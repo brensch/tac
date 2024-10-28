@@ -15,39 +15,26 @@ describe('MMR System Simulation', () => {
         return 1 / (1 + Math.pow(10, -(playerSkill - opponentSkill) / 400))
     }
 
-    function selectPlayersForGame(players: Player[]): Player[] {
+    function groupPlayersForRound(players: Player[]): Player[][] {
+        const numPlayers = players.length
+        const numGroups = numPlayers / 4
+        const groups: Player[][] = []
+
         // Sort players by MMR
-        const sortedPlayers = [...players].sort((a, b) => a.mmr - b.mmr)
+        const sortedPlayers = [...players].sort((a, b) => b.mmr - a.mmr)
 
-        const gamePlayers: Player[] = []
-        const playerPool = [...sortedPlayers]
-
-        // Randomly select players, favoring those with similar MMR
-        while (gamePlayers.length < 4 && playerPool.length > 0) {
-            const baseIndex = Math.floor(Math.random() * playerPool.length)
-            const basePlayer = playerPool[baseIndex]
-
-            // Find players close in MMR to the base player
-            const closePlayers = playerPool.filter(p => Math.abs(p.mmr - basePlayer.mmr) < 400)
-
-            if (closePlayers.length >= 4 - gamePlayers.length) {
-                const selectedPlayers = closePlayers.slice(0, 4 - gamePlayers.length)
-                gamePlayers.push(...selectedPlayers)
-                // Remove selected players from the pool
-                selectedPlayers.forEach(p => {
-                    const index = playerPool.findIndex(pl => pl.id === p.id)
-                    if (index > -1) playerPool.splice(index, 1)
-                })
-            } else {
-                // Not enough close players, so pick from the entire pool
-                const remainingSlots = 4 - gamePlayers.length
-                const selectedPlayers = playerPool.slice(0, remainingSlots)
-                gamePlayers.push(...selectedPlayers)
-                playerPool.splice(0, remainingSlots)
-            }
+        // Shuffle players slightly to introduce randomness
+        for (let i = sortedPlayers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * Math.min(5, i + 1));
+            [sortedPlayers[i], sortedPlayers[j]] = [sortedPlayers[j], sortedPlayers[i]]
         }
 
-        return gamePlayers
+        // Assign players to groups
+        for (let i = 0; i < numGroups; i++) {
+            groups.push(sortedPlayers.slice(i * 4, (i + 1) * 4))
+        }
+
+        return groups
     }
 
     function simulateGame(gamePlayers: Player[]): number[] {
@@ -72,7 +59,7 @@ describe('MMR System Simulation', () => {
     }
 
     it('should converge to correct skill ordering after multiple rounds', () => {
-        const numPlayers = 37
+        const numPlayers = 36 // Number divisible by 4
         const players: Player[] = Array.from({ length: numPlayers }, (_, i) => ({
             id: i + 1,
             mmr: 1000,
@@ -82,29 +69,33 @@ describe('MMR System Simulation', () => {
             mmrHistory: [] // Initialize MMR history
         }))
 
-        const TOTAL_ROUNDS = 100000
-        const RECORD_INTERVAL = 100 // Record MMRs every 100 rounds
+        const TOTAL_ROUNDS = 10000
+        const RECORD_INTERVAL = 10 // Record MMRs every 100 rounds
 
         for (let round = 1; round <= TOTAL_ROUNDS; round++) {
-            const gamePlayers = selectPlayersForGame(players)
-            const placements = simulateGame(gamePlayers)
+            // Group players for this round
+            const groups = groupPlayersForRound(players)
 
-            // Prepare data for MMR calculation
-            const playersForMMR = gamePlayers.map(player => ({
-                mmr: player.mmr,
-                gamesPlayed: player.gamesPlayed
-            }))
+            // Simulate games for each group
+            for (const gamePlayers of groups) {
+                const placements = simulateGame(gamePlayers)
 
-            // Calculate MMR changes
-            const mmrChanges = calculateMMRChanges(playersForMMR, placements)
+                // Prepare data for MMR calculation
+                const playersForMMR = gamePlayers.map(player => ({
+                    mmr: player.mmr,
+                    gamesPlayed: player.gamesPlayed
+                }))
 
-            gamePlayers.forEach((player, idx) => {
-                const mmrChange = mmrChanges[idx]
-                const mainPlayer = players.find(p => p.id === player.id)!
-                mainPlayer.mmr += mmrChange
-                mainPlayer.gamesPlayed++
-                mainPlayer.placements[placements[idx] - 1]++ // Record placement
-            })
+                // Calculate MMR changes
+                const mmrChanges = calculateMMRChanges(playersForMMR, placements)
+
+                gamePlayers.forEach((player, idx) => {
+                    const mmrChange = mmrChanges[idx]
+                    player.mmr += mmrChange
+                    player.gamesPlayed++
+                    player.placements[placements[idx] - 1]++ // Record placement
+                })
+            }
 
             // Record MMR history at intervals
             if (round % RECORD_INTERVAL === 0 || round === TOTAL_ROUNDS) {
