@@ -262,7 +262,7 @@ const GameGrid: React.FC = () => {
         }}
       >
         {/* Slider */}
-        <Box sx={{ width: '100%' }}>
+        <Box sx={{ width: '100%', px:2 }}>
           <Slider
             value={selectedTurnIndex}
             onChange={handleSliderChange}
