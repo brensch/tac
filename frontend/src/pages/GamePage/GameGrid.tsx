@@ -1,4 +1,4 @@
-import { Box, IconButton, Typography } from "@mui/material"
+import { Box, IconButton, Typography, Slider } from "@mui/material"
 import { GamePlayer, GameState, Player } from "@shared/types/Game"
 import {
   addDoc,
@@ -65,7 +65,6 @@ const GameGrid: React.FC = () => {
     winners.flatMap((winner) => winner.winningSquares),
   )
 
-  // Initialize selectedTurnIndex and turnCount to 0
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
   const [turnCount, setTurnCount] = useState<number>(0)
 
@@ -205,7 +204,12 @@ const GameGrid: React.FC = () => {
     }
   }
 
-  if (!gameLogicReturn) return
+  // Handle slider change
+  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
+    setSelectedTurnIndex(newValue as number)
+  }
+
+  if (!gameLogicReturn) return null
 
   return (
     <>
@@ -243,35 +247,62 @@ const GameGrid: React.FC = () => {
           />
         ))}
       </Box>
-      {/* Navigation controls */}
-      <Box sx={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-        <IconButton onClick={handleFirstTurn} disabled={selectedTurnIndex <= 0}>
-          <FirstPage />
-        </IconButton>
-        <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
-          <ArrowBack />
-        </IconButton>
-        <Typography variant="body2" sx={{ marginX: 2 }}>
-          {gameState?.turns ? selectedTurnIndex + 1 : "Loading..."} of{" "}
-          {gameState?.turns?.length || 0}
-        </Typography>
 
-        <IconButton
-          onClick={handleNextTurn}
-          disabled={
-            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
-          }
-        >
-          <ArrowForward />
-        </IconButton>
-        <IconButton
-          onClick={handleLatestTurn}
-          disabled={
-            !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
-          }
-        >
-          <LastPage />
-        </IconButton>
+      {/* Turn navigation controls with slider */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          width: '100%',
+          maxWidth: 600,
+          margin: '0 auto',
+          mt: 2,
+          gap: 2
+        }}
+      >
+        {/* Slider */}
+        <Box sx={{ width: '100%' }}>
+          <Slider
+            value={selectedTurnIndex}
+            onChange={handleSliderChange}
+            min={0}
+            max={Math.max(0, (gameState?.turns?.length || 1) - 1)}
+            step={1}
+            disabled={!gameState?.turns || gameState.turns.length <= 1}
+          />
+        </Box>
+        
+        {/* Button controls */}
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <IconButton onClick={handleFirstTurn} disabled={selectedTurnIndex <= 0}>
+            <FirstPage />
+          </IconButton>
+          <IconButton onClick={handlePrevTurn} disabled={selectedTurnIndex <= 0}>
+            <ArrowBack />
+          </IconButton>
+          <Typography variant="body2" sx={{ marginX: 2 }}>
+            {gameState?.turns ? selectedTurnIndex + 1 : "Loading..."} of{" "}
+            {gameState?.turns?.length || 0}
+          </Typography>
+
+          <IconButton
+            onClick={handleNextTurn}
+            disabled={
+              !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
+            }
+          >
+            <ArrowForward />
+          </IconButton>
+          <IconButton
+            onClick={handleLatestTurn}
+            disabled={
+              !gameState?.turns || selectedTurnIndex >= gameState.turns.length - 1
+            }
+          >
+            <LastPage />
+          </IconButton>
+        </Box>
       </Box>
 
       <ClashDialog
