@@ -1,5 +1,3 @@
-// src/context/GameStateContext.tsx
-
 import { Box } from "@mui/material"
 import {
   Bot,
@@ -17,14 +15,16 @@ import {
   arrayUnion,
   collection,
   doc,
+  DocumentSnapshot,
   limit,
   onSnapshot,
   orderBy,
   query,
+  QuerySnapshot,
   serverTimestamp,
   Timestamp,
   updateDoc,
-  where,
+  where
 } from "firebase/firestore"
 import React, {
   createContext,
@@ -39,15 +39,8 @@ import { useUser } from "./UserContext"
 
 interface GameStateContextType {
   gameState: GameState | null
-  // turns: Turn[]
   latestTurn: Turn | null
   hasSubmittedMove: boolean
-  // handlePrevTurn: () => void
-  // handleNextTurn: () => void
-  // handleLatestTurn: () => void
-  // selectedTurn: Turn | null
-  // selectedTurnIndex: number
-  // setSelectedTurnIndex: React.Dispatch<React.SetStateAction<number>>
   selectedSquare: number | null
   setSelectedSquare: React.Dispatch<React.SetStateAction<number | null>>
   startGame: () => Promise<void>
@@ -64,6 +57,7 @@ interface GameStateContextType {
   gameSetup: GameSetup | null
   latestMoveStatus: MoveStatus | null
   session: Session | null
+  connectivityStatus: 'connected' | 'disconnected'
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -83,205 +77,232 @@ export const GameStateProvider: React.FC<{
     null,
   )
   const [humans, setHumans] = useState<Human[]>([])
-  // const [turns, setTurns] = useState<Turn[]>([])
   const [latestTurn, setLatestTurn] = useState<Turn | null>(null)
   const [hasSubmittedMove, setHasSubmittedMove] = useState<boolean>(false)
-  // const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(-1)
   const [error, setError] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
-  // const [currentTurn, setSelectedTurn] = useState<Turn | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null)
   const [bots, setBots] = useState<Bot[]>([])
   const [gameType, setGameType] = useState<GameType>("snek")
+  const [connectivityStatus, setConnectivityStatus] = useState<'connected' | 'disconnected'>('connected')
 
-  // Use useRef to persist playersMap across renders
   const humanMapRef = useRef<{ [id: string]: Human }>({})
-
-  // **NEW**: Use useRef to store the interval ID
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
   const initialGameIDRef = useRef(gameID)
+
+  // Helper function to update connectivity status based on snapshot metadata
+  const updateConnectivityStatus = (snapshot: DocumentSnapshot | QuerySnapshot) => {
+    const isConnected = !snapshot.metadata.fromCache
+    setConnectivityStatus(isConnected ? 'connected' : 'disconnected')
+  }
 
   // Subscribe to game document
   useEffect(() => {
     const gameDocRef = doc(db, `sessions/${sessionName}/games`, gameID)
-    const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
-      if (!docSnapshot.exists()) {
-        setError("Game not found.")
-        return
-      }
-      const gameData = docSnapshot.data() as GameState
-      setGameState(gameData)
-      // setTurns(gameData.turns)
-      setLatestTurn(gameData.turns[gameData.turns.length - 1])
-      // setSelectedTurnIndex(gameData.turns.length - 1)
-      // setSelectedTurn(gameData.turns[gameData.turns.length - 1])
-    })
+    const unsubscribe = onSnapshot(
+      gameDocRef,
+      { includeMetadataChanges: true },
+      (docSnapshot) => {
+        updateConnectivityStatus(docSnapshot)
 
+        if (!docSnapshot.exists()) {
+          setError("Game not found.")
+          return
+        }
+        const gameData = docSnapshot.data() as GameState
+        setGameState(gameData)
+        setLatestTurn(gameData.turns[gameData.turns.length - 1])
+      },
+      (error) => {
+        console.error("Error in game subscription:", error)
+        setError("An error occurred while fetching game updates.")
+      }
+    )
     return () => unsubscribe()
   }, [gameID, sessionName])
 
   // Subscribe to session document
   useEffect(() => {
     const sessionDocRef = doc(db, `sessions/${sessionName}`)
-    const unsubscribe = onSnapshot(sessionDocRef, async (docSnapshot) => {
-      if (!docSnapshot.exists()) {
-        setError("Game not found.")
-        return
+    const unsubscribe = onSnapshot(
+      sessionDocRef,
+      { includeMetadataChanges: true },
+      (docSnapshot) => {
+        updateConnectivityStatus(docSnapshot)
+
+        if (!docSnapshot.exists()) {
+          setError("Session not found.")
+          return
+        }
+        const sessionData = docSnapshot.data() as Session
+        setSession(sessionData)
+      },
+      (error) => {
+        console.error("Error in session subscription:", error)
+        setError("An error occurred while fetching session updates.")
       }
-      const session = docSnapshot.data() as Session
-      setSession(session)
-    })
-
+    )
     return () => unsubscribe()
-  }, [gameID, sessionName])
+  }, [sessionName])
 
-  // Subscribe to game document
+  // Subscribe to game setup
   useEffect(() => {
     if (!gameID || userID === "") return
-
     const gameDocRef = doc(db, `sessions/${sessionName}/setups`, gameID)
-    const unsubscribe = onSnapshot(gameDocRef, async (docSnapshot) => {
-      if (!docSnapshot.exists()) {
-        setError("Game not found.")
-        return
-      }
-      const gameData = docSnapshot.data() as GameSetup
-      setGameSetup(gameData)
+    const unsubscribe = onSnapshot(
+      gameDocRef,
+      { includeMetadataChanges: true },
+      async (docSnapshot) => {
+        updateConnectivityStatus(docSnapshot)
 
-      // Add user to the game if not already in it and game hasn't started
-      const userExists = gameData.gamePlayers.find(
-        (player) => player.id === userID,
-      )
-      if (!gameData.started && !userExists) {
-        try {
-          const newGamePlayer = {
-            id: userID, // userID or bot ID
-            type: "human", // or "bot", depending on the player
-          }
-          // Update the gamePlayers array with arrayUnion to add the new player
-          await updateDoc(gameDocRef, {
-            gamePlayers: arrayUnion(newGamePlayer), // Use arrayUnion with the full GamePlayer object
-          })
-        } catch (err) {
-          console.error("Error adding user to the game:", err)
-          setError("Failed to join the game.")
+        if (!docSnapshot.exists()) {
+          setError("Game setup not found.")
+          return
         }
+        const gameData = docSnapshot.data() as GameSetup
+        setGameSetup(gameData)
+
+        const userExists = gameData.gamePlayers.find(
+          (player) => player.id === userID,
+        )
+        if (!gameData.started && !userExists) {
+          try {
+            const newGamePlayer = {
+              id: userID,
+              type: "human",
+            }
+            await updateDoc(gameDocRef, {
+              gamePlayers: arrayUnion(newGamePlayer),
+            })
+          } catch (err) {
+            console.error("Error adding user to the game:", err)
+            setError("Failed to join the game.")
+          }
+        }
+      },
+      (error) => {
+        console.error("Error in game setup subscription:", error)
+        setError("An error occurred while fetching game setup.")
       }
-    })
-
+    )
     return () => unsubscribe()
-  }, [gameID, userID])
+  }, [gameID, userID, sessionName])
 
-  // Subscribe to the "bots" collection and filter by 'gameType'
+  // Subscribe to the "bots" collection
   useEffect(() => {
-    if (!gameSetup?.gameType) return // Ensure gameType is available
-
+    if (!gameSetup?.gameType) return
     const botsQuery = query(
       collection(db, "bots"),
-      where("capabilities", "array-contains", gameSetup.gameType), // Query bots where 'capabilities' contains 'gameType'
+      where("capabilities", "array-contains", gameSetup.gameType),
     )
 
-    const unsubscribe = onSnapshot(botsQuery, (snapshot) => {
-      const botsData = snapshot.docs.map((doc) => doc.data() as Bot)
-      setBots(botsData)
-    })
+    const unsubscribe = onSnapshot(
+      botsQuery,
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        updateConnectivityStatus(snapshot)
 
-    return () => unsubscribe() // Cleanup on component unmount
-  }, [gameSetup?.gameType]) // Rerun if gameType changes
+        const botsData = snapshot.docs.map((doc) => doc.data() as Bot)
+        setBots(botsData)
+      },
+      (error) => {
+        console.error("Error in bots subscription:", error)
+        setError("An error occurred while fetching bots data.")
+      }
+    )
+    return () => unsubscribe()
+  }, [gameSetup?.gameType])
 
   // Subscribe to player documents
   useEffect(() => {
     if (!gameSetup?.gamePlayers) return
 
-    const newPlayerIDs = gameSetup.gamePlayers
+    const unsubscribes: Record<string, () => void> = {}
+    const humanMap = humanMapRef.current
+
+    const playerIDs = gameSetup.gamePlayers
       .filter((player) => player.type === "human")
       .map((player) => player.id)
-    const unsubscribes: Record<string, () => void> = {} // Track unsubscribes by playerID
 
-    // Handle subscription setup
-    newPlayerIDs.forEach((playerID) => {
+    playerIDs.forEach((playerID) => {
       if (!unsubscribes[playerID]) {
-        // Create a new subscription if it doesn't exist for this player
         const playerDocRef = doc(db, "users", playerID)
 
-        const unsubscribe = onSnapshot(playerDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const playerData = docSnap.data() as Human
-            humanMapRef.current[playerID] = {
-              id: playerID,
-              name: playerData?.name || "Unknown",
-              emoji: playerData.emoji || "🦍",
-              colour: playerData.colour,
-              createdAt: playerData.createdAt,
-            }
-          } else {
-            // Player document was deleted or doesn't exist
-            delete humanMapRef.current[playerID] // Remove the player from the map
-          }
+        const unsubscribe = onSnapshot(
+          playerDocRef,
+          { includeMetadataChanges: true },
+          (docSnap) => {
+            updateConnectivityStatus(docSnap)
 
-          // Update playerInfos based on the current playersMap
-          setHumans(Object.values(humanMapRef.current))
-        })
+            if (docSnap.exists()) {
+              const playerData = docSnap.data() as Human
+              humanMap[playerID] = {
+                id: playerID,
+                name: playerData?.name || "Unknown",
+                emoji: playerData.emoji || "🦍",
+                colour: playerData.colour,
+                createdAt: playerData.createdAt,
+              }
+            } else {
+              delete humanMap[playerID]
+            }
+            setHumans(Object.values(humanMap))
+          },
+          (error) => {
+            console.error(`Error in player subscription for ${playerID}:`, error)
+            setError("An error occurred while fetching player updates.")
+          }
+        )
 
         unsubscribes[playerID] = unsubscribe
       }
     })
 
-    // Clean up subscriptions for players that are no longer in playerIDs
-    const currentPlayerIDs = Object.keys(humanMapRef.current)
-    currentPlayerIDs.forEach((playerID) => {
-      if (!newPlayerIDs.includes(playerID)) {
-        // Unsubscribe and remove the player if they are no longer part of the game
-        unsubscribes[playerID]?.()
-        delete unsubscribes[playerID]
-        delete humanMapRef.current[playerID] // Also remove from the map
-      }
-    })
-
-    // Clean up all subscriptions on unmount or when gameID changes
     return () => {
       Object.values(unsubscribes).forEach((unsubscribe) => unsubscribe())
     }
-  }, [gameSetup?.gamePlayers, gameID])
+  }, [gameSetup?.gamePlayers])
 
-  // Subscribe to turns collection
+  // Subscribe to moveStatuses collection
   useEffect(() => {
-    if (gameID && userID !== "") {
-      const turnsRef = collection(
-        db,
-        "sessions",
-        sessionName,
-        "games",
-        gameID,
-        "moveStatuses",
-      )
+    if (!gameID || userID === "") return
 
-      // Query to get the document with the highest moveNumber
-      const turnsQuery = query(
-        turnsRef,
-        orderBy("moveNumber", "desc"),
-        limit(1),
-      )
+    const moveStatusesRef = collection(
+      db,
+      "sessions",
+      sessionName,
+      "games",
+      gameID,
+      "moveStatuses",
+    )
 
-      const unsubscribe = onSnapshot(turnsQuery, (querySnapshot) => {
+    const moveStatusesQuery = query(
+      moveStatusesRef,
+      orderBy("moveNumber", "desc"),
+      limit(1),
+    )
+
+    const unsubscribe = onSnapshot(
+      moveStatusesQuery,
+      { includeMetadataChanges: true },
+      (querySnapshot) => {
+        updateConnectivityStatus(querySnapshot)
+
         if (!querySnapshot.empty) {
           const highestMoveStatus = querySnapshot.docs[0].data() as MoveStatus
-
-          // Set the current turn index to the move number of the highest move
-          // setSelectedTurnIndex(highestMoveStatus.moveNumber)
           setLatestMoveStatus(highestMoveStatus)
         }
-      })
+      },
+      (error) => {
+        console.error("Error in move status subscription:", error)
+        setError("An error occurred while fetching move updates.")
+      }
+    )
 
-      return () => unsubscribe()
-    }
-  }, [gameID, userID])
+    return () => unsubscribe()
+  }, [gameID, userID, sessionName])
 
-  // // Manage current turn based on currentTurnIndex
-  // useEffect(() => {
-  //   setSelectedTurn(turns[selectedTurnIndex])
-  // }, [turns, selectedTurnIndex, gameState])
-
+  // Timer effect
   useEffect(() => {
     const shouldClearInterval = () => {
       if (
@@ -304,14 +325,14 @@ export const GameStateProvider: React.FC<{
       return
     }
 
-    let intervalTime = 1000 // Initial interval time
+    let intervalTime = 1000
 
     const intervalFunction = async () => {
       if (shouldClearInterval()) {
         return
       }
 
-      const now = Date.now() / 1000 // Current time in seconds
+      const now = Date.now() / 1000
       const endTimeSeconds =
         latestTurn?.endTime instanceof Timestamp
           ? latestTurn.endTime.seconds
@@ -324,13 +345,11 @@ export const GameStateProvider: React.FC<{
         return
       }
 
-      // Check Firestore for existing expiration requests
       const expirationRequestsRef = collection(
         db,
         `sessions/${sessionName}/games/${gameID}/expirationRequests`,
       )
 
-      // No existing expiration requests, create a new one
       await addDoc(expirationRequestsRef, {
         timestamp: new Date(),
         playerID: userID,
@@ -338,29 +357,26 @@ export const GameStateProvider: React.FC<{
 
       console.log(`Turn expiration request created for gameID: ${gameID}`)
 
-      // Slow down the interval after expiration to reduce resource usage
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
       }
-      intervalTime = 10000 // Increase interval time
+      intervalTime = 10000
       intervalIdRef.current = setInterval(intervalFunction, intervalTime)
     }
 
-    // Clear any existing interval before setting a new one
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current)
     }
 
     intervalIdRef.current = setInterval(intervalFunction, intervalTime)
 
-    // Cleanup function
     return () => {
       if (intervalIdRef.current) {
         clearInterval(intervalIdRef.current)
         intervalIdRef.current = null
       }
     }
-  }, [latestTurn, userID, gameState, gameID, sessionName, gameSetup, db])
+  }, [latestTurn, userID, gameState, gameID, sessionName, gameSetup])
 
   // Function to start the game
   const startGame = async () => {
@@ -403,37 +419,31 @@ export const GameStateProvider: React.FC<{
     }
   }
 
+  const providerValue: GameStateContextType = {
+    gameState,
+    humans,
+    latestTurn,
+    hasSubmittedMove,
+    selectedSquare,
+    setSelectedSquare,
+    startGame,
+    submitMove,
+    error,
+    gameID,
+    timeRemaining,
+    bots,
+    gameType,
+    setGameType,
+    players: [...humans, ...bots],
+    sessionName,
+    gameSetup,
+    latestMoveStatus,
+    session,
+    connectivityStatus
+  }
+
   return (
-    <GameStateContext.Provider
-      value={{
-        gameState,
-        humans,
-        // turns,
-        latestTurn,
-        // selectedTurn: currentTurn,
-        // selectedTurnIndex: selectedTurnIndex,
-        // setSelectedTurnIndex: setSelectedTurnIndex,
-        hasSubmittedMove,
-        // handlePrevTurn,
-        // handleNextTurn,
-        // handleLatestTurn,
-        selectedSquare,
-        setSelectedSquare,
-        startGame,
-        submitMove,
-        error,
-        gameID,
-        timeRemaining,
-        bots,
-        gameType,
-        setGameType,
-        players: [...humans, ...bots],
-        sessionName,
-        gameSetup,
-        latestMoveStatus,
-        session,
-      }}
-    >
+    <GameStateContext.Provider value={providerValue}>
       {gameSetup ? (
         children
       ) : (
@@ -442,12 +452,12 @@ export const GameStateProvider: React.FC<{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            height: "100vh", // Full viewport height
+            height: "100vh",
           }}
         >
           <EmojiCycler />
         </Box>
-      )}{" "}
+      )}
     </GameStateContext.Provider>
   )
 }
@@ -456,7 +466,7 @@ export const useGameStateContext = (): GameStateContextType => {
   const context = useContext(GameStateContext)
   if (!context) {
     throw new Error(
-      "useGameStateContext must be used within a GameStateProvider",
+      "useGameStateContext must be used within a GameStateProvider"
     )
   }
   return context
