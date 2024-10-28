@@ -1,24 +1,26 @@
 import React from "react"
 
 interface EmojiRainProps {
-  emoji: string
-  top: number // Accept the top position as a prop
+  emoji?: string
 }
 
-const EmojiRain: React.FC<EmojiRainProps> = ({ emoji, top }) => {
+const EmojiRain: React.FC<EmojiRainProps> = ({ emoji }) => {
   const [emojis, setEmojis] = React.useState<number[]>([])
 
   React.useEffect(() => {
-    // Generate an array of numbers to represent emojis
-    const emojiArray = Array.from({ length: 300 }, (_, i) => i)
-    setEmojis(emojiArray)
-  }, [])
+    if (emoji) {
+      // Just create 100 emojis once when the emoji is provided
+      setEmojis(Array.from({ length: 300 }, (_, i) => i))
+    }
+  }, [emoji])
+
+  if (!emoji) return null
 
   return (
     <div
       style={{
         position: "fixed",
-        top: `${top}px`, // Use the dynamic top position
+        top: `-20px`,
         left: "-20px",
         width: "120%",
         height: "120%",
@@ -28,20 +30,21 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji, top }) => {
       }}
     >
       {emojis.map((i) => {
-        const left = Math.random() * 100 // Random left position
-        const delay = Math.random() * 5 // Random animation delay
-        const duration = Math.random() * 5 + 5 // Random animation duration between 5s and 10s
-        const size = Math.random() * 24 + 24 // Random size between 24px and 48px
+        const left = Math.random() * 100
+        const delay = Math.random() * 3 // 0-3s delay for initial spread
+        const duration = 6 // Consistent 6s fall for all emojis
+        const size = Math.random() * 24 + 24
 
         return (
           <div
             key={i}
             style={{
               position: "absolute",
-              top: `-50px`, // Start above the container
+              top: `-50px`,
               left: `${left}%`,
               fontSize: `${size}px`,
-              animation: `fall ${duration}s linear ${delay}s infinite`,
+              animation: `fall ${duration}s linear ${delay}s forwards`,
+              willChange: 'transform',
             }}
           >
             {emoji}
@@ -51,8 +54,8 @@ const EmojiRain: React.FC<EmojiRainProps> = ({ emoji, top }) => {
       <style>
         {`
           @keyframes fall {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(120vh); }
+            from { transform: translateY(0); }
+            to { transform: translateY(120vh); }
           }
         `}
       </style>
