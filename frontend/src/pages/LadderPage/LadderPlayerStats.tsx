@@ -111,7 +111,7 @@ export const LadderPlayerStats: React.FC<Props> = ({ ranking, gameType, loading 
                 >
                     <StatBox
                         label="Win Rate"
-                        value={`${winRate.toFixed(1)}%`}
+                        value={`${winRate.toFixed(0)}%`}
                         emoji="🎯"
                     />
                     <StatBox
@@ -122,12 +122,12 @@ export const LadderPlayerStats: React.FC<Props> = ({ ranking, gameType, loading 
                     <StatBox
                         label="Wins"
                         value={stats.wins}
-                        emoji="✨"
+                        emoji="🥇"
                     />
                     <StatBox
                         label="Losses"
                         value={stats.losses}
-                        emoji="💀"
+                        emoji="💩"
                     />
                 </Box>
             </Box>

@@ -113,11 +113,11 @@ export const LadderPreviousGames: React.FC<Props> = ({ playerID, gameType }) => 
                                                 href={`/session/${game.sessionID}/${game.gameID}`}
                                                 style={{ textDecoration: 'none', color: 'inherit' }}
                                             >
-                                                {formatDate(game.timestamp.toDate())}
+                                                {formatDate(game.timestamp.toDate())} 🔗
                                             </a>
                                         </TableCell>
-                                        <TableCell>
-                                            <Stack spacing={1}>
+                                        <TableCell sx={{ whiteSpace: 'nowrap', p: 0 }}>
+                                            <Stack >
                                                 {game.opponents.map((opp) => {
                                                     const player = players[opp.playerID]
                                                     return (
@@ -131,8 +131,7 @@ export const LadderPreviousGames: React.FC<Props> = ({ playerID, gameType }) => 
                                                                 },
                                                                 backgroundColor: player?.colour || 'inherit',
                                                                 display: 'inline-block',
-                                                                px: 1,
-                                                                borderRadius: 1
+
                                                             }}
                                                         >
                                                             {formatPlayerName(player, opp.playerID)}
@@ -141,8 +140,8 @@ export const LadderPreviousGames: React.FC<Props> = ({ playerID, gameType }) => 
                                                 })}
                                             </Stack>
                                         </TableCell>
-                                        <TableCell>
-                                            {ordinalSuffix(game.placement)}{' '}
+                                        <TableCell sx={{ p: 1 }}>
+                                            {ordinalSuffix(game.placement)}&nbsp;
                                             {game.mmrChange > 0 ? `+${game.mmrChange}` : game.mmrChange}
                                         </TableCell>
                                     </TableRow>
