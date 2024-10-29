@@ -325,49 +325,40 @@ export class SnekProcessor extends GameProcessor {
       // Determine winners if game is over
       let winners: Winner[] = []
       if (newAlivePlayers.length <= 1) {
-        // Create a map to track when players were eliminated
-        const eliminationTurns = new Map<string, number>()
+        // Create a map to track survival turns for each player
+        const survivalTurns = new Map<string, number>()
 
-        // Go through turns to find when each player was eliminated
-        this.gameState.turns.forEach((turn, turnIndex) => {
-          // If this isn't the first turn, check who was eliminated
-          if (turnIndex > 0) {
-            const previousTurn = this.gameState.turns[turnIndex - 1]
-            const eliminated = previousTurn.alivePlayers.filter(
-              playerId => !turn.alivePlayers.includes(playerId)
-            )
-
-            // Record the turn number when players were eliminated
-            eliminated.forEach(playerId => {
-              if (!eliminationTurns.has(playerId)) {
-                eliminationTurns.set(playerId, turnIndex)
-              }
-            })
-          }
-        })
-
-        // Add the final surviving player(s) to the elimination map
-        // They get eliminated on the final turn
-        const finalTurnIndex = this.gameState.turns.length
-        newAlivePlayers.forEach(playerId => {
-          eliminationTurns.set(playerId, finalTurnIndex)
-        })
-
-        // Create a score map based on elimination turn
-        const playerScores = new Map<string, number>()
+        // Initialize all players with 0 turns
         this.gameSetup.gamePlayers.forEach(player => {
-          const eliminationTurn = eliminationTurns.get(player.id) ?? 0
-          playerScores.set(player.id, eliminationTurn)
+          survivalTurns.set(player.id, 0)
+        })
+
+        // Count how many turns each player survived in historical turns
+        this.gameState.turns.forEach(turn => {
+          turn.alivePlayers.forEach(playerId => {
+            survivalTurns.set(
+              playerId,
+              (survivalTurns.get(playerId) || 0) + 1
+            )
+          })
+        })
+
+        // Add the current/final state
+        newAlivePlayers.forEach(playerId => {
+          survivalTurns.set(
+            playerId,
+            (survivalTurns.get(playerId) || 0) + 1
+          )
         })
 
         // Create winners array with all players
         winners = this.gameSetup.gamePlayers.map(player => ({
           playerID: player.id,
-          score: playerScores.get(player.id) ?? 0,
+          score: survivalTurns.get(player.id) || 0,
           winningSquares: newSnakes[player.id] ?? []
         }))
 
-        // Sort winners by score (elimination turn) in descending order
+        // Sort winners by survival turns in descending order
         winners.sort((a, b) => b.score - a.score)
       }
 
