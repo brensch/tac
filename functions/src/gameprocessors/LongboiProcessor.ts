@@ -161,11 +161,51 @@ export class LongboiProcessor extends GameProcessor {
         )
       })
 
-      // Calculate scores
-      const newScores = this.calculateScores(newPlayerPieces)
+      // Calculate simple scores (just count of positions)
+      const newScores: { [playerID: string]: number } = {}
+      for (const [playerID, positions] of Object.entries(newPlayerPieces)) {
+        newScores[playerID] = positions.length
+      }
 
-      // Determine winners
-      const winners = this.determineWinners(newPlayerPieces, newScores)
+      // Check if game is over (any remaining allowed moves?)
+      const hasAllowedMoves = Object.values(newAllowedMoves).some(
+        moves => moves.length > 0
+      )
+
+      let winners: Winner[] = []
+      if (!hasAllowedMoves) {
+        // Game is over, calculate final scores based on longest paths
+        logger.info(`Longboi: Game over. Calculating final scores.`)
+
+        const finalScores: { [playerID: string]: number } = {}
+        const longestPaths: { [playerID: string]: number[] } = {}
+
+        // First calculate all scores and paths
+        for (const [playerID, positions] of Object.entries(newPlayerPieces)) {
+          const result = this.calculateLongestPath(
+            positions,
+            boardWidth,
+            boardHeight,
+          )
+          finalScores[playerID] = result.length
+          longestPaths[playerID] = result.path
+        }
+
+        const maxScore = Math.max(...Object.values(finalScores))
+
+        // Add all players to winners, only include actual path for highest score
+        for (const [playerID, score] of Object.entries(finalScores)) {
+          winners.push({
+            playerID,
+            score,
+            winningSquares: score === maxScore ? longestPaths[playerID] : []
+          })
+        }
+
+        logger.info(
+          `Longboi: Game over. Winners with final scores: ${JSON.stringify(winners)}`,
+        )
+      }
 
       // Create the new turn
       const now = Date.now()
@@ -175,7 +215,7 @@ export class LongboiProcessor extends GameProcessor {
         allowedMoves: newAllowedMoves,
         clashes: clashes,
         scores: newScores,
-        moves: playerMoves, // This now correctly maps playerID to their move position
+        moves: playerMoves,
         winners: winners,
         startTime: Timestamp.fromMillis(now),
         endTime: Timestamp.fromMillis(now + this.gameSetup.maxTurnTime * 1000),
@@ -186,71 +226,6 @@ export class LongboiProcessor extends GameProcessor {
       logger.error(`Longboi: Error applying moves:`, error)
       throw error
     }
-  }
-
-  /**
-   * Calculates scores for all players based on their longest paths.
-   */
-  private calculateScores(playerPieces: { [playerID: string]: number[] }): {
-    [playerID: string]: number
-  } {
-    const { boardWidth, boardHeight } = this.gameSetup
-    const scores: { [playerID: string]: number } = {}
-
-    for (const [playerID, positions] of Object.entries(playerPieces)) {
-      const result = this.calculateLongestPath(
-        positions,
-        boardWidth,
-        boardHeight,
-      )
-      scores[playerID] = result.length
-    }
-
-    return scores
-  }
-
-  /**
-   * Determines winners based on the current game state.
-   */
-  private determineWinners(
-    playerPieces: { [playerID: string]: number[] },
-    scores: { [playerID: string]: number },
-  ): Winner[] {
-    const { boardWidth, boardHeight } = this.gameSetup
-    const totalPositions = boardWidth * boardHeight
-
-    // Check if all positions are claimed
-    const claimedPositionsCount = Object.values(playerPieces).reduce(
-      (sum, positions) => sum + positions.length,
-      0,
-    )
-
-    if (claimedPositionsCount < totalPositions) {
-      // Game continues
-      return []
-    }
-
-    // Find the highest score
-    const maxScore = Math.max(...Object.values(scores))
-
-    // Determine the winner(s)
-    const winners: Winner[] = []
-    for (const [playerID, score] of Object.entries(scores)) {
-      if (score === maxScore) {
-        const winningPath = this.calculateLongestPath(
-          playerPieces[playerID],
-          boardWidth,
-          boardHeight,
-        ).path
-        winners.push({
-          playerID,
-          score,
-          winningSquares: winningPath,
-        })
-      }
-    }
-
-    return winners
   }
 
   /**
