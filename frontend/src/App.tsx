@@ -136,8 +136,8 @@ const AppContent: React.FC = () => {
           />
           <Button
             color="primary"
-            sx={{ height: 30,  mr:1 }}
-            onClick={() => navigate("/ladder/snek")}
+            sx={{ height: 30, mr: 1 }}
+            onClick={() => navigate(`/ladder/${userID}`)}
           >
             ladder 🪜
           </Button>
@@ -153,9 +153,9 @@ const AppContent: React.FC = () => {
       <Container maxWidth="sm" sx={{ p: 1 }}>
         <Box width="100%">
           <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/ladder/:gameType" element={<LadderPage />} />
-          <Route path="/session/:sessionName" element={<Sessionpage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/ladder/*" element={<LadderPage />} />
+            <Route path="/session/:sessionName" element={<Sessionpage />} />
             <Route
               path="/session/:sessionName/:gameID"
               element={<GamePage />}
