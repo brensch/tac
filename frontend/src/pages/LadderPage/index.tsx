@@ -1,12 +1,14 @@
 // src/pages/LadderPage/index.tsx
 
 import { Stack } from '@mui/material'
-import React from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useParams } from 'react-router-dom'
+import { LadderProvider } from './LadderContext'
 import { LadderGameView } from './LadderGameView'
 import { LadderOverview } from './LadderOverview'
 
-const LadderPageLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const LadderPageLayout = () => {
+    const { playerID } = useParams<{ playerID: string }>()
+
     return (
         <Stack
             sx={{
@@ -16,7 +18,12 @@ const LadderPageLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 justifyContent: "flex-start",
             }}
         >
-            {children}
+            <LadderProvider playerID={playerID}>
+                <Routes>
+                    <Route path="/" element={<LadderOverview />} />
+                    <Route path="/:gameType" element={<LadderGameView />} />
+                </Routes>
+            </LadderProvider>
         </Stack>
     )
 }
@@ -24,22 +31,7 @@ const LadderPageLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 const LadderPage = () => {
     return (
         <Routes>
-            <Route
-                path="/:playerID"
-                element={
-                    <LadderPageLayout>
-                        <LadderOverview />
-                    </LadderPageLayout>
-                }
-            />
-            <Route
-                path="/:playerID/:gameType"
-                element={
-                    <LadderPageLayout>
-                        <LadderGameView />
-                    </LadderPageLayout>
-                }
-            />
+            <Route path="/:playerID/*" element={<LadderPageLayout />} />
         </Routes>
     )
 }

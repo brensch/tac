@@ -2,12 +2,12 @@
 
 import {
     Box,
-    CircularProgress,
     Typography
 } from '@mui/material'
 import React from 'react'
 import { RankingData } from './types'
 import { calculateWinRate } from './utils'
+import { EmojiCycler } from '../../components/EmojiCycler'
 
 interface StatBoxProps {
     label: string
@@ -20,7 +20,7 @@ const StatBox: React.FC<StatBoxProps> = ({ label, value, emoji, large }) => (
     <Box
         sx={{
             border: '2px solid #000',
-            p: 2,
+            p: 1,
             transition: 'box-shadow 0.3s ease',
             backgroundColor: '#fff',
             display: 'flex',
@@ -28,29 +28,34 @@ const StatBox: React.FC<StatBoxProps> = ({ label, value, emoji, large }) => (
             alignItems: 'center',
             justifyContent: 'center',
             gap: 1,
-            height: large ? 180 : 140,
+            height: large ? 100 : 80,
             '&:hover': {
                 boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)',
             }
         }}
     >
-        <Typography
-            sx={{
-                fontSize: large ? '2rem' : '1.5rem',
-                mb: 1
-            }}
-        >
-            {emoji}
-        </Typography>
-        <Typography
-            variant={large ? "h3" : "h5"}
-            sx={{
-                fontWeight: 'bold',
-                fontFamily: '"Roboto Mono", monospace',
-            }}
-        >
-            {value}
-        </Typography>
+        <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+        }}>
+            <Typography
+                sx={{
+                    fontSize: large ? '2rem' : '1.5rem',
+                }}
+            >
+                {emoji}
+            </Typography>
+            <Typography
+                variant={large ? "h3" : "h5"}
+                sx={{
+                    fontWeight: 'bold',
+                    fontFamily: '"Roboto Mono", monospace',
+                }}
+            >
+                {value}
+            </Typography>
+        </Box>
         <Typography
             variant="body2"
             sx={{
@@ -72,7 +77,7 @@ interface Props {
 
 export const LadderPlayerStats: React.FC<Props> = ({ ranking, gameType, loading = false }) => {
     if (loading) {
-        return <CircularProgress />
+        <EmojiCycler fontSize="2rem" />
     }
 
     if (!ranking || !ranking.rankings[gameType]) {

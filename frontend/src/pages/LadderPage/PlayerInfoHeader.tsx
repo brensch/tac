@@ -2,10 +2,10 @@
 
 import {
     Box,
-    CircularProgress,
     Typography
 } from '@mui/material'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { EmojiCycler } from '../../components/EmojiCycler'
 import { usePlayerInfo } from './usePlayerInfo'
 
 interface Props {
@@ -13,15 +13,38 @@ interface Props {
 }
 
 export const PlayerInfoHeader: React.FC<Props> = ({ playerID }) => {
-    const { players, loadingPlayers } = usePlayerInfo([playerID])
+    const { players } = usePlayerInfo([playerID])
+    const [showLoading, setShowLoading] = useState(true)
     const player = players[playerID]
 
-    if (loadingPlayers) {
-        return <CircularProgress />
+    useEffect(() => {
+        if (player) {
+            setShowLoading(false)
+        }
+    }, [player])
+
+    // Show loading state
+    if (!player && showLoading) {
+        return (
+            <Box
+                sx={{
+                    p: 2,
+                    border: '2px solid #000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    height: "70px",
+                }}
+            >
+                <EmojiCycler fontSize="2rem" />
+                <Typography variant="h5">Loading...</Typography>
+            </Box>
+        )
     }
 
+    // Only show player if we have data
     if (!player) {
-        return <Typography>Player not found</Typography>
+        return null
     }
 
     return (
@@ -30,6 +53,7 @@ export const PlayerInfoHeader: React.FC<Props> = ({ playerID }) => {
                 p: 2,
                 backgroundColor: player.colour || 'inherit',
                 display: 'flex',
+                height: "70px",
                 alignItems: 'center',
                 gap: 2,
                 border: '2px solid #000',
@@ -42,10 +66,6 @@ export const PlayerInfoHeader: React.FC<Props> = ({ playerID }) => {
             {player.emoji && (
                 <Typography
                     variant="h4"
-                    sx={{
-                        fontFamily: '"Roboto Mono", monospace',
-                        fontWeight: 'bold'
-                    }}
                 >
                     {player.emoji}
                 </Typography>
@@ -53,9 +73,8 @@ export const PlayerInfoHeader: React.FC<Props> = ({ playerID }) => {
             <Typography
                 variant="h5"
             >
-                {player.name || playerID}
+                {player.name}
             </Typography>
-
         </Box>
     )
 }

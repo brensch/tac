@@ -1,6 +1,6 @@
 // src/pages/LadderPage/usePlayerInfo.ts
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebaseConfig'
 import { Player } from '@shared/types/Game'
@@ -8,6 +8,7 @@ import { Player } from '@shared/types/Game'
 export const usePlayerInfo = (playerIDs: string[]) => {
     const [players, setPlayers] = useState<{ [id: string]: Player }>({})
     const [loadingPlayers, setLoadingPlayers] = useState(true)
+    const previousPlayers = useRef(players)
 
     useEffect(() => {
         if (playerIDs.length === 0) {
@@ -15,6 +16,7 @@ export const usePlayerInfo = (playerIDs: string[]) => {
             return
         }
 
+        setLoadingPlayers(true)
         const uniqueIDs = Array.from(new Set(playerIDs))
         const unsubscribers: (() => void)[] = []
 
@@ -32,11 +34,13 @@ export const usePlayerInfo = (playerIDs: string[]) => {
                 where('__name__', 'in', batchIDs)
             )
             const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
-                const newPlayers: { [id: string]: Player } = {}
+                const newPlayers: { [id: string]: Player } = { ...previousPlayers.current }
                 snapshot.forEach((doc) => {
                     newPlayers[doc.id] = { ...(doc.data() as Player), id: doc.id }
                 })
-                setPlayers(prev => ({ ...prev, ...newPlayers }))
+                setPlayers(newPlayers)
+                previousPlayers.current = newPlayers
+                setLoadingPlayers(false)
             })
             unsubscribers.push(unsubscribeUsers)
 
@@ -46,21 +50,21 @@ export const usePlayerInfo = (playerIDs: string[]) => {
                 where('__name__', 'in', batchIDs)
             )
             const unsubscribeBots = onSnapshot(botsQuery, (snapshot) => {
-                const newPlayers: { [id: string]: Player } = {}
+                const newPlayers: { [id: string]: Player } = { ...previousPlayers.current }
                 snapshot.forEach((doc) => {
                     newPlayers[doc.id] = { ...(doc.data() as Player), id: doc.id }
                 })
-                setPlayers(prev => ({ ...prev, ...newPlayers }))
+                setPlayers(newPlayers)
+                previousPlayers.current = newPlayers
+                setLoadingPlayers(false)
             })
             unsubscribers.push(unsubscribeBots)
         })
 
-        setLoadingPlayers(false)
-
         return () => {
             unsubscribers.forEach(unsubscribe => unsubscribe())
         }
-    }, [playerIDs.join(',')])
+    }, [playerIDs.join(',')]) // Only reset subscription when IDs actually change
 
     return { players, loadingPlayers }
 }

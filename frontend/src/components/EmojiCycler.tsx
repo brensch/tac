@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react"
 import { Box, Typography } from "@mui/material"
 import { emojiList } from "@shared/types/Emojis"
 
-export const EmojiCycler: React.FC = () => {
+interface Props {
+  fontSize?: string | number
+}
+
+export const EmojiCycler: React.FC<Props> = ({ fontSize = "10rem" }) => {
   const [currentEmoji, setCurrentEmoji] = useState<string>(emojiList[0])
 
   useEffect(() => {
@@ -12,7 +16,7 @@ export const EmojiCycler: React.FC = () => {
       return emojiList[randomIndex]
     }
 
-    // Set an interval to change the emoji every 1 second (1000 ms)
+    // Set an interval to change the emoji every 100ms
     const emojiInterval = setInterval(() => {
       setCurrentEmoji(getRandomEmoji())
     }, 100)
@@ -21,7 +25,7 @@ export const EmojiCycler: React.FC = () => {
     return () => clearInterval(emojiInterval)
   }, [])
 
-  return <Box sx={{ fontSize: "10rem" }}>{currentEmoji}</Box>
+  return <Box sx={{ fontSize }}>{currentEmoji}</Box>
 }
 
 const sendEmojis = [

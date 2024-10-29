@@ -1,6 +1,6 @@
 // src/pages/LadderPage/LadderGameTypeLeaderboard.tsx
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   Box,
   Typography,
@@ -10,14 +10,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress,
 } from '@mui/material'
-import { collection, onSnapshot } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
-import { db } from '../../firebaseConfig'
-import { RankingData } from './types'
 import { formatPlayerName } from './utils'
 import { usePlayerInfo } from './usePlayerInfo'
+import { useLadder } from './LadderContext'
+import { EmojiCycler } from '../../components/EmojiCycler'
 
 interface Props {
   gameType: string
@@ -25,44 +23,14 @@ interface Props {
 
 export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
   const navigate = useNavigate()
-  const [rankings, setRankings] = useState<RankingData[]>([])
-  const [loading, setLoading] = useState(true)
+  const { globalRankings, loadingGlobal } = useLadder()
+  const rankings = globalRankings[gameType] ?? []
   const { players, loadingPlayers } = usePlayerInfo(
     rankings.map(r => r.playerID)
   )
 
-  useEffect(() => {
-    setLoading(true)
-    setRankings([])
-
-    const rankingsRef = collection(db, 'rankings')
-    const unsubscribe = onSnapshot(rankingsRef, (snapshot) => {
-      const newRankings: RankingData[] = []
-
-      snapshot.forEach((doc) => {
-        const data = doc.data() as Omit<RankingData, 'playerID'>
-        if (data.rankings?.[gameType]?.currentMMR !== undefined) {
-          newRankings.push({ ...data, playerID: doc.id })
-        }
-      })
-
-      newRankings.sort((a, b) => {
-        const mmrA = a.rankings[gameType]?.currentMMR ?? 0
-        const mmrB = b.rankings[gameType]?.currentMMR ?? 0
-        return mmrB - mmrA
-      })
-
-      setRankings(newRankings.slice(0, 10))
-      setLoading(false)
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [gameType])
-
-  if (loading || loadingPlayers) {
-    return <CircularProgress />
+  if (loadingGlobal || loadingPlayers) {
+    <EmojiCycler fontSize="2rem" />
   }
 
   if (rankings.length === 0) {
@@ -87,11 +55,9 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rankings.map((ranking, index) => {
+            {rankings.slice(0, 10).map((ranking, index) => {
               const player = players[ranking.playerID]
               const gameRanking = ranking.rankings[gameType]
-
-              // Skip if no game ranking exists
               if (!gameRanking) return null
 
               return (
@@ -110,7 +76,7 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
                   <TableCell>
                     {formatPlayerName(player, ranking.playerID)}
                   </TableCell>
-                  <TableCell>{gameRanking?.currentMMR}</TableCell>
+                  <TableCell>{gameRanking.currentMMR}</TableCell>
                 </TableRow>
               )
             })}

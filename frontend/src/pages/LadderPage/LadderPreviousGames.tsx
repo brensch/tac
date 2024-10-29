@@ -2,7 +2,6 @@
 
 import {
     Box,
-    CircularProgress,
     Table,
     TableBody,
     TableCell,
@@ -20,6 +19,7 @@ import { db } from '../../firebaseConfig'
 import { RankingData } from './types'
 import { usePlayerInfo } from './usePlayerInfo'
 import { formatPlayerName, ordinalSuffix } from './utils'
+import { EmojiCycler } from '../../components/EmojiCycler'
 
 interface Props {
     playerID: string
@@ -57,7 +57,7 @@ export const LadderPreviousGames: React.FC<Props> = ({ playerID, gameType }) => 
     }, [playerID, gameType])
 
     if (loading || loadingPlayers) {
-        return <CircularProgress />
+        <EmojiCycler fontSize="2rem" />
     }
 
     if (gameHistory.length === 0) {
