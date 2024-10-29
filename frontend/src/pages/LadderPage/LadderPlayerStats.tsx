@@ -1,12 +1,11 @@
 // src/pages/LadderPage/LadderPlayerStats.tsx
 
-import React from 'react'
 import {
     Box,
-    Typography,
     CircularProgress,
-    Stack,
+    Typography
 } from '@mui/material'
+import React from 'react'
 import { RankingData } from './types'
 import { calculateWinRate } from './utils'
 
