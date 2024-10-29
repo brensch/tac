@@ -28,7 +28,6 @@ export const PlayerInfoHeader: React.FC<Props> = ({ playerID }) => {
         <Box
             sx={{
                 p: 2,
-                mb: 3,
                 backgroundColor: player.colour || 'inherit',
                 display: 'flex',
                 alignItems: 'center',

@@ -1,4 +1,4 @@
-// src/pages/LadderPage/components/LadderGameTypeSelector.tsx
+// src/pages/LadderPage/LadderGameTypeSelector.tsx
 
 import React from 'react'
 import {
@@ -41,13 +41,17 @@ export const LadderGameTypeSelector: React.FC<Props> = ({
       <InputLabel id="game-type-select-label">Game Type</InputLabel>
       <Select
         labelId="game-type-select-label"
-        value={selectedGameType || ''}
+        value={selectedGameType ?? ''}
         label="Game Type"
         onChange={handleGameTypeChange}
+        displayEmpty
+        renderValue={(selected) => {
+          if (!selected) {
+            return <em>Select a game type</em>
+          }
+          return selected
+        }}
       >
-        <MenuItem value="">
-          <em>Select a game type</em>
-        </MenuItem>
         {gameTypes.map((type) => (
           <MenuItem key={type} value={type}>
             {type}

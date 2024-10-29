@@ -32,20 +32,23 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
   )
 
   useEffect(() => {
+    setLoading(true)
+    setRankings([])
+
     const rankingsRef = collection(db, 'rankings')
     const unsubscribe = onSnapshot(rankingsRef, (snapshot) => {
       const newRankings: RankingData[] = []
 
       snapshot.forEach((doc) => {
         const data = doc.data() as Omit<RankingData, 'playerID'>
-        if (data.rankings && data.rankings[gameType]) {
+        if (data.rankings?.[gameType]?.currentMMR !== undefined) {
           newRankings.push({ ...data, playerID: doc.id })
         }
       })
 
       newRankings.sort((a, b) => {
-        const mmrA = a.rankings[gameType].currentMMR
-        const mmrB = b.rankings[gameType].currentMMR
+        const mmrA = a.rankings[gameType]?.currentMMR ?? 0
+        const mmrB = b.rankings[gameType]?.currentMMR ?? 0
         return mmrB - mmrA
       })
 
@@ -53,18 +56,29 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+    }
   }, [gameType])
 
   if (loading || loadingPlayers) {
     return <CircularProgress />
   }
 
+  if (rankings.length === 0) {
+    return <Typography>No rankings available for {gameType}</Typography>
+  }
+
   return (
     <Box>
       <Typography variant="h5" gutterBottom>Top Players</Typography>
       <TableContainer>
-        <Table size="small">
+        <Table size="small" sx={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '80px' }} />
+            <col />
+            <col style={{ width: '100px' }} />
+          </colgroup>
           <TableHead>
             <TableRow>
               <TableCell>Rank</TableCell>
@@ -76,6 +90,9 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
             {rankings.map((ranking, index) => {
               const player = players[ranking.playerID]
               const gameRanking = ranking.rankings[gameType]
+
+              // Skip if no game ranking exists
+              if (!gameRanking) return null
 
               return (
                 <TableRow
@@ -93,7 +110,7 @@ export const LadderGameTypeLeaderboard: React.FC<Props> = ({ gameType }) => {
                   <TableCell>
                     {formatPlayerName(player, ranking.playerID)}
                   </TableCell>
-                  <TableCell>{gameRanking.currentMMR}</TableCell>
+                  <TableCell>{gameRanking?.currentMMR}</TableCell>
                 </TableRow>
               )
             })}

@@ -5,10 +5,65 @@ import {
     Box,
     Typography,
     CircularProgress,
-    Stack
+    Stack,
 } from '@mui/material'
 import { RankingData } from './types'
 import { calculateWinRate } from './utils'
+
+interface StatBoxProps {
+    label: string
+    value: string | number
+    emoji: string
+    large?: boolean
+}
+
+const StatBox: React.FC<StatBoxProps> = ({ label, value, emoji, large }) => (
+    <Box
+        sx={{
+            border: '2px solid #000',
+            p: 2,
+            transition: 'box-shadow 0.3s ease',
+            backgroundColor: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+            height: large ? 180 : 140,
+            '&:hover': {
+                boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)',
+            }
+        }}
+    >
+        <Typography
+            sx={{
+                fontSize: large ? '2rem' : '1.5rem',
+                mb: 1
+            }}
+        >
+            {emoji}
+        </Typography>
+        <Typography
+            variant={large ? "h3" : "h5"}
+            sx={{
+                fontWeight: 'bold',
+                fontFamily: '"Roboto Mono", monospace',
+            }}
+        >
+            {value}
+        </Typography>
+        <Typography
+            variant="body2"
+            sx={{
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                opacity: 0.7
+            }}
+        >
+            {label}
+        </Typography>
+    </Box>
+)
 
 interface Props {
     ranking: RankingData | null
@@ -30,26 +85,47 @@ export const LadderPlayerStats: React.FC<Props> = ({ ranking, gameType, loading 
 
     return (
         <Box>
-            <Typography variant="h5" gutterBottom>Game Statistics</Typography>
             <Box
                 sx={{
-                    border: '2px solid #000',
-                    p: 2,
-                    transition: 'box-shadow 0.3s ease',
-                    backgroundColor: '#fff',
-                    '&:hover': {
-                        boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)',
-                    }
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    gap: 2
                 }}
             >
-                <Stack spacing={1}>
-                    <Typography variant="h6">{gameType}</Typography>
-                    <Typography>MMR: {stats.currentMMR}</Typography>
-                    <Typography>Games: {stats.gamesPlayed}</Typography>
-                    <Typography>Wins: {stats.wins}</Typography>
-                    <Typography>Losses: {stats.losses}</Typography>
-                    <Typography>Win Rate: {winRate.toFixed(1)}%</Typography>
-                </Stack>
+                <StatBox
+                    label="Current MMR"
+                    value={stats.currentMMR}
+                    emoji="🏆"
+                    large
+                />
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 2
+                    }}
+                >
+                    <StatBox
+                        label="Win Rate"
+                        value={`${winRate.toFixed(1)}%`}
+                        emoji="🎯"
+                    />
+                    <StatBox
+                        label="Games"
+                        value={stats.gamesPlayed}
+                        emoji="🎮"
+                    />
+                    <StatBox
+                        label="Wins"
+                        value={stats.wins}
+                        emoji="✨"
+                    />
+                    <StatBox
+                        label="Losses"
+                        value={stats.losses}
+                        emoji="💀"
+                    />
+                </Box>
             </Box>
         </Box>
     )
