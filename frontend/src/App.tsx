@@ -26,6 +26,7 @@ import HomePage from "./pages/HomePage"
 import ProfilePage from "./pages/ProfilePage"
 import Sessionpage from "./pages/SessionPage"
 import LadderPage from "./pages/LadderPage"
+import NewSnek from "./pages/NewSnek"
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -156,6 +157,7 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/ladder/*" element={<LadderPage />} />
             <Route path="/session/:sessionName" element={<Sessionpage />} />
+            <Route path="/newsnek" element={<NewSnek />} />
             <Route
               path="/session/:sessionName/:gameID"
               element={<GamePage />}

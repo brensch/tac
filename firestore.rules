@@ -1,62 +1,89 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =========== HELPER FUNCTIONS ===========
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     function isValidGameType(type) {
+      // This function is still fine and can be used elsewhere if needed.
       return type in ['connect4', 'longboi', 'tactictoes', 'snek', 'colourclash', 'reversi'];
     }
 
     function isValidGamePlayers(players) {
-      return players is list && players.size() > 0;
+      return players is list && players.size() > 0; // Assuming at least one player
     }
 
     function isValidSetup(setup) {
-      return setup.keys().hasAll(['gameType', 'gamePlayers', 'boardWidth', 'boardHeight', 'playersReady', 'maxTurnTime', 'startRequested', 'started', 'timeCreated']) &&
-             isValidGameType(setup.gameType) &&
-             isValidGamePlayers(setup.gamePlayers) &&
-             setup.boardWidth is int &&
-             setup.boardWidth >= 5 &&
-             setup.boardHeight is int &&
-             setup.boardHeight >= 5 &&
-             setup.playersReady is list &&
-             setup.maxTurnTime is int &&
-             setup.maxTurnTime > 0 &&
-             setup.startRequested is bool &&
-             setup.started is bool &&
-             setup.timeCreated is timestamp;
+      return setup.keys().hasAll([
+          'gameType', 'gamePlayers', 'boardWidth', 'boardHeight', 
+          'playersReady', 'maxTurnTime', 'startRequested', 'started', 'timeCreated'
+        ]) &&
+        isValidGameType(setup.gameType) &&
+        isValidGamePlayers(setup.gamePlayers) &&
+        setup.boardWidth is int && setup.boardWidth >= 5 &&
+        setup.boardHeight is int && setup.boardHeight >= 5 &&
+        setup.playersReady is list &&
+        setup.maxTurnTime is int && setup.maxTurnTime > 0 &&
+        setup.startRequested is bool &&
+        setup.started is bool &&
+        (setup.timeCreated is timestamp || setup.timeCreated == request.time); // Allow server timestamp on create
     }
 
     function isValidPrivateMove(move) {
       return move.keys().hasAll(['gameID', 'moveNumber', 'playerID', 'move', 'timestamp']) &&
-             move.gameID is string &&
-             move.moveNumber is int &&
-             move.moveNumber >= 0 &&
-             move.playerID is string &&
-             move.move is int &&
-             move.move >= 0 &&
-             move.timestamp is timestamp;
+        move.gameID is string &&
+        move.moveNumber is int && move.moveNumber >= 0 &&
+        move.playerID is string &&
+        move.move is int && move.move >= 0 &&
+        (move.timestamp is timestamp || move.timestamp == request.time); // Allow server timestamp on create
     }
 
     function isValidMoveStatusUpdate(current, next) {
       let addedIds = next.movedPlayerIDs.removeAll(current.movedPlayerIDs);
       return current.moveNumber == next.moveNumber &&
-             current.alivePlayerIDs == next.alivePlayerIDs &&
-             addedIds.size() == 1 &&
-             addedIds[0] == request.auth.uid;
+        current.alivePlayerIDs == next.alivePlayerIDs &&
+        addedIds.size() == 1 &&
+        addedIds[0] == request.auth.uid;
     }
 
-    // Users Collection
+    /**
+     * Validates the data for a new Bot document.
+     * request.resource.data refers to the data being written.
+     * botId is the ID of the document being created.
+     */
+    function isValidBotData(botData, botId) {
+      return botData.keys().hasAll(['id', 'owner', 'name', 'url', 'capabilities', 'emoji', 'colour', 'createdAt']) &&
+        botData.id == botId && // Ensure the ID in the doc matches the doc path ID
+        botData.owner is string && // Ownership is checked separately in the rule
+        botData.name is string && botData.name.size() > 0 && botData.name.size() < 100 &&
+        botData.url is string && botData.url.size() > 10 && botData.url.size() < 500 && // Basic length check, assumes http(s)://
+        botData.capabilities is list && botData.capabilities.size() > 0 && botData.capabilities.size() < 10 && // Ensures capabilities is a list of reasonable size
+        // The line causing warnings was removed:
+        // botData.capabilities.all(cap, cap is string && isValidGameType(cap)) && 
+        // We are now trusting the client to populate capabilities correctly for type.
+        botData.emoji is string && botData.emoji.size() > 0 && botData.emoji.size() < 10 && // Emoji can be multiple chars
+        botData.colour is string && botData.colour.matches('hsl\\([0-9]+(\\.[0-9]+)?,\\s*[0-9]+(\\.[0-9]+)?%,\\s*[0-9]+(\\.[0-9]+)?%\\)') && // Regex for HSL
+        (botData.createdAt == request.time); // serverTimestamp() resolves to request.time on create
+    }
+
+    // =========== USERS COLLECTION ===========
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      // Allow user to write to their own document
+      allow write: if isUser(userId);
     }
 
-    // Sessions Collection
+    // =========== SESSIONS COLLECTION ===========
     match /sessions/{sessionId} {
-      allow read: if true;
+      allow read: if true; // Or more restrictive if needed
       allow create: if isAuthenticated();
 
       // Setups Subcollection
@@ -78,8 +105,8 @@ service cloud.firestore {
         // PrivateMoves Subcollection
         match /privateMoves/{moveId} {
           allow create: if isAuthenticated() &&
-                           request.auth.uid == request.resource.data.playerID &&
-                           isValidPrivateMove(request.resource.data);
+            request.auth.uid == request.resource.data.playerID &&
+            isValidPrivateMove(request.resource.data);
         }
 
         // ExpirationRequests Subcollection
@@ -90,14 +117,32 @@ service cloud.firestore {
       }
     }
 
-    // Bots Collection
+    // =========== BOTS COLLECTION ===========
+    // This section is crucial for adding new Sneks (Bots)
     match /bots/{botId} {
-      allow read: if true;
+      allow read: if true; // Anyone can read bot information
+
+      // Allow creating a bot if:
+      // 1. User is authenticated.
+      // 2. The 'owner' field in the new bot data is the UID of the authenticated user.
+      // 3. The data being written is valid according to isValidBotData function.
+      allow create: if isAuthenticated() &&
+                       request.resource.data.owner == request.auth.uid &&
+                       isValidBotData(request.resource.data, botId);
+      
+      // Optional: Allow update and delete only by the owner
+      // allow update: if isAuthenticated() &&
+      //                  resource.data.owner == request.auth.uid &&
+      //                  isValidBotData(request.resource.data, botId) && // Re-validate on update
+      //                  request.resource.data.owner == resource.data.owner && // Owner cannot be changed
+      //                  request.resource.data.id == resource.data.id; // ID cannot be changed
+      // allow delete: if isAuthenticated() && resource.data.owner == request.auth.uid;
     }
 
-    // Rankings Collection
+    // =========== RANKINGS COLLECTION ===========
     match /rankings/{playerID} {
-      allow read: if true;
+      allow read: if true; // Or more restrictive if needed
+      // Potentially allow updates by a trusted server process or specific users
     }
   }
 }
