@@ -129,6 +129,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        request.resource.data.owner == request.auth.uid &&
                        isValidBotData(request.resource.data, botId);
+      allow delete: if isAuthenticated()
+                    && resource.data.owner == request.auth.uid;
       
       // Optional: Allow update and delete only by the owner
       // allow update: if isAuthenticated() &&

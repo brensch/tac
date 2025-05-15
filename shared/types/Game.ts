@@ -81,6 +81,7 @@ export interface Bot extends Player {
   owner: string
   url: string
   capabilities: GameType[]
+  public: boolean
 }
 
 export interface Turn {

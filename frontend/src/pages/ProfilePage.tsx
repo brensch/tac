@@ -6,17 +6,20 @@ import { ColorResult, HuePicker } from "react-color"
 import { useUser } from "../context/UserContext"
 import { auth, provider } from "../firebaseConfig"
 import { generateColor } from "../utils/colourUtils"
+import { useNavigate } from "react-router-dom"
 
 interface ProfilePageProps {
   setUpdatedName: (name: string) => void
   setUpdatedColour: (colour: string) => void
   setUpdatedEmoji: (emoji: string) => void
+  handleProfileClose: () => void
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({
   setUpdatedName,
   setUpdatedColour,
   setUpdatedEmoji,
+  handleProfileClose
 }) => {
   const {
     name: initialName,
@@ -47,6 +50,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     )
     setDisplayedEmojis([selectedEmoji, ...filteredEmojis.slice(0, 11)])
   }
+
+  const navigate = useNavigate()
 
   useEffect(() => {
     randomizeEmojis()
@@ -153,6 +158,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           sx={{ mt: 2, background: selectedColour }}
         >
           New emojis please.
+        </Button>
+        <Button
+          color="primary"
+          onClick={() => {
+            navigate(`/bots`)
+            handleProfileClose()
+
+          }}
+          sx={{ mt: 2, background: selectedColour }}
+        >
+          Bots 🤖
         </Button>
 
         {auth.currentUser?.isAnonymous && (

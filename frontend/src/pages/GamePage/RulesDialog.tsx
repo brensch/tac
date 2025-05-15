@@ -52,7 +52,13 @@ const RulesDialog: React.FC<RulesDialogProps> = ({ open, onClose, rules }) => {
   }, [rules])
 
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={onClose} PaperProps={{
+      sx: {
+        border: "2px solid black",
+        borderRadius: 0,
+        boxShadow: "none",
+      },
+    }}>
       <DialogTitle>{rules} rules</DialogTitle>
       <DialogContent>
         <DialogContentText>

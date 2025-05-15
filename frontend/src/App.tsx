@@ -26,7 +26,7 @@ import HomePage from "./pages/HomePage"
 import ProfilePage from "./pages/ProfilePage"
 import Sessionpage from "./pages/SessionPage"
 import LadderPage from "./pages/LadderPage"
-import NewSnek from "./pages/NewSnek"
+import Bots from "./pages/Bots"
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -157,7 +157,7 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/ladder/*" element={<LadderPage />} />
             <Route path="/session/:sessionName" element={<Sessionpage />} />
-            <Route path="/newsnek" element={<NewSnek />} />
+            <Route path="/bots" element={<Bots />} />
             <Route
               path="/session/:sessionName/:gameID"
               element={<GamePage />}
@@ -172,6 +172,13 @@ const AppContent: React.FC = () => {
         onClose={handleProfileClose}
         fullWidth
         maxWidth="sm"
+        PaperProps={{
+          sx: {
+            border: "2px solid black",
+            borderRadius: 0,
+            boxShadow: "none",
+          },
+        }}
       >
         <DialogTitle>
           Update Profile
@@ -193,9 +200,12 @@ const AppContent: React.FC = () => {
             setUpdatedName={setUpdatedName}
             setUpdatedColour={setUpdatedColour}
             setUpdatedEmoji={setUpdatedEmoji}
+            handleProfileClose={handleProfileClose}
           />
         </DialogContent>
       </Dialog>
+
+
     </>
   )
 }
