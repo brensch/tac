@@ -12,12 +12,14 @@ import {
 } from "@shared/types/Game"
 import {
   addDoc,
+  and,
   arrayUnion,
   collection,
   doc,
   DocumentSnapshot,
   limit,
   onSnapshot,
+  or,
   orderBy,
   query,
   QuerySnapshot,
@@ -281,7 +283,13 @@ export const GameStateProvider: React.FC<{
     if (!gameSetup?.gameType) return
     const botsQuery = query(
       collection(db, "bots"),
-      where("capabilities", "array-contains", gameSetup.gameType),
+      and(
+        where("capabilities", "array-contains", gameSetup.gameType),
+        or(
+          where("public", "==", true),
+          where("owner", "==", userID)
+        )
+      )
     )
     let timeoutId: NodeJS.Timeout | null = null
 

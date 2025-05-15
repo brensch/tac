@@ -144,13 +144,13 @@ const SignupPage: React.FC<SignUpPageProps> = ({ onSave }) => {
         )}
 
         {!auth.currentUser?.isAnonymous ? (
-          <Typography sx={{ mt: 2 }}>Google connected</Typography>
+          <Typography sx={{ mt: 2 }}>Google connected. Still gotta pick a name and emoji.</Typography>
         ) : (
           <Button
             onClick={handleSignInWithGoogle}
             sx={{ mt: 2, backgroundColor: selectedColour }}
           >
-            Connect google
+            Sign in with google
           </Button>
         )}
         <Button

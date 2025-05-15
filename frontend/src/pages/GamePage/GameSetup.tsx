@@ -275,7 +275,9 @@ const GameSetup: React.FC = () => {
                   }}
                   onClick={() => handleAddBot(bot.id)}
                 >
-                  {bot.emoji} {bot.name}
+                  {bot.emoji}   {bot.name.length > 10
+                    ? `${bot.name.slice(0, 10)}…`
+                    : bot.name}
                 </Button>
               ))}
             </Box>
