@@ -1,3 +1,5 @@
+// Bots.tsx
+
 import React, { useEffect, useState } from "react"
 import {
   Box,
@@ -15,13 +17,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material"
 import { useTheme } from "@mui/material/styles"
 import { Refresh } from "@mui/icons-material"
 import { ColorResult, HuePicker } from "react-color"
-import { signOut } from "firebase/auth"
 import { useUser } from "../context/UserContext"
-import { auth, db } from "../firebaseConfig"
+import { db } from "../firebaseConfig"
 import { generateColor } from "../utils/colourUtils"
 import { emojiList } from "@shared/types/Emojis"
 import { Bot, GameType } from "@shared/types/Game"
@@ -61,8 +67,31 @@ const Bots: React.FC = () => {
     })
   }, [userID])
 
+  // existing delete function
   const deleteBot = async (id: string) => {
     await deleteDoc(doc(db, "bots", id))
+  }
+
+  // deletion dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const openDeleteDialog = (id: string) => {
+    setPendingDeleteId(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleCancelDelete = () => {
+    setPendingDeleteId(null)
+    setDeleteDialogOpen(false)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (pendingDeleteId) {
+      await deleteBot(pendingDeleteId)
+    }
+    setPendingDeleteId(null)
+    setDeleteDialogOpen(false)
   }
 
   // — Add form state —
@@ -90,14 +119,24 @@ const Bots: React.FC = () => {
   useEffect(() => setColour(generateColor(hue)), [hue])
 
   const handleAdd = async () => {
-    if (!userID) return setError("Login required")
-    if (!botName.trim()) return setError("Name required")
+    if (!userID) {
+      setError("Login required")
+      return
+    }
+    if (!botName.trim()) {
+      setError("Name required")
+      return
+    }
     try {
       new URL(botUrl)
     } catch {
-      return setError("Invalid URL")
+      setError("Invalid URL")
+      return
     }
-    if (!botCaps.length) return setError("Choose a capability")
+    if (!botCaps.length) {
+      setError("Choose a capability")
+      return
+    }
     setError(null)
     setBusy(true)
 
@@ -116,7 +155,7 @@ const Bots: React.FC = () => {
 
     try {
       await setDoc(ref, newBot)
-      // reset
+      // reset form
       setBotName("")
       setBotUrl("")
       setBotCaps([])
@@ -135,45 +174,56 @@ const Bots: React.FC = () => {
         <Typography variant="h5" gutterBottom>
           My Bots
         </Typography>
-        <TableContainer>
-          <Table size="small" sx={{ tableLayout: "fixed" }}>
-            <colgroup>
-              <col />
-              <col style={{ width: "150px" }} />
-              <col style={{ width: "60px" }} />
-            </colgroup>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Capabilities</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {bots.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell>{b.emoji} {b.name}</TableCell>
-                  <TableCell>{b.capabilities.join(", ")}</TableCell>
-                  <TableCell>
-                    <Button
-                      onClick={() => deleteBot(b.id)}
-                      disabled={busy}
-                      sx={{ minWidth: 0, p: 0 }}
-                    >
-                      🗑️
-                    </Button>
-                  </TableCell>
+        {bots.length === 0 ? (
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            you got no bots m8. add one below.
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small" sx={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col />
+                <col style={{ width: "130px" }} />
+                <col style={{ width: "150px" }} />
+              </colgroup>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Capabilities</TableCell>
+                  <TableCell />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {bots.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell>
+                      {b.emoji} {b.name}
+                    </TableCell>
+                    <TableCell>{b.capabilities.join(", ")}</TableCell>
+                    <TableCell align="center">
+                      <Button
+                        onClick={() => openDeleteDialog(b.id)}
+                        disabled={busy}
+                        sx={{ minWidth: 0, px: 1 }}
+                      >
+                        Delete 💣
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Box>
 
-      {/* Add Bot (compact) */}
+      {/* Add Bot Form */}
       <Box
         component="form"
-        onSubmit={(e) => { e.preventDefault(); handleAdd() }}
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleAdd()
+        }}
         sx={{ mt: 4 }}
       >
         <Typography variant="h5" gutterBottom>
@@ -200,7 +250,17 @@ const Bots: React.FC = () => {
           sx={{ mb: 2 }}
         />
 
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            mb: 2,
+            border: "2px solid #000",
+            "& .hue-horizontal": {
+              borderRadius: "0px !important",
+            },
+          }}
+        >
           <HuePicker
             color={colour}
             onChange={(c: ColorResult) => setHue(c.hsl.h)}
@@ -237,8 +297,10 @@ const Bots: React.FC = () => {
                 <Checkbox
                   checked={botCaps.includes(g)}
                   onChange={() =>
-                    setBotCaps((p) =>
-                      p.includes(g) ? p.filter((x) => x !== g) : [...p, g]
+                    setBotCaps((prev) =>
+                      prev.includes(g)
+                        ? prev.filter((x) => x !== g)
+                        : [...prev, g]
                     )
                   }
                   size="small"
@@ -261,8 +323,6 @@ const Bots: React.FC = () => {
           sx={{ mb: 2 }}
         />
 
-
-
         <Button
           type="submit"
           variant="contained"
@@ -271,14 +331,41 @@ const Bots: React.FC = () => {
         >
           Add Bot
         </Button>
+
         {error && (
           <Typography color="error" variant="body2" sx={{ mb: 2 }}>
             {error}
           </Typography>
         )}
-
-
       </Box>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            border: "2px solid black",
+            borderRadius: 0,
+            boxShadow: "none",
+          },
+        }}
+      >
+        <DialogTitle>Delete Bot</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this bot?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   )
 }
