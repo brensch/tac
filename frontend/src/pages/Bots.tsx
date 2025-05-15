@@ -127,25 +127,30 @@ const Bots: React.FC = () => {
       setError("Name required")
       return
     }
+
+    // normalize URL: strip trailing slashes
+    const normalizedUrl = botUrl.trim().replace(/\/+$/, "")
     try {
-      new URL(botUrl)
+      new URL(normalizedUrl)
     } catch {
       setError("Invalid URL")
       return
     }
+
     if (!botCaps.length) {
-      setError("Choose a capability")
+      setError("Choose at least one skill")
       return
     }
-    setError(null)
+
     setBusy(true)
+    setError(null)
 
     const ref = doc(collection(db, "bots"))
     const newBot: Bot = {
       id: ref.id,
       owner: userID,
       name: botName.trim(),
-      url: botUrl.trim(),
+      url: normalizedUrl,
       capabilities: botCaps,
       emoji,
       colour,
@@ -184,31 +189,48 @@ const Bots: React.FC = () => {
               <colgroup>
                 <col />
                 <col style={{ width: "130px" }} />
-                <col style={{ width: "150px" }} />
               </colgroup>
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>
-                  <TableCell>Capabilities</TableCell>
-                  <TableCell />
+                  <TableCell>Skills</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {bots.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell>
-                      {b.emoji} {b.name}
+                  <TableRow key={b.id} sx={{ backgroundColor: b.colour }}>
+                    <TableCell
+                      padding="none"            // zero out the TD padding
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          height: "100%",        // so px applies top/bottom too
+                          p: 1,                 // now you control horizontal padding
+                        }}
+                      >
+                        {/* left side */}
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <Typography>{b.emoji}{" "}
+                            <Box component="span" sx={{ ml: 1 }}>
+                              {b.name} {b.public && "(public 👀)"}
+                            </Box></Typography>
+                        </Box>
+
+                        {/* right side */}
+                        <Button
+                          onClick={() => openDeleteDialog(b.id)}
+                          disabled={busy}
+                          sx={{ minWidth: 0, height: 40 }}
+                        >
+                          💣
+                        </Button>
+                      </Box>
                     </TableCell>
                     <TableCell>{b.capabilities.join(", ")}</TableCell>
-                    <TableCell align="center">
-                      <Button
-                        onClick={() => openDeleteDialog(b.id)}
-                        disabled={busy}
-                        sx={{ minWidth: 0, px: 1 }}
-                      >
-                        Delete 💣
-                      </Button>
-                    </TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>
@@ -238,6 +260,7 @@ const Bots: React.FC = () => {
           fullWidth
           size="small"
           sx={{ mb: 2 }}
+          placeholder="e.g. 'Cool Bot'"
         />
 
         <TextField
@@ -248,6 +271,8 @@ const Bots: React.FC = () => {
           fullWidth
           size="small"
           sx={{ mb: 2 }}
+          placeholder="e.g. https://mybot.com"
+
         />
 
         <Box
