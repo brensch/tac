@@ -170,6 +170,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         >
           Bots 🤖
         </Button>
+        <Button
+          color="primary"
+          component="a"
+          href="https://buy.stripe.com/3cs16x5Ck5Wff9CfYY"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleProfileClose}
+          sx={{ mt: 2, background: selectedColour }}
+        >
+          Tips 💸
+        </Button>
+
 
         {auth.currentUser?.isAnonymous && (
           <Button
