@@ -19,6 +19,7 @@
     "@google-cloud/firestore": "^7.10.0",
     "@google-cloud/functions-framework": "^3.4.2",
     "@google-cloud/logging": "^11.2.0",
+    "@google-cloud/tasks": "^6.1.0",
     "@types/axios": "^0.14.0",
     "axios": "^1.7.7",
     "firebase": "^10.13.2",

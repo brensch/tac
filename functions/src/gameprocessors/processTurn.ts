@@ -5,7 +5,6 @@ import {
   GameResult,
   GameState,
   Move,
-  MoveStatus,
   Ranking,
   Winner
 } from "@shared/types/Game"
@@ -20,6 +19,7 @@ import {
 import { logger } from "../logger"
 import { createNewGame } from "../utils/createNewGame"
 import { getGameProcessor } from "./ProcessorFactory"
+import { scheduleTurnExpiration } from "../utils/scheduleTurnExpiration"
 
 interface PlayerUpdateData {
   playerID: string
@@ -369,23 +369,28 @@ export async function processTurn(
         winners: nextTurn.winners,
       })
     } else {
-      // Normal turn update
+      // normal turn
       transaction.update(gameStateRef, {
         turns: FieldValue.arrayUnion(nextTurn),
       })
 
-      const moveNumber = gameState.turns.length
+      const newTurnNumber = gameState.turns.length        // index of nextTurn
       const moveStatusRef = admin
         .firestore()
         .collection(`sessions/${sessionID}/games/${gameID}/moveStatuses`)
-        .doc(`${moveNumber}`)
-      const moveStatus: MoveStatus = {
-        moveNumber: moveNumber,
+        .doc(`${newTurnNumber}`)
+      transaction.set(moveStatusRef, {
+        moveNumber: newTurnNumber,
         alivePlayerIDs: nextTurn.alivePlayers,
         movedPlayerIDs: [],
-      }
-      transaction.set(moveStatusRef, moveStatus)
+      })
+
+      // schedule the expiration *inside* this transaction callback*
+      // so if enqueue fails, the transaction will retry instead of committing
+      const executeAt = new Date(nextTurn.endTime.toMillis())
+      await scheduleTurnExpiration(sessionID, gameID, newTurnNumber, executeAt)
     }
+
   } catch (error) {
     logger.error(
       `Error processing turn ${turnNumber} for game ${gameID}:`,
