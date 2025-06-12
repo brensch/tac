@@ -515,27 +515,27 @@ export const GameStateProvider: React.FC<{
 
       setTimeRemaining(remaining)
 
-      if (remaining > -1 || !gameState) {
-        return
-      }
+      // if (remaining > -1 || !gameState) {
+      //   return
+      // }
 
-      const expirationRequestsRef = collection(
-        db,
-        `sessions/${sessionName}/games/${gameID}/expirationRequests`,
-      )
+      // const expirationRequestsRef = collection(
+      //   db,
+      //   `sessions/${sessionName}/games/${gameID}/expirationRequests`,
+      // )
 
-      await addDoc(expirationRequestsRef, {
-        timestamp: new Date(),
-        playerID: userID,
-      })
+      // await addDoc(expirationRequestsRef, {
+      //   timestamp: new Date(),
+      //   playerID: userID,
+      // })
 
-      console.log(`Turn expiration request created for gameID: ${gameID}`)
+      // console.log(`Turn expiration request created for gameID: ${gameID}`)
 
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current)
-      }
-      intervalTime = 10000
-      intervalIdRef.current = setInterval(intervalFunction, intervalTime)
+      // if (intervalIdRef.current) {
+      //   clearInterval(intervalIdRef.current)
+      // }
+      // intervalTime = 10000
+      // intervalIdRef.current = setInterval(intervalFunction, intervalTime)
     }
 
     if (intervalIdRef.current) {
