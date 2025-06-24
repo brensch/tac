@@ -6,6 +6,7 @@ import { GameSetup, GameState, MoveStatus } from "@shared/types/Game" // Adjust 
 import { getGameProcessor } from "./gameprocessors/ProcessorFactory"
 import { logger } from "./logger" // Adjust the path as necessary
 import { FieldValue, Timestamp } from "firebase-admin/firestore"
+import { scheduleTurnExpiration } from "./utils/scheduleTurnExpiration"
 
 /**
  * Firestore Trigger to start the game when all players are ready.
@@ -116,6 +117,8 @@ export const onGameStarted = functions.firestore
         movedPlayerIDs: [],
       }
       transaction.set(moveStatusRef, moveStatus)
+
+      await scheduleTurnExpiration(sessionID, gameID, 0, endTime)
 
       logger.info(`Game ${gameID} has been initialized.`)
     })
