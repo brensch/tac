@@ -15,3 +15,10 @@ gcloud projects add-iam-policy-binding tactic-toes \
     --member="serviceAccount:tactic-toes@appspot.gserviceaccount.com" \
     --role="roles/datastore.user"
 ```
+
+
+Functions don't auto deploy.
+
+```
+firebase deploy --only functions
+```
